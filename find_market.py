@@ -13,15 +13,18 @@ Read-only: only queries the public Gamma API. No wallet, no orders.
 import json
 import sys
 import urllib.parse
-import urllib.request
+
+import requests
 
 GAMMA_API = "https://gamma-api.polymarket.com"
 
 
 def fetch_json(path: str):
-    url = f"{GAMMA_API}{path}"
-    with urllib.request.urlopen(url, timeout=15) as resp:
-        return json.load(resp)
+    # requests bundles its own CA certificates, which avoids the macOS
+    # python.org-install SSL verification failure that urllib hits.
+    resp = requests.get(f"{GAMMA_API}{path}", timeout=15)
+    resp.raise_for_status()
+    return resp.json()
 
 
 def slug_from_arg(arg: str) -> str:
@@ -32,13 +35,18 @@ def slug_from_arg(arg: str) -> str:
             arg = "https://" + arg
         path = urllib.parse.urlparse(arg).path
         parts = [p for p in path.split("/") if p]
-        # URLs look like /event/<event-slug> or /event/<event-slug>/<market-slug>
-        if parts and parts[0] in ("event", "market", "markets"):
-            parts = parts[1:]
+        if not parts or parts[0] not in ("event", "market", "markets"):
+            sys.exit(
+                "That looks like a category or home page, not a market.\n"
+                "On polymarket.com, click all the way into ONE specific question "
+                "(e.g. 'Will X win the match?') until the address bar shows a URL "
+                "containing /event/ — then paste that URL."
+            )
+        parts = parts[1:]
         if not parts:
             sys.exit(
-                "That URL has no market slug. Open a specific market question on "
-                "polymarket.com (not a category page) and copy that URL."
+                "That URL has no market slug after /event/. Open a specific "
+                "market question and copy the full URL."
             )
         return parts[-1]
     return arg.strip("/")
