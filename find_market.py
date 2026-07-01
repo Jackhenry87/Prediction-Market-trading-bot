@@ -28,25 +28,21 @@ def fetch_json(path: str):
 
 
 def slug_from_arg(arg: str) -> str:
-    """Accept a full polymarket.com URL or a bare slug."""
-    arg = arg.strip()
+    """Accept a full polymarket.com URL or a bare slug.
+
+    Handles /event/<slug>, sports pages like /sports/mlb/<slug>, and strips
+    the curly "smart quotes" some editors substitute for straight quotes.
+    """
+    arg = arg.strip().strip("\"'“”‘’")
     if "polymarket.com" in arg:
         if "//" not in arg:
             arg = "https://" + arg
         path = urllib.parse.urlparse(arg).path
         parts = [p for p in path.split("/") if p]
-        if not parts or parts[0] not in ("event", "market", "markets"):
-            sys.exit(
-                "That looks like a category or home page, not a market.\n"
-                "On polymarket.com, click all the way into ONE specific question "
-                "(e.g. 'Will X win the match?') until the address bar shows a URL "
-                "containing /event/ — then paste that URL."
-            )
-        parts = parts[1:]
         if not parts:
             sys.exit(
-                "That URL has no market slug after /event/. Open a specific "
-                "market question and copy the full URL."
+                "That URL has no market in it. On polymarket.com, click into "
+                "ONE specific game or question, then paste that page's URL."
             )
         return parts[-1]
     return arg.strip("/")
@@ -77,6 +73,28 @@ def main() -> int:
         return 1
 
     slug = slug_from_arg(sys.argv[1])
+
+    if slug.isdigit() and len(slug) > 20:
+        # That's already a CLOB token ID, not a slug.
+        print("That long number is already a CLOB token ID — no lookup needed.")
+        print("Checking it has a live order book ...")
+        try:
+            resp = requests.get(
+                "https://clob.polymarket.com/book",
+                params={"token_id": slug},
+                timeout=15,
+            )
+            resp.raise_for_status()
+            book = resp.json()
+            print(
+                f"Valid: order book found with {len(book.get('bids', []))} bid "
+                f"and {len(book.get('asks', []))} ask levels."
+            )
+        except Exception as exc:
+            print(f"Could not confirm it ({exc}) — it may be wrong or inactive.")
+        print(f"\nPut this line in your .env:\n  MARKET_TOKEN_ID={slug}")
+        return 0
+
     print(f"Looking up slug: {slug!r} ...")
     try:
         markets = markets_for_slug(slug)

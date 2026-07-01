@@ -51,9 +51,9 @@ cp .env.example .env   # then edit .env — see below
 ### Finding your MARKET_TOKEN_ID
 
 Each market outcome (Yes/No) has its own CLOB token ID — a long decimal
-number. Open a **specific market question** on polymarket.com (the URL will
-contain `/event/`; category pages like `/weather` won't work), copy the URL,
-then run:
+number. Open a **specific market** on polymarket.com — a question page
+(`/event/...`) or a single game page (`/sports/mlb/...`); listing pages like
+`/sports/live` won't work — copy the URL, then run:
 
 ```bash
 python find_market.py "https://polymarket.com/event/paste-your-market-url"
