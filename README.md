@@ -21,8 +21,8 @@ Incremental build of a Polymarket (Polygon) trading bot using the official
 
 | Phase | Status | Scope |
 |-------|--------|-------|
-| 1 | **current** | Project setup + authenticate to the CLOB + fetch and print the live order book for one market. Read-only. |
-| 2 | not started | Place a single manually-triggered order, respecting DRY_RUN and both limits. |
+| 1 | done | Project setup + authenticate to the CLOB + fetch and print the live order book for one market. Read-only. |
+| 2 | **current** | Place a single manually-triggered order, respecting DRY_RUN and both limits. |
 | 3+ | not started | Strategy logic / automation. Edge to be defined first. |
 
 ## Setup (Phase 1)
@@ -75,9 +75,37 @@ python fetch_orderbook.py
 Prints the top of the order book (bids/asks, spread, mid) and writes a log
 to `logs/bot_<timestamp>.log`. Places no orders.
 
+## Phase 2: placing one manual order
+
+1. Open `place_order.py` and edit the `ORDER PARAMETERS` block at the top:
+   `SIDE`, `PRICE` (0–1, in USDC per share), `SIZE_SHARES`. Cost of a BUY is
+   `PRICE × SIZE_SHARES`; Polymarket rejects orders worth less than $1.
+   Leave `TOKEN_ID` empty to use `MARKET_TOKEN_ID` from `.env`.
+2. With `DRY_RUN=true` (default), run:
+
+   ```bash
+   python place_order.py
+   ```
+
+   The order runs the full gauntlet — kill switch, price/size sanity,
+   `MAX_ORDER_SIZE`, `MAX_TOTAL_EXPOSURE` (current positions + open orders),
+   tick-size check — and then logs what WOULD have been sent. Nothing is
+   placed.
+3. For one real order: set `DRY_RUN=false` in `.env`, run it once, then set
+   `DRY_RUN=true` again immediately.
+
+Every attempt, rejection, and result is written to `logs/`. If current
+exposure cannot be determined (API unreachable), the order is rejected —
+the bot fails closed, never open.
+
 ## Files
 
 - `config.py` — loads/validates `.env`; the only module that touches env vars.
 - `trade_logger.py` — timestamped file + console logging.
 - `fetch_orderbook.py` — Phase 1 script (read-only order book fetch).
 - `find_market.py` — helper to look up a market's token IDs from its URL.
+- `clob.py` — shared authenticated CLOB client construction.
+- `safety.py` — the hard-rules gate every order passes through.
+- `exposure.py` — current USDC exposure (positions + open BUY orders).
+- `place_order.py` — Phase 2 script (one manual order per run).
+- `tests/test_safety.py` — tests for the safety gate (`pytest tests/`).
