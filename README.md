@@ -51,15 +51,20 @@ cp .env.example .env   # then edit .env — see below
 ### Finding your MARKET_TOKEN_ID
 
 Each market outcome (Yes/No) has its own CLOB token ID — a long decimal
-number. Easiest way:
+number. Open a **specific market question** on polymarket.com (the URL will
+contain `/event/`; category pages like `/weather` won't work), copy the URL,
+then run:
 
-1. Open the market on polymarket.com and copy the slug from the URL, e.g.
-   `https://polymarket.com/event/.../will-x-happen` → slug `will-x-happen`.
-2. Query the Gamma API in your browser:
-   `https://gamma-api.polymarket.com/markets?slug=will-x-happen`
-3. In the JSON, find `clobTokenIds` — it holds two IDs, in the same order as
-   the `outcomes` field (usually `["Yes","No"]`). Copy the one you want into
-   `MARKET_TOKEN_ID`.
+```bash
+python find_market.py "https://polymarket.com/event/paste-your-market-url"
+```
+
+It prints each outcome with its token ID; copy one `MARKET_TOKEN_ID=...`
+line into `.env`.
+
+(Manual alternative: open
+`https://gamma-api.polymarket.com/markets?slug=<market-slug>` in a browser
+and read `clobTokenIds` from the JSON, ordered the same as `outcomes`.)
 
 ### Run
 
@@ -75,3 +80,4 @@ to `logs/bot_<timestamp>.log`. Places no orders.
 - `config.py` — loads/validates `.env`; the only module that touches env vars.
 - `trade_logger.py` — timestamped file + console logging.
 - `fetch_orderbook.py` — Phase 1 script (read-only order book fetch).
+- `find_market.py` — helper to look up a market's token IDs from its URL.
