@@ -62,6 +62,11 @@ class Settings:
     kill_switch: bool = False
     max_order_size: float = 0.0
     max_total_exposure: float = 0.0
+    # Kalshi
+    kalshi_api_key_id: str = ""
+    kalshi_private_key_path: str = ""
+    kalshi_env: str = "demo"
+    market_ticker: str = ""
 
 
 def load_settings(require_market: bool = True) -> Settings:
@@ -85,6 +90,35 @@ def load_settings(require_market: bool = True) -> Settings:
         chain_id=int(os.getenv("CHAIN_ID", "137")),
         market_token_id=_require("MARKET_TOKEN_ID") if require_market
         else os.getenv("MARKET_TOKEN_ID", "").strip(),
+        dry_run=_bool("DRY_RUN", default=True),
+        kill_switch=_bool("KILL_SWITCH", default=False),
+        max_order_size=_positive_float("MAX_ORDER_SIZE"),
+        max_total_exposure=_positive_float("MAX_TOTAL_EXPOSURE"),
+    )
+
+
+def load_kalshi_settings(require_market: bool = True) -> Settings:
+    """Settings for the Kalshi scripts. The Polymarket wallet key is NOT
+    required here — only Kalshi API credentials plus the shared safety rails.
+    """
+    env = os.getenv("KALSHI_ENV", "demo").strip().lower()
+    if env not in ("demo", "prod"):
+        raise ConfigError("KALSHI_ENV must be 'demo' or 'prod'")
+
+    key_path = _require("KALSHI_PRIVATE_KEY_PATH")
+    if not os.path.isfile(key_path):
+        raise ConfigError(
+            f"KALSHI_PRIVATE_KEY_PATH points to {key_path!r} but no such file "
+            f"exists. Download the .pem key file from your Kalshi API settings "
+            f"and put its path here."
+        )
+
+    return Settings(
+        kalshi_api_key_id=_require("KALSHI_API_KEY_ID"),
+        kalshi_private_key_path=key_path,
+        kalshi_env=env,
+        market_ticker=_require("MARKET_TICKER") if require_market
+        else os.getenv("MARKET_TICKER", "").strip(),
         dry_run=_bool("DRY_RUN", default=True),
         kill_switch=_bool("KILL_SWITCH", default=False),
         max_order_size=_positive_float("MAX_ORDER_SIZE"),

@@ -1,7 +1,14 @@
-# Polymarket Trading Bot
+# Prediction-Market Trading Bot (Kalshi)
 
-Incremental build of a Polymarket (Polygon) trading bot using the official
-[`py-clob-client`](https://github.com/Polymarket/py-clob-client).
+Incremental build of a prediction-market trading bot, now targeting
+**Kalshi** (CFTC-regulated, legal for US users) via its Trade API v2.
+
+> **Why Kalshi?** The project started against Polymarket's crypto CLOB,
+> but that exchange geoblocks US trading (orders are rejected server-side
+> with a 403). The Polymarket scripts remain in the repo for read-only
+> market data; all live trading targets Kalshi. Kalshi also provides a
+> full fake-money demo environment (demo.kalshi.co), which we use before
+> any real-money step.
 
 ## Hard rules (every phase)
 
@@ -21,11 +28,34 @@ Incremental build of a Polymarket (Polygon) trading bot using the official
 
 | Phase | Status | Scope |
 |-------|--------|-------|
-| 1 | done | Project setup + authenticate to the CLOB + fetch and print the live order book for one market. Read-only. |
-| 2 | **current** | Place a single manually-triggered order, respecting DRY_RUN and both limits. |
+| 1 | done (Polymarket), **current (Kalshi)** | Authenticate + fetch and print a live order book. Read-only. |
+| 2 | done (Polymarket, blocked by US geoblock), **current (Kalshi)** | Place a single manually-triggered order, respecting DRY_RUN and both limits. Demo env first, then one tiny real order. |
 | 3+ | not started | Strategy logic / automation. Edge to be defined first. |
 
-## Setup (Phase 1)
+## Kalshi setup
+
+1. Create a **demo** account at demo.kalshi.co (fake money, instant).
+2. In the account settings, create an **API key**: you get a Key ID (UUID)
+   and a one-time download of an RSA private key `.pem` file. Save the file
+   into this project folder (e.g. `kalshi_demo.pem` — `*.pem` is gitignored).
+3. `cp .env.example .env` and fill in `KALSHI_API_KEY_ID`,
+   `KALSHI_PRIVATE_KEY_PATH`, `KALSHI_ENV=demo`, `MARKET_TICKER`, and the
+   safety rails.
+4. The `MARKET_TICKER` is shown on every Kalshi market page (e.g.
+   `KXHIGHNY-26JUL03-B87.5`).
+
+```bash
+python kalshi_fetch_orderbook.py   # auth + balance + live order book
+python kalshi_place_order.py       # one order through the safety gate
+python kalshi_cancel_orders.py     # list/cancel all resting orders
+```
+
+Prices are cents per contract (1-99¢); a contract pays $1 if you're right.
+Order parameters are the `ORDER PARAMETERS` block at the top of
+`kalshi_place_order.py`. When demo works end to end, switching to real
+money is: prod account + prod API key + `KALSHI_ENV=prod`.
+
+## Polymarket setup (legacy, read-only from the US)
 
 ```bash
 python3 -m venv venv
@@ -115,16 +145,28 @@ the bot fails closed, never open.
 
 ## Files
 
+Shared:
 - `config.py` — loads/validates `.env`; the only module that touches env vars.
 - `trade_logger.py` — timestamped file + console logging.
+- `safety.py` — the hard-rules gate every order passes through.
+
+Kalshi (live platform):
+- `kalshi_client.py` — authenticated Trade API v2 client (RSA-PSS signing).
+- `kalshi_fetch_orderbook.py` — Phase 1: balance + live order book.
+- `kalshi_exposure.py` — current exposure (positions + resting buys).
+- `kalshi_place_order.py` — Phase 2: one manual order per run.
+- `kalshi_cancel_orders.py` — list/cancel all resting orders.
+
+Polymarket (legacy; trading geoblocked in the US):
 - `fetch_orderbook.py` — Phase 1 script (read-only order book fetch).
 - `find_market.py` — helper to look up a market's token IDs from its URL.
 - `clob.py` — shared authenticated CLOB client construction.
-- `safety.py` — the hard-rules gate every order passes through.
 - `exposure.py` — current USDC exposure (positions + open BUY orders).
 - `place_order.py` — Phase 2 script (one manual order per run).
 - `preflight.py` — balance/approval checks + one-time exchange approvals.
 - `cancel_orders.py` — list and cancel all open orders (KILL_SWITCH never
   blocks cancelling; direct-wallet orders don't appear on polymarket.com,
   so this is the way to pull them).
-- `tests/test_safety.py` — tests for the safety gate (`pytest tests/`).
+
+Tests (`pytest tests/`): `tests/test_safety.py` (the order gate),
+`tests/test_kalshi_client.py` (request signing, order body).
