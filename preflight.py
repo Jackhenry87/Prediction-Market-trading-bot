@@ -40,6 +40,16 @@ SPENDERS = {
 MAX_UINT256 = 2**256 - 1
 MIN_POL_FOR_GAS = 0.05
 
+# Free public Polygon gateways; tried in order until one answers.
+# POLYGON_RPC_URL from .env is always tried first.
+RPC_FALLBACKS = [
+    "https://polygon-rpc.com",
+    "https://polygon-bor-rpc.publicnode.com",
+    "https://1rpc.io/matic",
+    "https://polygon.drpc.org",
+    "https://polygon.llamarpc.com",
+]
+
 ERC20_ABI = [
     {"name": "balanceOf", "type": "function", "stateMutability": "view",
      "inputs": [{"name": "owner", "type": "address"}],
@@ -64,6 +74,22 @@ ERC1155_ABI = [
                 {"name": "approved", "type": "bool"}],
      "outputs": []},
 ]
+
+
+def connect_polygon(preferred_url: str):
+    """Try the configured RPC first, then public fallbacks. Returns a
+    connected Web3 or None."""
+    urls = [preferred_url] + [u for u in RPC_FALLBACKS if u != preferred_url]
+    for url in urls:
+        try:
+            w3 = Web3(Web3.HTTPProvider(url, request_kwargs={"timeout": 10}))
+            if w3.is_connected() and w3.eth.chain_id == 137:
+                log.info("Connected to Polygon via %s", url)
+                return w3
+            log.warning("RPC %s not usable, trying next ...", url)
+        except Exception as exc:
+            log.warning("RPC %s failed (%s), trying next ...", url, exc)
+    return None
 
 
 def find_missing_approvals(usdc_e, ctf, address: str) -> list:
@@ -119,10 +145,12 @@ def main() -> int:
         )
         return 0
 
-    w3 = Web3(Web3.HTTPProvider(settings.polygon_rpc_url,
-                                request_kwargs={"timeout": 30}))
-    if not w3.is_connected():
-        log.error("Could not reach Polygon RPC at %s", settings.polygon_rpc_url)
+    w3 = connect_polygon(settings.polygon_rpc_url)
+    if w3 is None:
+        log.error(
+            "Could not reach any Polygon RPC gateway. Check your internet "
+            "connection and try again in a minute."
+        )
         return 1
 
     account = Account.from_key(settings.private_key)
