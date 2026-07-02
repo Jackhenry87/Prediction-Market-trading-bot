@@ -1,6 +1,7 @@
 #!/bin/bash
 # Installs a macOS launchd job that runs auto_trade.py automatically
-# every day at 9:00 and 15:00 (local time), when the Mac is awake.
+# every day at 7:00, 9:00, 12:00, and 15:00 (local time), when the Mac
+# is awake.
 #
 #   bash setup_schedule.sh            install / update the schedule
 #   bash setup_schedule.sh remove     stop and remove the schedule
@@ -36,7 +37,9 @@ cat > "$PLIST" << EOF
   <key>WorkingDirectory</key><string>$PROJECT_DIR</string>
   <key>StartCalendarInterval</key>
   <array>
+    <dict><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
     <dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer></dict>
     <dict><key>Hour</key><integer>15</integer><key>Minute</key><integer>0</integer></dict>
   </array>
   <key>StandardOutPath</key><string>$PROJECT_DIR/logs/schedule_stdout.log</string>
@@ -47,7 +50,7 @@ EOF
 
 launchctl unload "$PLIST" 2>/dev/null || true
 launchctl load "$PLIST"
-echo "Installed: auto_trade.py runs daily at 9:00 and 15:00 while the Mac is awake."
+echo "Installed: auto_trade.py runs daily at 7:00, 9:00, 12:00 and 15:00 while the Mac is awake."
 echo "Each run also writes its own timestamped log in logs/."
 echo "Pause trading anytime: set KILL_SWITCH=true in .env"
 echo "Remove the schedule:   bash setup_schedule.sh remove"
