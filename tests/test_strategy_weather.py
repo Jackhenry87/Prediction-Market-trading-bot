@@ -125,3 +125,12 @@ def test_held_tickers():
     orders = [{"ticker": "D"}, {}]
     held = held_tickers(positions, orders)
     assert held == {"A", "C", "D"}
+
+
+def test_position_exposure_cents_variants():
+    from kalshi_exposure import _position_exposure_cents
+    assert _position_exposure_cents({"market_exposure": 250}) == 250
+    assert _position_exposure_cents({"market_exposure_dollars": "2.50"}) == 250
+    assert _position_exposure_cents({"total_traded": 300}) == 300
+    assert _position_exposure_cents({"total_traded_dollars": "3.00"}) == 300
+    assert _position_exposure_cents({"position": 5}) is None  # unknown -> fail closed

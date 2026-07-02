@@ -13,6 +13,20 @@ class ExposureError(Exception):
     pass
 
 
+def _position_exposure_cents(p: dict):
+    """Cost basis of one open position across API field vintages.
+    Returns None when no known field is present (caller fails closed)."""
+    if p.get("market_exposure") not in (None, ""):
+        return abs(float(p["market_exposure"]))
+    if p.get("market_exposure_dollars") not in (None, ""):
+        return abs(float(p["market_exposure_dollars"])) * 100.0
+    if p.get("total_traded") not in (None, ""):
+        return abs(float(p["total_traded"]))
+    if p.get("total_traded_dollars") not in (None, ""):
+        return abs(float(p["total_traded_dollars"])) * 100.0
+    return None
+
+
 def _order_cost_cents(order: dict):
     """USD cents reserved by one resting order, across V1 (action buy/sell,
     side yes/no, <side>_price cents) and V2 (side bid/ask, price in dollar
@@ -54,10 +68,17 @@ def current_exposure_usd(client) -> float:
     except Exception as exc:
         raise ExposureError(f"could not determine current exposure: {exc}") from exc
 
-    position_cents = sum(
-        abs(int(p.get("market_exposure", 0) or 0))
-        for p in positions.get("market_positions", [])
-    )
+    position_cents = 0.0
+    for p in positions.get("market_positions", []):
+        if float(p.get("position", 0) or 0) == 0:
+            continue
+        cents = _position_exposure_cents(p)
+        if cents is None:
+            raise ExposureError(
+                f"could not parse position (unknown fields): "
+                f"{ {k: v for k, v in p.items() if v not in (None, '', 0)} }"
+            )
+        position_cents += cents
 
     order_cents = 0
     for order in orders:

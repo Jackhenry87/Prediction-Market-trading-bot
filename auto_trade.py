@@ -113,6 +113,8 @@ def main() -> int:
             settings.kalshi_private_key_path,
             settings.kalshi_env,
         )
+        balance = client.get_balance_cents()
+        log.info("Available balance: $%.2f", balance / 100)
         exposure = current_exposure_usd(client)
         already_held = held_tickers(client.get_positions(),
                                     client.get_resting_orders())
@@ -143,6 +145,11 @@ def main() -> int:
             signal["side"], count, signal["ticker"], price, notional,
             100 * signal["model_prob"], signal["ev_cents"],
         )
+        if notional * 100 > balance:
+            log.info("SKIP %s: costs $%.2f but only $%.2f available",
+                     signal["ticker"], notional, balance / 100)
+            continue
+
         if check_order(settings, "BUY", price / 100.0, count, exposure):
             continue  # violations already logged
 
@@ -160,6 +167,7 @@ def main() -> int:
         order = resp.get("order", resp)
         log.info("ORDER PLACED: %s", order)
         exposure += notional
+        balance -= notional * 100
         placed += 1
 
     log.info("Run complete: %d order(s) placed. Exiting (no loop).", placed)

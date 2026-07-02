@@ -137,8 +137,9 @@ def scan() -> list:
         except Exception as exc:
             log.warning("Skipping %s (price data failed: %s)", asset["name"], exc)
             continue
-        log.info("%s: spot $%,.0f, realized vol %.0f%%/yr (x%.1f tail buffer)",
-                 asset["name"], spot, 100 * sigma / VOL_MULT, VOL_MULT)
+        log.info("%s: spot $%s, realized vol %.0f%%/yr (x%.1f tail buffer)",
+                 asset["name"], f"{spot:,.0f}",
+                 100 * sigma / VOL_MULT, VOL_MULT)
         try:
             data = client._request(
                 "GET", "/events",
