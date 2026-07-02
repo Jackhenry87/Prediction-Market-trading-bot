@@ -114,3 +114,14 @@ def test_cities_config_sane():
     for c in sw.CITIES:
         assert c["series"].startswith("KXHIGH")
         assert 24 < c["lat"] < 50 and -125 < c["lon"] < -66  # continental US
+
+
+def test_held_tickers():
+    from auto_trade import held_tickers
+    positions = {"market_positions": [
+        {"ticker": "A", "position": 5},
+        {"ticker": "B", "position": 0},      # flat -> not held
+        {"ticker": "C", "position": -3}]}    # short counts as held
+    orders = [{"ticker": "D"}, {}]
+    held = held_tickers(positions, orders)
+    assert held == {"A", "C", "D"}

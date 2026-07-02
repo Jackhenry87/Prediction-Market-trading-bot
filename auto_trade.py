@@ -42,6 +42,16 @@ def pick_best_per_event(results: list) -> list:
     return chosen
 
 
+def held_tickers(positions: dict, resting_orders: list) -> set:
+    """Markets we already have a position or resting order in — scheduled
+    runs must not stack a second bet on the same market."""
+    held = {p.get("ticker") for p in positions.get("market_positions", [])
+            if float(p.get("position", 0) or 0) != 0}
+    held |= {o.get("ticker") for o in resting_orders or []}
+    held.discard(None)
+    return held
+
+
 def size_order(price_cents: float, exposure_usd: float, settings) -> int:
     """Contracts purchasable within both caps. 0 = no room."""
     budget = min(settings.max_order_size,
@@ -104,15 +114,21 @@ def main() -> int:
             settings.kalshi_env,
         )
         exposure = current_exposure_usd(client)
+        already_held = held_tickers(client.get_positions(),
+                                    client.get_resting_orders())
     except ExposureError as exc:
         log.error("REFUSING TO TRADE: %s (failing closed)", exc)
         return 1
     except Exception as exc:
-        log.error("Could not authenticate: %s", exc)
+        log.error("Could not authenticate or read positions: %s", exc)
         return 1
 
     placed = 0
     for signal in picks:
+        if signal["ticker"] in already_held:
+            log.info("SKIP %s: already holding a position/order there",
+                     signal["ticker"])
+            continue
         price = int(round(signal["price_cents"]))
         count = size_order(price, exposure, settings)
         if count < 1:
