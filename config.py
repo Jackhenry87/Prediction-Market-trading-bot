@@ -67,6 +67,9 @@ class Settings:
     kalshi_private_key_path: str = ""
     kalshi_env: str = "demo"
     market_ticker: str = ""
+    max_order_pct: float = 4.0    # max buy as % of bankroll (cash+positions)
+    min_order_pct: float = 1.0    # skip trades smaller than this % of bankroll
+    take_profit_pct: float = 50.0  # auto-sell target: entry cost +50%
 
 
 def load_settings(require_market: bool = True) -> Settings:
@@ -113,10 +116,18 @@ def load_kalshi_settings(require_market: bool = True) -> Settings:
             f"and put its path here."
         )
 
+    max_pct = float(os.getenv("MAX_ORDER_PCT", "4"))
+    min_pct = float(os.getenv("MIN_ORDER_PCT", "1"))
+    if not 0 < min_pct <= max_pct <= 100:
+        raise ConfigError("Need 0 < MIN_ORDER_PCT <= MAX_ORDER_PCT <= 100")
+
     return Settings(
         kalshi_api_key_id=_require("KALSHI_API_KEY_ID"),
         kalshi_private_key_path=key_path,
         kalshi_env=env,
+        max_order_pct=max_pct,
+        min_order_pct=min_pct,
+        take_profit_pct=float(os.getenv("TAKE_PROFIT_PCT", "50")),
         market_ticker=_require("MARKET_TICKER") if require_market
         else os.getenv("MARKET_TICKER", "").strip(),
         dry_run=_bool("DRY_RUN", default=True),
