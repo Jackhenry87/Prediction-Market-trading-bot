@@ -149,4 +149,10 @@ class KalshiClient:
         return self._request("POST", "/portfolio/events/orders", body=body)
 
     def cancel_order(self, order_id: str):
-        return self._request("DELETE", f"/portfolio/orders/{order_id}")
+        # V2 endpoint first; fall back for any environment still on V1
+        try:
+            return self._request("DELETE", f"/portfolio/events/orders/{order_id}")
+        except KalshiError as exc:
+            if "404" in str(exc) or "410" in str(exc):
+                return self._request("DELETE", f"/portfolio/orders/{order_id}")
+            raise

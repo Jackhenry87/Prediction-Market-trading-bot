@@ -64,3 +64,45 @@ def test_evaluate_market_no_signal_when_fair():
               "floor_strike": 85, "cap_strike": 91,
               "yes_ask": 70, "yes_bid": 66}
     assert sw.evaluate_market(market, mu=88.0) == []
+
+
+def test_order_cost_cents_v1_and_v2():
+    from kalshi_exposure import _order_cost_cents
+    # V1 vocabulary
+    assert _order_cost_cents({"action": "buy", "side": "yes",
+                              "yes_price": 10, "remaining_count": 5}) == 50
+    assert _order_cost_cents({"action": "sell", "side": "yes",
+                              "yes_price": 10, "remaining_count": 5}) == 0
+    # V2 vocabulary: bid + dollar-string price
+    assert _order_cost_cents({"side": "bid", "price": "0.1000",
+                              "remaining_count": "10.00"}) == 100
+    assert _order_cost_cents({"side": "ask", "price": "0.9000",
+                              "remaining_count": "10.00"}) == 0
+    # unparseable -> None (caller fails closed)
+    assert _order_cost_cents({"side": "bid", "remaining_count": "10.00"}) is None
+
+
+def test_pick_best_per_event_and_sizing():
+    from auto_trade import pick_best_per_event, size_order
+    from dataclasses import dataclass
+
+    results = [
+        {"date": "2026-07-02", "mu": 100.0, "title": "t", "signals": [
+            {"ticker": "A", "side": "no", "price_cents": 65, "ev_cents": 20.4,
+             "model_prob": 0.87, "subtitle": ""},
+            {"ticker": "B", "side": "no", "price_cents": 51, "ev_cents": 10.3,
+             "model_prob": 0.63, "subtitle": ""}]},
+        {"date": "2026-07-03", "mu": 99.0, "title": "t", "signals": []},
+    ]
+    picks = pick_best_per_event(results)
+    assert len(picks) == 1 and picks[0]["ticker"] == "A"
+
+    @dataclass
+    class S:
+        max_order_size: float = 5.0
+        max_total_exposure: float = 20.0
+
+    assert size_order(65, 0.0, S()) == 7        # $5 cap / 65c
+    assert size_order(65, 18.0, S()) == 3       # only $2 exposure room
+    assert size_order(65, 20.0, S()) == 0       # no room
+    assert size_order(65, 25.0, S()) == 0       # over cap already

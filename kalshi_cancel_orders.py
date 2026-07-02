@@ -40,13 +40,8 @@ def main() -> int:
 
     log.info("Resting orders (%d):", len(orders))
     for order in orders:
-        side = order.get("side", "?")
-        log.info(
-            "  id=%s %s %s %sx @ %s¢ on %s (remaining %s)",
-            order.get("order_id"), order.get("action"), side,
-            order.get("count"), order.get(f"{side}_price"),
-            order.get("ticker"), order.get("remaining_count"),
-        )
+        # field names vary between API vintages — log the raw order
+        log.info("  %s", {k: v for k, v in order.items() if v not in (None, "")})
 
     if settings.dry_run:
         log.info("DRY_RUN: would cancel all %d order(s). Nothing cancelled.",

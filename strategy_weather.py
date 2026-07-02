@@ -125,67 +125,116 @@ def append_paper_trades(signals: list, mu: float, date: str) -> None:
                              f"{s['ev_cents']:.1f}", mu, ""])
 
 
-def main() -> int:
-    setup_logging()
-    log.info("Edge scanner: NWS forecast vs Kalshi %s (READ-ONLY, no orders)",
-             SERIES_TICKER)
-
-    try:
-        from nws import get_daily_high_forecasts
-        forecasts = get_daily_high_forecasts()
-    except Exception as exc:
-        log.error("Could not fetch NWS forecast: %s", exc)
-        return 1
+def scan() -> list:
+    """Fetch forecasts + markets and return per-event results:
+    [{'date', 'mu', 'title', 'signals': [...]}, ...]. Read-only."""
+    from nws import get_daily_high_forecasts
+    forecasts = get_daily_high_forecasts()
 
     # Public prod market data — no account or credentials involved.
     client = KalshiClient(env="prod")
-    try:
-        data = client._request(
-            "GET", "/events",
-            params={"series_ticker": SERIES_TICKER, "status": "open",
-                    "with_nested_markets": "true", "limit": 10},
-        )
-    except Exception as exc:
-        log.error("Could not fetch Kalshi markets: %s", exc)
-        return 1
+    data = client._request(
+        "GET", "/events",
+        params={"series_ticker": SERIES_TICKER, "status": "open",
+                "with_nested_markets": "true", "limit": 10},
+    )
 
-    total_signals = 0
+    results = []
     for event in data.get("events", []):
         date = date_from_event_ticker(event.get("event_ticker")
                                       or event.get("ticker") or "")
         if not date or date not in forecasts:
             continue
         mu = forecasts[date]
-        log.info("%s (%s): NWS forecast high %.0fF, sigma %.1fF",
-                 event.get("title"), date, mu, SIGMA_F)
-
-        markets = event.get("markets") or []
         signals = []
-        for market in markets:
+        for market in event.get("markets") or []:
             if market.get("status") not in (None, "active", "open"):
                 continue
             signals.extend(evaluate_market(market, mu))
+        signals.sort(key=lambda s: -s["ev_cents"])
+        results.append(dict(date=date, mu=mu,
+                            title=event.get("title", ""), signals=signals))
+    return results
 
-        if not signals:
+
+def score_pending_paper_trades() -> None:
+    """Fill in the outcome column for settled markets: win if the
+    recommended side matches Kalshi's official result."""
+    if not PAPER_LOG.exists():
+        return
+    with open(PAPER_LOG, newline="") as fh:
+        rows = list(csv.reader(fh))
+    if len(rows) < 2:
+        return
+    header, body = rows[0], rows[1:]
+    idx = {name: i for i, name in enumerate(header)}
+    client = KalshiClient(env="prod")
+    scored = 0
+    for row in body:
+        if row[idx["outcome"]]:
+            continue
+        try:
+            market = client.get_market(row[idx["ticker"]])
+        except Exception:
+            continue
+        result = market.get("result")  # 'yes' / 'no' once settled
+        if result not in ("yes", "no"):
+            continue
+        won = result == row[idx["side"]]
+        price = float(row[idx["price_cents"]])
+        pnl = (100.0 - price) if won else -price
+        row[idx["outcome"]] = f"{'win' if won else 'loss'} ({pnl:+.0f}c)"
+        scored += 1
+    if scored:
+        with open(PAPER_LOG, "w", newline="") as fh:
+            csv.writer(fh).writerows([header] + body)
+        wins = sum("win" in r[idx["outcome"]] for r in body if r[idx["outcome"]])
+        total = sum(1 for r in body if r[idx["outcome"]])
+        pnl = sum(float(r[idx["outcome"]].split("(")[1].rstrip("c)"))
+                  for r in body if "(" in r[idx["outcome"]])
+        log.info("Scored %d settled signal(s). Running record: %d/%d wins, "
+                 "paper P&L %+.0fc per 1-contract stakes.",
+                 scored, wins, total, pnl)
+
+
+def main() -> int:
+    setup_logging()
+    log.info("Edge scanner: NWS forecast vs Kalshi %s (READ-ONLY, no orders)",
+             SERIES_TICKER)
+
+    try:
+        score_pending_paper_trades()
+    except Exception as exc:
+        log.warning("Could not score past signals (%s) — will retry next run", exc)
+
+    try:
+        results = scan()
+    except Exception as exc:
+        log.error("Scan failed: %s", exc)
+        return 1
+
+    total_signals = 0
+    for r in results:
+        log.info("%s (%s): NWS forecast high %.0fF, sigma %.1fF",
+                 r["title"], r["date"], r["mu"], SIGMA_F)
+        if not r["signals"]:
             log.info("  No edge >= %.0fc after fees. Correctly priced (or "
                      "books empty).", MIN_EDGE_CENTS)
             continue
-
-        signals.sort(key=lambda s: -s["ev_cents"])
-        for s in signals:
+        for s in r["signals"]:
             log.info(
                 "  SIGNAL: buy %s %s @ %.0fc | model prob %.0f%% | "
                 "EV +%.1fc/contract after fees | %s",
                 s["side"].upper(), s["ticker"], s["price_cents"],
                 100 * s["model_prob"], s["ev_cents"], s["subtitle"],
             )
-        append_paper_trades(signals, mu, date)
-        total_signals += len(signals)
+        append_paper_trades(r["signals"], r["mu"], r["date"])
+        total_signals += len(r["signals"])
 
     if total_signals:
         log.info(
             "%d signal(s) written to %s. NO ORDERS WERE PLACED — paper "
-            "trading only. Score them after the markets settle.",
+            "trading only. Outcomes fill in automatically on later runs.",
             total_signals, PAPER_LOG.name,
         )
     else:
