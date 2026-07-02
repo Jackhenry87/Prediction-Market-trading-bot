@@ -30,7 +30,28 @@ Incremental build of a prediction-market trading bot, now targeting
 |-------|--------|-------|
 | 1 | done (Polymarket), **current (Kalshi)** | Authenticate + fetch and print a live order book. Read-only. |
 | 2 | done (Polymarket, blocked by US geoblock), **current (Kalshi)** | Place a single manually-triggered order, respecting DRY_RUN and both limits. Demo env first, then one tiny real order. |
-| 3+ | not started | Strategy logic / automation. Edge to be defined first. |
+| 3a | **current** | Edge hypothesis + read-only scanner + paper-trade log. No orders. |
+| 3b | not started | If paper trading proves the edge: manual execution of signals via kalshi_place_order.py, then (only on request) automation. |
+
+## Phase 3a: the edge hypothesis
+
+**Claim under test:** Kalshi's daily NYC high-temperature markets
+(`KXHIGHNY`) update slower than the NWS forecast they settle against.
+
+`strategy_weather.py` (read-only, runs once, zero orders):
+1. pulls the NWS Central Park forecast highs,
+2. pulls Kalshi's open KXHIGHNY markets (public data),
+3. models settlement as Normal(forecast, 3°F) and prices every bucket,
+4. reports any buy (YES or NO) with expected value ≥ 5¢/contract after
+   Kalshi's 7·p·(1−p)¢ taker fee,
+5. appends each signal to `paper_trades.csv` (gitignored) with an empty
+   `outcome` column to fill in after settlement.
+
+**Protocol:** run it daily for ~2 weeks. A signal is a win if the side it
+recommended settles worth more than its price. The strategy earns real
+money only if the logged EV survives contact with reality — otherwise we
+revise sigma, the threshold, or the whole hypothesis. No real-money
+trading until then.
 
 ## Kalshi setup
 

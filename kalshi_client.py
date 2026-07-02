@@ -30,18 +30,26 @@ class KalshiError(Exception):
 
 
 class KalshiClient:
-    def __init__(self, key_id: str, private_key_path: str, env: str = "demo"):
+    def __init__(self, key_id: str = None, private_key_path: str = None,
+                 env: str = "demo"):
+        """Without credentials the client is public/read-only: market-data
+        endpoints work unauthenticated, portfolio/trading calls will 401."""
         if env not in ROOTS:
             raise KalshiError(f"KALSHI_ENV must be demo or prod, got {env!r}")
         self.env = env
         self.root = ROOTS[env]
         self.key_id = key_id
-        with open(private_key_path, "rb") as fh:
-            self.private_key = serialization.load_pem_private_key(
-                fh.read(), password=None
-            )
+        if key_id and private_key_path:
+            with open(private_key_path, "rb") as fh:
+                self.private_key = serialization.load_pem_private_key(
+                    fh.read(), password=None
+                )
+        else:
+            self.private_key = None
 
     def _headers(self, method: str, path: str) -> dict:
+        if self.private_key is None:
+            return {}
         timestamp = str(int(time.time() * 1000))
         message = f"{timestamp}{method}{path}".encode()
         signature = self.private_key.sign(
