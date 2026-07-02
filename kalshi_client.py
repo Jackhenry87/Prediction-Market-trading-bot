@@ -131,7 +131,7 @@ class KalshiClient:
             "ticker": ticker,
             "client_order_id": str(uuid.uuid4()),
             "side": book_side,
-            "count": count,
+            "count": str(count),  # V2 wants numeric fields as strings
             "price": f"{book_cents / 100:.4f}",
         }
         return self._request("POST", "/portfolio/events/orders", body=body)

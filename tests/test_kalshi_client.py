@@ -62,7 +62,7 @@ def test_order_body_v2_single_book_mapping(client, monkeypatch):
     assert captured["path"] == "/portfolio/events/orders"
     assert captured["body"]["side"] == "bid"
     assert captured["body"]["price"] == "0.3700"
-    assert captured["body"]["count"] == 10
+    assert captured["body"]["count"] == "10"
     assert captured["body"]["client_order_id"]
 
     # buy NO @ 37c -> ask at 0.6300 (complement)
