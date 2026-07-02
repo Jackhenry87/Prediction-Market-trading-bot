@@ -67,6 +67,7 @@ class Settings:
     kalshi_private_key_path: str = ""
     kalshi_env: str = "demo"
     market_ticker: str = ""
+    odds_api_key: str = ""        # the-odds-api.com key (sports model)
     max_order_pct: float = 4.0    # max buy as % of bankroll (cash+positions)
     min_order_pct: float = 1.0    # skip trades smaller than this % of bankroll
     take_profit_pct: float = 50.0  # auto-sell target: entry cost +50%
@@ -125,6 +126,7 @@ def load_kalshi_settings(require_market: bool = True) -> Settings:
         kalshi_api_key_id=_require("KALSHI_API_KEY_ID"),
         kalshi_private_key_path=key_path,
         kalshi_env=env,
+        odds_api_key=os.getenv("ODDS_API_KEY", "").strip(),
         max_order_pct=max_pct,
         min_order_pct=min_pct,
         take_profit_pct=float(os.getenv("TAKE_PROFIT_PCT", "50")),

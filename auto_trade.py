@@ -28,6 +28,7 @@ from kalshi_exposure import (ExposureError, _position_exposure_cents,
                              current_exposure_usd)
 from safety import check_order
 import strategy_crypto
+import strategy_sports
 from strategy_weather import scan, score_pending_paper_trades, SIGMA_F
 from trade_logger import get_logger, setup_logging
 
@@ -140,7 +141,9 @@ def main() -> int:
 
     for score_fn, label in ((score_pending_paper_trades, "weather"),
                             (lambda: score_pending_paper_trades(
-                                strategy_crypto.PAPER_LOG), "crypto")):
+                                strategy_crypto.PAPER_LOG), "crypto"),
+                            (lambda: score_pending_paper_trades(
+                                strategy_sports.PAPER_LOG), "sports")):
         try:
             score_fn()
         except Exception as exc:
@@ -155,6 +158,13 @@ def main() -> int:
         results += strategy_crypto.scan()
     except Exception as exc:
         log.error("Crypto scan failed: %s — continuing without it", exc)
+    if settings.odds_api_key:
+        try:
+            results += strategy_sports.scan(settings.odds_api_key)
+        except Exception as exc:
+            log.error("Sports scan failed: %s — continuing without it", exc)
+    else:
+        log.info("Sports model idle: ODDS_API_KEY not configured.")
     if not results:
         log.error("No scan produced results. Exiting.")
         return 1
