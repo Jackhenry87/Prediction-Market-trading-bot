@@ -185,12 +185,14 @@ def scan() -> list:
     return results
 
 
-def score_pending_paper_trades() -> None:
+def score_pending_paper_trades(log_path: Path = None) -> None:
     """Fill in the outcome column for settled markets: win if the
-    recommended side matches Kalshi's official result."""
-    if not PAPER_LOG.exists():
+    recommended side matches Kalshi's official result. Works for any
+    signal CSV that has ticker/side/price_cents/outcome columns."""
+    path = log_path or PAPER_LOG
+    if not path.exists():
         return
-    with open(PAPER_LOG, newline="") as fh:
+    with open(path, newline="") as fh:
         rows = list(csv.reader(fh))
     if len(rows) < 2:
         return
@@ -214,7 +216,7 @@ def score_pending_paper_trades() -> None:
         row[idx["outcome"]] = f"{'win' if won else 'loss'} ({pnl:+.0f}c)"
         scored += 1
     if scored:
-        with open(PAPER_LOG, "w", newline="") as fh:
+        with open(path, "w", newline="") as fh:
             csv.writer(fh).writerows([header] + body)
         wins = sum("win" in r[idx["outcome"]] for r in body if r[idx["outcome"]])
         total = sum(1 for r in body if r[idx["outcome"]])

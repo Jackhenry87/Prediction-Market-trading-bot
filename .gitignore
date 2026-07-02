@@ -22,4 +22,4 @@ __pycache__/
 .DS_Store
 .idea/
 .vscode/
-paper_trades.csv
+paper_trades*.csv

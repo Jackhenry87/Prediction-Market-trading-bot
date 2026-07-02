@@ -25,6 +25,7 @@ from config import ConfigError, load_kalshi_settings
 from kalshi_client import KalshiClient
 from kalshi_exposure import ExposureError, current_exposure_usd
 from safety import check_order
+import strategy_crypto
 from strategy_weather import scan, score_pending_paper_trades, SIGMA_F
 from trade_logger import get_logger, setup_logging
 
@@ -70,15 +71,25 @@ def main() -> int:
         log.warning("Demo execution: orders are placed against sandbox books, "
                     "which do not reflect the real prices behind the signals.")
 
-    try:
-        score_pending_paper_trades()
-    except Exception as exc:
-        log.warning("Scoring skipped (%s)", exc)
+    for score_fn, label in ((score_pending_paper_trades, "weather"),
+                            (lambda: score_pending_paper_trades(
+                                strategy_crypto.PAPER_LOG), "crypto")):
+        try:
+            score_fn()
+        except Exception as exc:
+            log.warning("%s scoring skipped (%s)", label, exc)
 
+    results = []
     try:
-        results = scan()
+        results += scan()
     except Exception as exc:
-        log.error("Scan failed: %s", exc)
+        log.error("Weather scan failed: %s — continuing without it", exc)
+    try:
+        results += strategy_crypto.scan()
+    except Exception as exc:
+        log.error("Crypto scan failed: %s — continuing without it", exc)
+    if not results:
+        log.error("No scan produced results. Exiting.")
         return 1
 
     picks = pick_best_per_event(results)
