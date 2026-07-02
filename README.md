@@ -75,6 +75,21 @@ python fetch_orderbook.py
 Prints the top of the order book (bids/asks, spread, mid) and writes a log
 to `logs/bot_<timestamp>.log`. Places no orders.
 
+## Phase 2 pre-flight (one-time, before the first real order)
+
+Direct wallets (`POLY_SIGNATURE_TYPE=0`) must grant Polymarket's exchange
+contracts a one-time on-chain approval before real orders can settle, and
+must hold **USDC.e** (bridged), not native USDC. Check everything with:
+
+```bash
+python preflight.py
+```
+
+It reports POL/USDC balances, flags a needed swap, and lists missing
+approvals. With `DRY_RUN=true` it never sends a transaction; set
+`DRY_RUN=false` and re-run to grant the approvals (costs <$0.01 in POL
+total). `KILL_SWITCH=true` blocks all transactions. Safe to re-run anytime.
+
 ## Phase 2: placing one manual order
 
 1. Open `place_order.py` and edit the `ORDER PARAMETERS` block at the top:
@@ -108,4 +123,5 @@ the bot fails closed, never open.
 - `safety.py` — the hard-rules gate every order passes through.
 - `exposure.py` — current USDC exposure (positions + open BUY orders).
 - `place_order.py` — Phase 2 script (one manual order per run).
+- `preflight.py` — balance/approval checks + one-time exchange approvals.
 - `tests/test_safety.py` — tests for the safety gate (`pytest tests/`).

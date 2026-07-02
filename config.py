@@ -55,6 +55,7 @@ class Settings:
     signature_type: int = 0
     funder_address: str = ""
     clob_api_url: str = "https://clob.polymarket.com"
+    polygon_rpc_url: str = "https://polygon-rpc.com"
     chain_id: int = 137
     market_token_id: str = ""
     dry_run: bool = True
@@ -80,6 +81,7 @@ def load_settings(require_market: bool = True) -> Settings:
         signature_type=signature_type,
         funder_address=funder_address,
         clob_api_url=os.getenv("CLOB_API_URL", "https://clob.polymarket.com").strip(),
+        polygon_rpc_url=os.getenv("POLYGON_RPC_URL", "https://polygon-rpc.com").strip(),
         chain_id=int(os.getenv("CHAIN_ID", "137")),
         market_token_id=_require("MARKET_TOKEN_ID") if require_market
         else os.getenv("MARKET_TOKEN_ID", "").strip(),
