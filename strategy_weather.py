@@ -1,0 +1,276 @@
+"""Phase 3a: NYC temperature edge scanner. READ-ONLY — places NO orders.
+
+Hypothesis: Kalshi's daily NYC high-temperature markets are slower to update
+than the National Weather Service forecast they ultimately settle against.
+
+What one run does (then exits — no loop):
+  1. Pull the NWS forecast high for Central Park for the next few days.
+  2. Pull Kalshi's open KXHIGHNY markets (public prod data, no account).
+  3. Model the settlement temperature as Normal(forecast, SIGMA_F) and
+     compute each bucket's probability.
+  4. Compare with market prices; compute expected value per contract AFTER
+     Kalshi's taker fee; print anything above the edge threshold.
+  5. Append every qualifying signal to paper_trades.csv so the strategy's
+     accuracy can be scored against reality over time.
+
+    python strategy_weather.py
+"""
+
+import csv
+import math
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+from kalshi_client import KalshiClient
+from trade_logger import get_logger, setup_logging
+
+log = get_logger("strategy_weather")
+
+SERIES_TICKER = "KXHIGHNY"  # kept for log labels / backwards compatibility
+
+# Kalshi settles each city's market on the NWS Daily Climate Report of ONE
+# specific station. Coordinates below are those stations — not "the city".
+CITIES = [
+    dict(series="KXHIGHNY", name="NYC (Central Park)",
+         lat=40.7794, lon=-73.9692),
+    dict(series="KXHIGHCHI", name="Chicago (Midway)",
+         lat=41.7861, lon=-87.7522),
+    dict(series="KXHIGHMIA", name="Miami (Intl Airport)",
+         lat=25.7906, lon=-80.3164),
+    dict(series="KXHIGHDEN", name="Denver (Intl Airport)",
+         lat=39.8467, lon=-104.6562),
+    dict(series="KXHIGHLAX", name="Los Angeles (LAX)",
+         lat=33.9382, lon=-118.3866),
+    dict(series="KXHIGHAUS", name="Austin (Camp Mabry)",
+         lat=30.3208, lon=-97.7660),
+]
+# Forecast error (std dev, deg F) for 1-2 day NWS high-temp forecasts.
+# Deliberately conservative: wider sigma -> humbler probabilities -> fewer
+# and stronger signals. Tighten only with evidence from paper trading.
+SIGMA_F = 3.0
+# Only report trades with at least this much expected value per contract,
+# in cents, after fees. Below this, spread/model noise eats the edge.
+MIN_EDGE_CENTS = 5.0
+PAPER_LOG = Path(__file__).resolve().parent / "paper_trades.csv"
+
+
+def normal_cdf(x: float, mu: float, sigma: float) -> float:
+    return 0.5 * (1.0 + math.erf((x - mu) / (sigma * math.sqrt(2.0))))
+
+
+def bucket_probability(mu: float, floor_strike, cap_strike) -> float:
+    """P(high temp lands in this market's bucket) under Normal(mu, SIGMA_F).
+    Tail markets have only one bound."""
+    lo = float(floor_strike) if floor_strike is not None else -math.inf
+    hi = float(cap_strike) if cap_strike is not None else math.inf
+    lo_cdf = 0.0 if lo == -math.inf else normal_cdf(lo, mu, SIGMA_F)
+    hi_cdf = 1.0 if hi == math.inf else normal_cdf(hi, mu, SIGMA_F)
+    return max(hi_cdf - lo_cdf, 0.0)
+
+
+def taker_fee_cents(price_cents: float) -> float:
+    """Kalshi's trading fee per contract: 0.07 * P * (1-P) dollars,
+    i.e. 7 * p * (1-p) cents (rounded up per order; we keep it exact here
+    to stay conservative in aggregate)."""
+    p = price_cents / 100.0
+    return 7.0 * p * (1.0 - p)
+
+
+def date_from_event_ticker(ticker: str):
+    """KXHIGHNY-26JUL02 -> '2026-07-02'."""
+    try:
+        raw = ticker.split("-")[1]
+        return datetime.strptime(raw, "%y%b%d").strftime("%Y-%m-%d")
+    except (IndexError, ValueError):
+        return None
+
+
+def price_cents(market: dict, field: str):
+    """Read a price that may be int cents (yes_ask) or a dollar string
+    (yes_ask_dollars), depending on API vintage."""
+    value = market.get(field)
+    if value not in (None, 0, ""):
+        return float(value)
+    dollars = market.get(f"{field}_dollars")
+    if dollars not in (None, ""):
+        return float(dollars) * 100.0
+    return None
+
+
+def evaluate_market(market: dict, mu: float) -> list:
+    """Return signal dicts for +EV ways to take liquidity in this market."""
+    p = bucket_probability(mu, market.get("floor_strike"),
+                           market.get("cap_strike"))
+    signals = []
+
+    yes_ask = price_cents(market, "yes_ask")
+    if yes_ask and 0 < yes_ask < 100:
+        ev = 100.0 * p - yes_ask - taker_fee_cents(yes_ask)
+        if ev >= MIN_EDGE_CENTS:
+            signals.append(dict(side="yes", price_cents=yes_ask,
+                                model_prob=p, ev_cents=ev))
+
+    yes_bid = price_cents(market, "yes_bid")
+    if yes_bid and 0 < yes_bid < 100:
+        no_price = 100.0 - yes_bid  # buying NO takes the YES bid
+        ev = 100.0 * (1.0 - p) - no_price - taker_fee_cents(no_price)
+        if ev >= MIN_EDGE_CENTS:
+            signals.append(dict(side="no", price_cents=no_price,
+                                model_prob=1.0 - p, ev_cents=ev))
+
+    for s in signals:
+        s.update(ticker=market.get("ticker"),
+                 subtitle=market.get("subtitle")
+                 or market.get("yes_sub_title") or "")
+    return signals
+
+
+def append_paper_trades(signals: list, mu: float, date: str) -> None:
+    new_file = not PAPER_LOG.exists()
+    with open(PAPER_LOG, "a", newline="") as fh:
+        writer = csv.writer(fh)
+        if new_file:
+            writer.writerow(["scanned_at_utc", "market_date", "ticker",
+                             "side", "price_cents", "model_prob",
+                             "ev_cents", "nws_forecast_f", "outcome"])
+        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        for s in signals:
+            writer.writerow([now, date, s["ticker"], s["side"],
+                             f"{s['price_cents']:.0f}",
+                             f"{s['model_prob']:.3f}",
+                             f"{s['ev_cents']:.1f}", mu, ""])
+
+
+def scan() -> list:
+    """Fetch forecasts + markets for every configured city and return
+    per-event results: [{'date', 'mu', 'title', 'city', 'signals': [...]},
+    ...]. Read-only. A city whose forecast or markets fail to load is
+    skipped with a warning — one broken city must not stop the rest."""
+    from nws import get_daily_high_forecasts
+
+    # Public prod market data — no account or credentials involved.
+    client = KalshiClient(env="prod")
+
+    results = []
+    for city in CITIES:
+        try:
+            forecasts = get_daily_high_forecasts(
+                city["lat"], city["lon"], city["name"]
+            )
+            data = client._request(
+                "GET", "/events",
+                params={"series_ticker": city["series"], "status": "open",
+                        "with_nested_markets": "true", "limit": 10},
+            )
+        except Exception as exc:
+            log.warning("Skipping %s: %s", city["name"], exc)
+            continue
+
+        for event in data.get("events", []):
+            date = date_from_event_ticker(event.get("event_ticker")
+                                          or event.get("ticker") or "")
+            if not date or date not in forecasts:
+                continue
+            mu = forecasts[date]
+            signals = []
+            for market in event.get("markets") or []:
+                if market.get("status") not in (None, "active", "open"):
+                    continue
+                signals.extend(evaluate_market(market, mu))
+            signals.sort(key=lambda s: -s["ev_cents"])
+            results.append(dict(date=date, mu=mu, city=city["name"],
+                                title=event.get("title", ""),
+                                signals=signals))
+    return results
+
+
+def score_pending_paper_trades(log_path: Path = None) -> None:
+    """Fill in the outcome column for settled markets: win if the
+    recommended side matches Kalshi's official result. Works for any
+    signal CSV that has ticker/side/price_cents/outcome columns."""
+    path = log_path or PAPER_LOG
+    if not path.exists():
+        return
+    with open(path, newline="") as fh:
+        rows = list(csv.reader(fh))
+    if len(rows) < 2:
+        return
+    header, body = rows[0], rows[1:]
+    idx = {name: i for i, name in enumerate(header)}
+    client = KalshiClient(env="prod")
+    scored = 0
+    for row in body:
+        if row[idx["outcome"]]:
+            continue
+        try:
+            market = client.get_market(row[idx["ticker"]])
+        except Exception:
+            continue
+        result = market.get("result")  # 'yes' / 'no' once settled
+        if result not in ("yes", "no"):
+            continue
+        won = result == row[idx["side"]]
+        price = float(row[idx["price_cents"]])
+        pnl = (100.0 - price) if won else -price
+        row[idx["outcome"]] = f"{'win' if won else 'loss'} ({pnl:+.0f}c)"
+        scored += 1
+    if scored:
+        with open(path, "w", newline="") as fh:
+            csv.writer(fh).writerows([header] + body)
+        wins = sum("win" in r[idx["outcome"]] for r in body if r[idx["outcome"]])
+        total = sum(1 for r in body if r[idx["outcome"]])
+        pnl = sum(float(r[idx["outcome"]].split("(")[1].rstrip("c)"))
+                  for r in body if "(" in r[idx["outcome"]])
+        log.info("Scored %d settled signal(s). Running record: %d/%d wins, "
+                 "paper P&L %+.0fc per 1-contract stakes.",
+                 scored, wins, total, pnl)
+
+
+def main() -> int:
+    setup_logging()
+    log.info("Edge scanner: NWS forecasts vs Kalshi daily-high markets in "
+             "%d cities (READ-ONLY, no orders)", len(CITIES))
+
+    try:
+        score_pending_paper_trades()
+    except Exception as exc:
+        log.warning("Could not score past signals (%s) — will retry next run", exc)
+
+    try:
+        results = scan()
+    except Exception as exc:
+        log.error("Scan failed: %s", exc)
+        return 1
+
+    total_signals = 0
+    for r in results:
+        log.info("%s (%s): NWS forecast high %.0fF, sigma %.1fF",
+                 r["title"], r["date"], r["mu"], SIGMA_F)
+        if not r["signals"]:
+            log.info("  No edge >= %.0fc after fees. Correctly priced (or "
+                     "books empty).", MIN_EDGE_CENTS)
+            continue
+        for s in r["signals"]:
+            log.info(
+                "  SIGNAL: buy %s %s @ %.0fc | model prob %.0f%% | "
+                "EV +%.1fc/contract after fees | %s",
+                s["side"].upper(), s["ticker"], s["price_cents"],
+                100 * s["model_prob"], s["ev_cents"], s["subtitle"],
+            )
+        append_paper_trades(r["signals"], r["mu"], r["date"])
+        total_signals += len(r["signals"])
+
+    if total_signals:
+        log.info(
+            "%d signal(s) written to %s. NO ORDERS WERE PLACED — paper "
+            "trading only. Outcomes fill in automatically on later runs.",
+            total_signals, PAPER_LOG.name,
+        )
+    else:
+        log.info("No signals today. That's a normal, honest result.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
