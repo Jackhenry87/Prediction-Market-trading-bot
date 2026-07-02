@@ -13,6 +13,7 @@ Read-only: only queries the public Gamma API. No wallet, no orders.
 import json
 import sys
 import urllib.parse
+from pathlib import Path
 
 import requests
 
@@ -67,6 +68,42 @@ def markets_for_slug(slug: str) -> list:
     return []
 
 
+def save_token_id(token_id: str) -> None:
+    """Write MARKET_TOKEN_ID into the local .env, replacing the existing line."""
+    env_path = Path(__file__).resolve().parent / ".env"
+    if not env_path.exists():
+        sys.exit(".env not found — run:  cp .env.example .env  and fill it in first.")
+    lines = env_path.read_text().splitlines()
+    for i, line in enumerate(lines):
+        if line.strip().startswith("MARKET_TOKEN_ID"):
+            lines[i] = f"MARKET_TOKEN_ID={token_id}"
+            break
+    else:
+        lines.append(f"MARKET_TOKEN_ID={token_id}")
+    env_path.write_text("\n".join(lines) + "\n")
+
+
+def offer_to_save(options) -> None:
+    """Numbered menu: pick an outcome and it's written straight into .env."""
+    if not sys.stdin.isatty():
+        print("\nCopy ONE token ID above into MARKET_TOKEN_ID= in your .env file.")
+        return
+    choice = input(
+        "\nType a number and press Enter to save that outcome into .env "
+        "(or just Enter to skip): "
+    ).strip()
+    if not choice:
+        print("Nothing saved.")
+        return
+    if not (choice.isdigit() and 1 <= int(choice) <= len(options)):
+        print(f"No option {choice!r}. Nothing saved.")
+        return
+    label, token_id = options[int(choice) - 1]
+    save_token_id(token_id)
+    print(f"\nSaved to .env: {label}")
+    print("Next step:  python place_order.py   (or python fetch_orderbook.py)")
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         print(__doc__)
@@ -92,7 +129,7 @@ def main() -> int:
             )
         except Exception as exc:
             print(f"Could not confirm it ({exc}) — it may be wrong or inactive.")
-        print(f"\nPut this line in your .env:\n  MARKET_TOKEN_ID={slug}")
+        offer_to_save([(f"token {slug[:12]}…", slug)])
         return 0
 
     print(f"Looking up slug: {slug!r} ...")
@@ -110,22 +147,28 @@ def main() -> int:
         )
         return 1
 
+    options = []  # (label, token_id) for active outcomes, numbered in the menu
     for market in markets:
         outcomes = as_list(market.get("outcomes"))
         token_ids = as_list(market.get("clobTokenIds"))
-        status = "CLOSED" if market.get("closed") else "active"
-        print(f"\nMarket: {market.get('question', '<no question>')} [{status}]")
+        question = market.get("question", "<no question>")
+        closed = market.get("closed")
+        print(f"\nMarket: {question} [{'CLOSED' if closed else 'active'}]")
         if not token_ids:
             print("  (no CLOB token IDs — this market may not be tradeable)")
             continue
         for outcome, token_id in zip(outcomes, token_ids):
-            print(f"  {outcome}:")
-            print(f"    MARKET_TOKEN_ID={token_id}")
+            if closed:
+                print(f"       {outcome}: {token_id}  (closed — not selectable)")
+            else:
+                options.append((f"{question} — {outcome}", str(token_id)))
+                print(f"  [{len(options)}] {outcome}: {token_id}")
 
-    print(
-        "\nCopy ONE of the MARKET_TOKEN_ID lines above (from an active market) "
-        "into your .env file."
-    )
+    if not options:
+        print("\nAll markets here are closed. Pick a market that hasn't ended yet.")
+        return 1
+
+    offer_to_save(options)
     return 0
 
 
