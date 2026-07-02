@@ -79,7 +79,19 @@ class KalshiClient:
         return self._request("GET", "/exchange/status")
 
     def get_market(self, ticker: str):
-        return self._request("GET", f"/markets/{ticker}")["market"]
+        data = self._request("GET", f"/markets/{ticker}")
+        market = data.get("market")
+        if not market:
+            raise KalshiError(
+                f"no market called {ticker!r} (response: {str(data)[:200]})"
+            )
+        return market
+
+    def get_event(self, event_ticker: str):
+        """Events group several markets; returns {'event': ..., 'markets': [...]}"""
+        return self._request(
+            "GET", f"/events/{event_ticker}", params={"with_nested_markets": "true"}
+        )
 
     def get_orderbook(self, ticker: str, depth: int = 10):
         return self._request(

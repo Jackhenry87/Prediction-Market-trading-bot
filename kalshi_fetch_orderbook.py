@@ -75,7 +75,34 @@ def main() -> int:
         log.info("Authenticated to Kalshi (%s). Balance: $%.2f",
                  settings.kalshi_env, balance / 100)
 
-        market = client.get_market(settings.market_ticker)
+        log.info("Looking up market ticker %s ...", settings.market_ticker)
+        try:
+            market = client.get_market(settings.market_ticker)
+        except Exception:
+            # Maybe it's an EVENT ticker (groups several markets) — list them.
+            event = None
+            try:
+                event = client.get_event(settings.market_ticker)
+            except Exception:
+                pass
+            markets = (event or {}).get("markets") or \
+                (event or {}).get("event", {}).get("markets") or []
+            if markets:
+                log.warning(
+                    "%s is an EVENT ticker. Pick ONE of its markets and put "
+                    "that in MARKET_TICKER:", settings.market_ticker,
+                )
+                for m in markets:
+                    print(f"  {m.get('ticker')}  —  "
+                          f"{m.get('subtitle') or m.get('yes_sub_title') or m.get('title')}")
+                return 1
+            log.error(
+                "No market or event found for ticker %r. Copy the ticker "
+                "exactly as shown on the Kalshi market page.",
+                settings.market_ticker,
+            )
+            return 1
+
         log.info("Market: %s — status=%s", market.get("title"),
                  market.get("status"))
 
