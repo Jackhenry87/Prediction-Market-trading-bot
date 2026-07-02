@@ -19,11 +19,13 @@ differ — fine as a rehearsal, meaningless as a fill test. Real execution
 means KALSHI_ENV=prod with a funded account.
 """
 
+import math
 import sys
 
 from config import ConfigError, load_kalshi_settings
 from kalshi_client import KalshiClient
-from kalshi_exposure import ExposureError, current_exposure_usd
+from kalshi_exposure import (ExposureError, _position_exposure_cents,
+                             current_exposure_usd)
 from safety import check_order
 import strategy_crypto
 from strategy_weather import scan, score_pending_paper_trades, SIGMA_F
@@ -52,13 +54,68 @@ def held_tickers(positions: dict, resting_orders: list) -> set:
     return held
 
 
-def size_order(price_cents: float, exposure_usd: float, settings) -> int:
-    """Contracts purchasable within both caps. 0 = no room."""
-    budget = min(settings.max_order_size,
-                 settings.max_total_exposure - exposure_usd)
+def event_of(ticker: str) -> str:
+    """KXHIGHNY-26JUL02-B99.5 -> KXHIGHNY-26JUL02. Two markets in one event
+    are the same underlying bet and must not be held simultaneously."""
+    if ticker and ticker.count("-") >= 2:
+        return ticker.rsplit("-", 1)[0]
+    return ticker or ""
+
+
+def dynamic_order_caps(balance_cents: float, exposure_usd: float, settings):
+    """(max_usd, min_usd) per order: MAX_ORDER_PCT / MIN_ORDER_PCT of the
+    bankroll (cash + committed positions), never above the absolute
+    MAX_ORDER_SIZE ceiling. Scales automatically as the account changes."""
+    bankroll = balance_cents / 100.0 + exposure_usd
+    max_usd = min(settings.max_order_size,
+                  bankroll * settings.max_order_pct / 100.0)
+    min_usd = bankroll * settings.min_order_pct / 100.0
+    return max_usd, min_usd
+
+
+def size_order(price_cents: float, exposure_usd: float, settings,
+               max_usd: float = None) -> int:
+    """Contracts purchasable within the caps. 0 = no room."""
+    per_order = settings.max_order_size if max_usd is None else max_usd
+    budget = min(per_order, settings.max_total_exposure - exposure_usd)
     if budget <= 0 or price_cents <= 0:
         return 0
     return int(budget * 100 // price_cents)
+
+
+def manage_exits(client, settings, positions: dict, resting_orders: list) -> None:
+    """Place a take-profit sell (GTC limit) on every position that doesn't
+    already have a resting order: target = entry cost +TAKE_PROFIT_PCT%,
+    capped at 99c. Winners get recycled into new trades instead of waiting
+    for settlement."""
+    if settings.kill_switch:
+        log.info("KILL_SWITCH on — not placing take-profit sells.")
+        return
+    resting_tickers = {o.get("ticker") for o in resting_orders or []}
+    for p in positions.get("market_positions", []):
+        pos = float(p.get("position", 0) or 0)
+        ticker = p.get("ticker")
+        if pos == 0 or not ticker or ticker in resting_tickers:
+            continue
+        count = int(abs(pos))
+        cost_cents = _position_exposure_cents(p)
+        if not cost_cents:
+            continue
+        avg = cost_cents / count
+        target = min(int(math.ceil(avg * (1 + settings.take_profit_pct / 100.0))), 99)
+        if target <= avg:
+            continue
+        side = "yes" if pos > 0 else "no"
+        log.info("TAKE-PROFIT: sell %s %d x %s @ %d¢ (entry avg %.0f¢, +%.0f%%)",
+                 side, count, ticker, target, avg, settings.take_profit_pct)
+        if settings.dry_run:
+            log.info("DRY_RUN: sell not sent.")
+            continue
+        try:
+            resp = client.create_limit_order(ticker, side, "sell", count, target)
+            log.info("SELL PLACED: %s", resp.get("order", resp))
+        except Exception as exc:
+            log.error("Take-profit sell failed for %s: %s — continuing", ticker, exc)
 
 
 def main() -> int:
@@ -116,8 +173,9 @@ def main() -> int:
         balance = client.get_balance_cents()
         log.info("Available balance: $%.2f", balance / 100)
         exposure = current_exposure_usd(client)
-        already_held = held_tickers(client.get_positions(),
-                                    client.get_resting_orders())
+        positions = client.get_positions()
+        resting = client.get_resting_orders()
+        already_held = held_tickers(positions, resting)
     except ExposureError as exc:
         log.error("REFUSING TO TRADE: %s (failing closed)", exc)
         return 1
@@ -125,19 +183,36 @@ def main() -> int:
         log.error("Could not authenticate or read positions: %s", exc)
         return 1
 
+    manage_exits(client, settings, positions, resting)
+
+    max_usd, min_usd = dynamic_order_caps(balance, exposure, settings)
+    log.info("Dynamic sizing: bankroll $%.2f -> per-order max $%.2f (%.0f%%), "
+             "min $%.2f (%.0f%%)", balance / 100 + exposure, max_usd,
+             settings.max_order_pct, min_usd, settings.min_order_pct)
+    held_events = {event_of(t) for t in already_held}
+
     placed = 0
     for signal in picks:
         if signal["ticker"] in already_held:
             log.info("SKIP %s: already holding a position/order there",
                      signal["ticker"])
             continue
+        if event_of(signal["ticker"]) in held_events:
+            log.info("SKIP %s: already holding a bet in the same event",
+                     signal["ticker"])
+            continue
         price = int(round(signal["price_cents"]))
-        count = size_order(price, exposure, settings)
+        count = size_order(price, exposure, settings, max_usd)
         if count < 1:
             log.info("SKIP %s: no room under caps (exposure $%.2f)",
                      signal["ticker"], exposure)
             continue
         notional = price * count / 100.0
+        if notional < min_usd:
+            log.info("SKIP %s: $%.2f is below the %.0f%% bankroll minimum "
+                     "($%.2f)", signal["ticker"], notional,
+                     settings.min_order_pct, min_usd)
+            continue
 
         log.info(
             "ORDER ATTEMPT: buy %s %d x %s @ %d¢ ($%.2f) | model %.0f%% | "
@@ -168,9 +243,16 @@ def main() -> int:
         log.info("ORDER PLACED: %s", order)
         exposure += notional
         balance -= notional * 100
+        held_events.add(event_of(signal["ticker"]))
         placed += 1
 
     log.info("Run complete: %d order(s) placed. Exiting (no loop).", placed)
+    try:
+        import scoreboard
+        scoreboard.build()
+        log.info("SCOREBOARD.md refreshed.")
+    except Exception as exc:
+        log.warning("Scoreboard generation failed: %s", exc)
     return 0
 
 

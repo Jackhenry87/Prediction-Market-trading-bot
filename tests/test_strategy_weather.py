@@ -134,3 +134,51 @@ def test_position_exposure_cents_variants():
     assert _position_exposure_cents({"total_traded": 300}) == 300
     assert _position_exposure_cents({"total_traded_dollars": "3.00"}) == 300
     assert _position_exposure_cents({"position": 5}) is None  # unknown -> fail closed
+
+
+def test_event_of_and_dynamic_caps():
+    from auto_trade import event_of, dynamic_order_caps
+    from dataclasses import dataclass
+
+    assert event_of("KXHIGHNY-26JUL02-B99.5") == "KXHIGHNY-26JUL02"
+    assert event_of("KXBTCD-26JUL0317-T59999.99") == "KXBTCD-26JUL0317"
+    assert event_of("WEIRD") == "WEIRD"
+
+    @dataclass
+    class S:
+        max_order_size: float = 2.0
+        max_order_pct: float = 4.0
+        min_order_pct: float = 1.0
+
+    # $25 bankroll ($20 cash + $5 positions): 4% = $1.00, 1% = $0.25
+    mx, mn = dynamic_order_caps(2000, 5.0, S())
+    assert abs(mx - 1.0) < 1e-9 and abs(mn - 0.25) < 1e-9
+    # large bankroll: absolute $2 ceiling still wins
+    mx, _ = dynamic_order_caps(100_000, 0.0, S())
+    assert mx == 2.0
+
+
+def test_scoreboard_build(tmp_path):
+    import scoreboard
+    csv_file = tmp_path / "paper_trades.csv"
+    csv_file.write_text(
+        "scanned_at_utc,market_date,ticker,side,price_cents,model_prob,"
+        "ev_cents,nws_forecast_f,outcome\n"
+        "2026-07-02T14:00:00+00:00,2026-07-02,KXHIGHNY-26JUL02-B99.5,no,65,"
+        "0.870,20.4,100.0,win (+35c)\n"
+        "2026-07-02T14:00:00+00:00,2026-07-02,KXHIGHNY-26JUL02-T99,no,51,"
+        "0.630,10.3,100.0,loss (-51c)\n"
+        "2026-07-03T14:00:00+00:00,2026-07-03,KXHIGHCHI-26JUL03-B95.5,yes,40,"
+        "0.700,15.0,91.0,\n"
+    )
+    out = tmp_path / "SCOREBOARD.md"
+    orig = scoreboard.SOURCES
+    scoreboard.SOURCES = [("🌡️ Weather model", csv_file)]
+    try:
+        scoreboard.build(out)
+    finally:
+        scoreboard.SOURCES = orig
+    text = out.read_text()
+    assert "🟢 1 W — 🔴 1 L — ⏳ 1 pending" in text
+    assert "net **-16¢**" in text
+    assert "🟢 **win (+35c)**" in text and "🔴 loss (-51c)" in text
