@@ -115,17 +115,26 @@ class KalshiClient:
     # --- trading ---
     def create_limit_order(self, ticker: str, side: str, action: str,
                            count: int, price_cents: int):
-        """side: 'yes'|'no'; action: 'buy'|'sell'; price in cents (1-99)."""
+        """side: 'yes'|'no'; action: 'buy'|'sell'; price in cents (1-99).
+
+        Converted to the V2 single-book model (POST /portfolio/events/orders):
+        buying YES is a bid at p; buying NO is an ask at 100-p (selling is the
+        mirror image). Prices are fixed-point dollar strings.
+        """
+        if side == "yes":
+            book_side = "bid" if action == "buy" else "ask"
+            book_cents = price_cents
+        else:
+            book_side = "ask" if action == "buy" else "bid"
+            book_cents = 100 - price_cents
         body = {
             "ticker": ticker,
             "client_order_id": str(uuid.uuid4()),
-            "type": "limit",
-            "action": action,
-            "side": side,
+            "side": book_side,
             "count": count,
-            f"{side}_price": price_cents,
+            "price": f"{book_cents / 100:.4f}",
         }
-        return self._request("POST", "/portfolio/orders", body=body)
+        return self._request("POST", "/portfolio/events/orders", body=body)
 
     def cancel_order(self, order_id: str):
         return self._request("DELETE", f"/portfolio/orders/{order_id}")

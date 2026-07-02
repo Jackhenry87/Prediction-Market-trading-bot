@@ -47,18 +47,30 @@ def test_env_selection(client):
         kalshi_client.KalshiClient("id", "nope.pem", "staging")
 
 
-def test_order_body_uses_side_price_field(client, monkeypatch):
+def test_order_body_v2_single_book_mapping(client, monkeypatch):
     captured = {}
 
     def fake_request(method, path, params=None, body=None):
-        captured.update(method=method, path=path, body=body)
+        captured.update(method=method, path=path, body=dict(body))
         return {"order": {"order_id": "x", "status": "resting"}}
 
     monkeypatch.setattr(client, "_request", fake_request)
-    client.create_limit_order("KXTEST-1", "no", "buy", 10, 37)
+
+    # buy YES @ 37c -> bid at 0.3700
+    client.create_limit_order("KXTEST-1", "yes", "buy", 10, 37)
     assert captured["method"] == "POST"
-    assert captured["body"]["no_price"] == 37
-    assert captured["body"]["side"] == "no"
+    assert captured["path"] == "/portfolio/events/orders"
+    assert captured["body"]["side"] == "bid"
+    assert captured["body"]["price"] == "0.3700"
     assert captured["body"]["count"] == 10
-    assert captured["body"]["type"] == "limit"
     assert captured["body"]["client_order_id"]
+
+    # buy NO @ 37c -> ask at 0.6300 (complement)
+    client.create_limit_order("KXTEST-1", "no", "buy", 10, 37)
+    assert captured["body"]["side"] == "ask"
+    assert captured["body"]["price"] == "0.6300"
+
+    # sell YES @ 37c -> ask at 0.3700
+    client.create_limit_order("KXTEST-1", "yes", "sell", 10, 37)
+    assert captured["body"]["side"] == "ask"
+    assert captured["body"]["price"] == "0.3700"
