@@ -64,6 +64,8 @@ def test_order_body_v2_single_book_mapping(client, monkeypatch):
     assert captured["body"]["price"] == "0.3700"
     assert captured["body"]["count"] == "10"
     assert captured["body"]["client_order_id"]
+    assert captured["body"]["time_in_force"] == "good_till_canceled"
+    assert captured["body"]["self_trade_prevention_type"] == "taker_at_cross"
 
     # buy NO @ 37c -> ask at 0.6300 (complement)
     client.create_limit_order("KXTEST-1", "no", "buy", 10, 37)

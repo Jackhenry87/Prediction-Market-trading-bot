@@ -133,6 +133,10 @@ class KalshiClient:
             "side": book_side,
             "count": str(count),  # V2 wants numeric fields as strings
             "price": f"{book_cents / 100:.4f}",
+            "time_in_force": "good_till_canceled",
+            # if our own orders would match each other, cancel the incoming
+            # one rather than pulling resting orders
+            "self_trade_prevention_type": "taker_at_cross",
         }
         return self._request("POST", "/portfolio/events/orders", body=body)
 
