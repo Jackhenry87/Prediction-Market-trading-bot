@@ -91,9 +91,13 @@ def main() -> int:
         return 1
 
     if ACTION == "buy" and notional * 100 > balance:
-        log.error("ORDER REJECTED: costs $%.2f but balance is only $%.2f",
-                  notional, balance / 100)
-        return 1
+        # Reported balance can lag or read $0 in the demo env; Kalshi's server
+        # is the authority on affordability and rejects what it can't fund.
+        log.warning(
+            "Order costs $%.2f but reported balance is $%.2f — sending anyway; "
+            "Kalshi will reject it if the account truly can't cover it.",
+            notional, balance / 100,
+        )
 
     if settings.dry_run:
         log.info(
