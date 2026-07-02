@@ -124,4 +124,7 @@ the bot fails closed, never open.
 - `exposure.py` — current USDC exposure (positions + open BUY orders).
 - `place_order.py` — Phase 2 script (one manual order per run).
 - `preflight.py` — balance/approval checks + one-time exchange approvals.
+- `cancel_orders.py` — list and cancel all open orders (KILL_SWITCH never
+  blocks cancelling; direct-wallet orders don't appear on polymarket.com,
+  so this is the way to pull them).
 - `tests/test_safety.py` — tests for the safety gate (`pytest tests/`).
