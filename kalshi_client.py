@@ -94,9 +94,11 @@ class KalshiClient:
         )
 
     def get_orderbook(self, ticker: str, depth: int = 10):
-        return self._request(
+        data = self._request(
             "GET", f"/markets/{ticker}/orderbook", params={"depth": depth}
-        )["orderbook"]
+        )
+        # Untraded markets return no book at all — treat as empty.
+        return data.get("orderbook") or {}
 
     # --- portfolio ---
     def get_balance_cents(self) -> int:
