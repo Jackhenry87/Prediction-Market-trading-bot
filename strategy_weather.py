@@ -27,7 +27,24 @@ from trade_logger import get_logger, setup_logging
 
 log = get_logger("strategy_weather")
 
-SERIES_TICKER = "KXHIGHNY"
+SERIES_TICKER = "KXHIGHNY"  # kept for log labels / backwards compatibility
+
+# Kalshi settles each city's market on the NWS Daily Climate Report of ONE
+# specific station. Coordinates below are those stations — not "the city".
+CITIES = [
+    dict(series="KXHIGHNY", name="NYC (Central Park)",
+         lat=40.7794, lon=-73.9692),
+    dict(series="KXHIGHCHI", name="Chicago (Midway)",
+         lat=41.7861, lon=-87.7522),
+    dict(series="KXHIGHMIA", name="Miami (Intl Airport)",
+         lat=25.7906, lon=-80.3164),
+    dict(series="KXHIGHDEN", name="Denver (Intl Airport)",
+         lat=39.8467, lon=-104.6562),
+    dict(series="KXHIGHLAX", name="Los Angeles (LAX)",
+         lat=33.9382, lon=-118.3866),
+    dict(series="KXHIGHAUS", name="Austin (Camp Mabry)",
+         lat=30.3208, lon=-97.7660),
+]
 # Forecast error (std dev, deg F) for 1-2 day NWS high-temp forecasts.
 # Deliberately conservative: wider sigma -> humbler probabilities -> fewer
 # and stronger signals. Tighten only with evidence from paper trading.
@@ -126,34 +143,45 @@ def append_paper_trades(signals: list, mu: float, date: str) -> None:
 
 
 def scan() -> list:
-    """Fetch forecasts + markets and return per-event results:
-    [{'date', 'mu', 'title', 'signals': [...]}, ...]. Read-only."""
+    """Fetch forecasts + markets for every configured city and return
+    per-event results: [{'date', 'mu', 'title', 'city', 'signals': [...]},
+    ...]. Read-only. A city whose forecast or markets fail to load is
+    skipped with a warning — one broken city must not stop the rest."""
     from nws import get_daily_high_forecasts
-    forecasts = get_daily_high_forecasts()
 
     # Public prod market data — no account or credentials involved.
     client = KalshiClient(env="prod")
-    data = client._request(
-        "GET", "/events",
-        params={"series_ticker": SERIES_TICKER, "status": "open",
-                "with_nested_markets": "true", "limit": 10},
-    )
 
     results = []
-    for event in data.get("events", []):
-        date = date_from_event_ticker(event.get("event_ticker")
-                                      or event.get("ticker") or "")
-        if not date or date not in forecasts:
+    for city in CITIES:
+        try:
+            forecasts = get_daily_high_forecasts(
+                city["lat"], city["lon"], city["name"]
+            )
+            data = client._request(
+                "GET", "/events",
+                params={"series_ticker": city["series"], "status": "open",
+                        "with_nested_markets": "true", "limit": 10},
+            )
+        except Exception as exc:
+            log.warning("Skipping %s: %s", city["name"], exc)
             continue
-        mu = forecasts[date]
-        signals = []
-        for market in event.get("markets") or []:
-            if market.get("status") not in (None, "active", "open"):
+
+        for event in data.get("events", []):
+            date = date_from_event_ticker(event.get("event_ticker")
+                                          or event.get("ticker") or "")
+            if not date or date not in forecasts:
                 continue
-            signals.extend(evaluate_market(market, mu))
-        signals.sort(key=lambda s: -s["ev_cents"])
-        results.append(dict(date=date, mu=mu,
-                            title=event.get("title", ""), signals=signals))
+            mu = forecasts[date]
+            signals = []
+            for market in event.get("markets") or []:
+                if market.get("status") not in (None, "active", "open"):
+                    continue
+                signals.extend(evaluate_market(market, mu))
+            signals.sort(key=lambda s: -s["ev_cents"])
+            results.append(dict(date=date, mu=mu, city=city["name"],
+                                title=event.get("title", ""),
+                                signals=signals))
     return results
 
 
@@ -199,8 +227,8 @@ def score_pending_paper_trades() -> None:
 
 def main() -> int:
     setup_logging()
-    log.info("Edge scanner: NWS forecast vs Kalshi %s (READ-ONLY, no orders)",
-             SERIES_TICKER)
+    log.info("Edge scanner: NWS forecasts vs Kalshi daily-high markets in "
+             "%d cities (READ-ONLY, no orders)", len(CITIES))
 
     try:
         score_pending_paper_trades()

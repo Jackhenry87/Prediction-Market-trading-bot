@@ -106,3 +106,11 @@ def test_pick_best_per_event_and_sizing():
     assert size_order(65, 18.0, S()) == 3       # only $2 exposure room
     assert size_order(65, 20.0, S()) == 0       # no room
     assert size_order(65, 25.0, S()) == 0       # over cap already
+
+
+def test_cities_config_sane():
+    series = [c["series"] for c in sw.CITIES]
+    assert len(series) == len(set(series))          # no duplicates
+    for c in sw.CITIES:
+        assert c["series"].startswith("KXHIGH")
+        assert 24 < c["lat"] < 50 and -125 < c["lon"] < -66  # continental US
