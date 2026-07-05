@@ -74,7 +74,7 @@ jobs:
         run: |
           git config user.name "auto-trade-bot"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f paper_trades.csv paper_trades_crypto.csv paper_trades_sports.csv 2>/dev/null || true
+          git add -f paper_trades.csv paper_trades_crypto.csv paper_trades_sports.csv paper_trades_commodities.csv 2>/dev/null || true
           git add SCOREBOARD.md 2>/dev/null || true
           if ! git diff --cached --quiet; then
             git commit -m "Update trade records [skip ci]"

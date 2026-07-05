@@ -14,6 +14,7 @@ SOURCES = [
     ("🌡️ Weather model", ROOT / "paper_trades.csv"),
     ("₿ Crypto model", ROOT / "paper_trades_crypto.csv"),
     ("⚾ Sports model", ROOT / "paper_trades_sports.csv"),
+    ("🛢️ Commodities model", ROOT / "paper_trades_commodities.csv"),
 ]
 MAX_ROWS = 20
 

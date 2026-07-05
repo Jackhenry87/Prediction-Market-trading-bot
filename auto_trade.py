@@ -28,6 +28,7 @@ from kalshi_exposure import (ExposureError, _position_exposure_cents,
                              current_exposure_usd)
 from ledger import apply_price_band, log_signals
 from safety import check_order
+import strategy_commodities
 import strategy_crypto
 import strategy_sports
 import strategy_weather
@@ -145,7 +146,9 @@ def main() -> int:
                             (lambda: score_pending_paper_trades(
                                 strategy_crypto.PAPER_LOG), "crypto"),
                             (lambda: score_pending_paper_trades(
-                                strategy_sports.PAPER_LOG), "sports")):
+                                strategy_sports.PAPER_LOG), "sports"),
+                            (lambda: score_pending_paper_trades(
+                                strategy_commodities.PAPER_LOG), "commodities")):
         try:
             score_fn()
         except Exception as exc:
@@ -161,6 +164,11 @@ def main() -> int:
         per_model.append((strategy_crypto.scan(), strategy_crypto.PAPER_LOG))
     except Exception as exc:
         log.error("Crypto scan failed: %s — continuing without it", exc)
+    try:
+        per_model.append((strategy_commodities.scan(),
+                          strategy_commodities.PAPER_LOG))
+    except Exception as exc:
+        log.error("Commodities scan failed: %s — continuing without it", exc)
     if settings.odds_api_key:
         try:
             per_model.append((strategy_sports.scan(settings.odds_api_key),
