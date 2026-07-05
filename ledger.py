@@ -12,6 +12,26 @@ from pathlib import Path
 
 LEDGER_COLUMNS = ["scanned_at_utc", "event", "ticker", "side", "price_cents",
                   "model_prob", "ev_cents", "outcome"]
+EXEC_COLUMNS = ["placed_at_utc", "model", "ticker", "side", "count",
+                "price_cents", "cost_usd", "order_id"]
+EXEC_LOG = Path(__file__).resolve().parent / "executed_trades.csv"
+
+
+def log_execution(model: str, ticker: str, side: str, count: int,
+                  price_cents: int, order_id: str, path: Path = EXEC_LOG) -> None:
+    """Append one row for every REAL order the moment it's placed — a
+    guaranteed audit trail of actual money moved, independent of the
+    signal ledger and settlement scoring."""
+    new_file = not path.exists()
+    with open(path, "a", newline="") as fh:
+        writer = csv.writer(fh)
+        if new_file:
+            writer.writerow(EXEC_COLUMNS)
+        writer.writerow([
+            datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            model, ticker, side, count, price_cents,
+            f"{price_cents * count / 100:.2f}", order_id,
+        ])
 
 
 def apply_price_band(results: list, min_cents: float, max_cents: float) -> list:

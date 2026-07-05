@@ -26,8 +26,9 @@ from config import ConfigError, load_kalshi_settings
 from kalshi_client import KalshiClient
 from kalshi_exposure import (ExposureError, _position_exposure_cents,
                              current_exposure_usd)
-from ledger import apply_price_band, log_signals
+from ledger import apply_price_band, log_execution, log_signals
 from safety import check_order
+import strategy_commodities
 import strategy_crypto
 import strategy_sports
 import strategy_weather
@@ -38,12 +39,13 @@ log = get_logger("auto_trade")
 
 
 def pick_best_per_event(results: list) -> list:
-    """One signal per market day: same-day signals are the same weather bet."""
+    """One signal per event: same-event signals are the same underlying bet."""
     chosen = []
     for r in results:
         if r["signals"]:
             best = max(r["signals"], key=lambda s: s["ev_cents"])
-            chosen.append(dict(best, date=r["date"], mu=r["mu"]))
+            chosen.append(dict(best, date=r["date"], mu=r["mu"],
+                               model=r.get("model", "")))
     return chosen
 
 
@@ -141,40 +143,46 @@ def main() -> int:
         log.warning("Demo execution: orders are placed against sandbox books, "
                     "which do not reflect the real prices behind the signals.")
 
-    for score_fn, label in ((score_pending_paper_trades, "weather"),
-                            (lambda: score_pending_paper_trades(
-                                strategy_crypto.PAPER_LOG), "crypto"),
-                            (lambda: score_pending_paper_trades(
-                                strategy_sports.PAPER_LOG), "sports")):
-        try:
-            score_fn()
-        except Exception as exc:
-            log.warning("%s scoring skipped (%s)", label, exc)
+    enabled = settings.enabled_models
+    log.info("Enabled models: %s", ", ".join(enabled) or "(none)")
 
-    # Scan each model separately so signals are logged to the right ledger.
-    per_model = []  # (results, ledger_path)
-    try:
-        per_model.append((scan(), strategy_weather.PAPER_LOG))
-    except Exception as exc:
-        log.error("Weather scan failed: %s — continuing without it", exc)
-    try:
-        per_model.append((strategy_crypto.scan(), strategy_crypto.PAPER_LOG))
-    except Exception as exc:
-        log.error("Crypto scan failed: %s — continuing without it", exc)
-    if settings.odds_api_key:
+    # scan fn + ledger path, per model; sports needs the odds key
+    model_defs = {
+        "weather": (scan, strategy_weather.PAPER_LOG),
+        "crypto": (strategy_crypto.scan, strategy_crypto.PAPER_LOG),
+        "commodities": (strategy_commodities.scan,
+                        strategy_commodities.PAPER_LOG),
+        "sports": (lambda: strategy_sports.scan(settings.odds_api_key)
+                   if settings.odds_api_key else [], strategy_sports.PAPER_LOG),
+    }
+
+    for name, (_, path) in model_defs.items():
+        if name not in enabled:
+            continue
         try:
-            per_model.append((strategy_sports.scan(settings.odds_api_key),
-                              strategy_sports.PAPER_LOG))
+            score_pending_paper_trades(path)
         except Exception as exc:
-            log.error("Sports scan failed: %s — continuing without it", exc)
-    else:
-        log.info("Sports model idle: ODDS_API_KEY not configured.")
+            log.warning("%s scoring skipped (%s)", name, exc)
+
+    # Scan each enabled model separately so signals log to the right ledger.
+    per_model = []  # (results, ledger_path, model_name)
+    for name, (scan_fn, path) in model_defs.items():
+        if name not in enabled:
+            log.info("Model '%s' is OFF (not in ENABLED_MODELS).", name)
+            continue
+        try:
+            res = scan_fn()
+            for r in res:
+                r["model"] = name
+            per_model.append((res, path, name))
+        except Exception as exc:
+            log.error("%s scan failed: %s — continuing without it", name, exc)
 
     # Price-band filter (your 60–90% rule): trade only mid-priced contracts.
     log.info("Trading only contracts priced %.0f–%.0f¢ (skips near-locks and "
              "longshots).", settings.trade_min_price, settings.trade_max_price)
     results = []
-    for res, path in per_model:
+    for res, path, name in per_model:
         banded = apply_price_band(res, settings.trade_min_price,
                                   settings.trade_max_price)
         # Record EVERY in-band signal for scoring, traded or not — this is
@@ -273,6 +281,13 @@ def main() -> int:
             continue
         order = resp.get("order", resp)
         log.info("ORDER PLACED: %s", order)
+        # Guaranteed audit trail: record every real fill immediately.
+        try:
+            log_execution(signal.get("model", ""), signal["ticker"],
+                          signal["side"], count, price,
+                          str(order.get("order_id", "")))
+        except Exception as exc:
+            log.warning("Execution-log write failed: %s", exc)
         exposure += notional
         balance -= notional * 100
         held_events.add(event_of(signal["ticker"]))

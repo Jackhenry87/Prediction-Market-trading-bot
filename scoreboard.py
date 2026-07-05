@@ -14,6 +14,7 @@ SOURCES = [
     ("🌡️ Weather model", ROOT / "paper_trades.csv"),
     ("₿ Crypto model", ROOT / "paper_trades_crypto.csv"),
     ("⚾ Sports model", ROOT / "paper_trades_sports.csv"),
+    ("🛢️ Commodities model", ROOT / "paper_trades_commodities.csv"),
 ]
 MAX_ROWS = 20
 
@@ -34,6 +35,28 @@ def _pnl_cents(outcome: str) -> float:
     return float(outcome.split("(")[1].rstrip("c)").replace("+", ""))
 
 
+def _executed_section(lines: list) -> None:
+    """Real orders actually placed (the money audit trail)."""
+    path = ROOT / "executed_trades.csv"
+    header, body = _read(path)
+    lines += ["## 💵 Real orders placed", ""]
+    if not header:
+        lines += ["_No real orders placed yet._", ""]
+        return
+    idx = {h: i for i, h in enumerate(header)}
+    spent = sum(float(r[idx["cost_usd"]]) for r in body if r[idx.get("cost_usd", -1)])
+    lines += [f"**{len(body)} orders, ${spent:.2f} deployed.**", "",
+              "| Placed (UTC) | Model | Market | Side | Qty | Price | Cost |",
+              "|---|---|---|---|---|---|---|"]
+    for r in reversed(body[-MAX_ROWS:]):
+        when = r[idx["placed_at_utc"]][5:16].replace("T", " ")
+        lines.append(
+            f"| {when} | {r[idx['model']]} | {r[idx['ticker']]} "
+            f"| {r[idx['side']].upper()} | {r[idx['count']]} "
+            f"| {r[idx['price_cents']]}¢ | ${r[idx['cost_usd']]} |")
+    lines.append("")
+
+
 def build(out: Path = OUT) -> None:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     lines = [
@@ -45,6 +68,8 @@ def build(out: Path = OUT) -> None:
         "real order was placed. P&L shown is per 1-contract stakes.",
         "",
     ]
+    _executed_section(lines)
+
     for name, path in SOURCES:
         header, body = _read(path)
         if not header:
