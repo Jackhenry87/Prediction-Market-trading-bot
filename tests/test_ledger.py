@@ -39,3 +39,16 @@ def test_ledger_columns_match_scoreboard_reader(tmp_path):
     header = path.read_text().splitlines()[0].split(",")
     for col in ("scanned_at_utc", "ticker", "side", "price_cents", "outcome"):
         assert col in header
+
+
+def test_log_execution_audit_trail(tmp_path):
+    import ledger
+    path = tmp_path / "exec.csv"
+    ledger.log_execution("weather", "KXHIGHNY-X", "no", 3, 72,
+                         "ord-1", path=path)
+    ledger.log_execution("sports", "KXMLBGAME-Y", "yes", 2, 65,
+                         "ord-2", path=path)
+    rows = list(__import__("csv").reader(open(path)))
+    assert rows[0] == ledger.EXEC_COLUMNS
+    assert rows[1][1] == "weather" and rows[1][6] == "2.16"   # 72*3/100
+    assert rows[2][1] == "sports" and rows[2][6] == "1.30"    # 65*2/100

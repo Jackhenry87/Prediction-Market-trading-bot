@@ -67,6 +67,9 @@ jobs:
           TAKE_PROFIT_PCT: ${{ vars.TAKE_PROFIT_PCT || '50' }}
           TRADE_MIN_PRICE: ${{ vars.TRADE_MIN_PRICE || '60' }}
           TRADE_MAX_PRICE: ${{ vars.TRADE_MAX_PRICE || '90' }}
+          # crypto and commodities OFF (weakest edge). Re-enable by setting
+          # repo Variable ENABLED_MODELS, e.g. weather,sports,crypto,commodities
+          ENABLED_MODELS: ${{ vars.ENABLED_MODELS || 'weather,sports' }}
         run: python auto_trade.py
 
       - name: Commit updated scoreboards back to the repo
@@ -74,7 +77,7 @@ jobs:
         run: |
           git config user.name "auto-trade-bot"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f paper_trades.csv paper_trades_crypto.csv paper_trades_sports.csv paper_trades_commodities.csv 2>/dev/null || true
+          git add -f paper_trades.csv paper_trades_crypto.csv paper_trades_sports.csv paper_trades_commodities.csv executed_trades.csv 2>/dev/null || true
           git add SCOREBOARD.md 2>/dev/null || true
           if ! git diff --cached --quiet; then
             git commit -m "Update trade records [skip ci]"
