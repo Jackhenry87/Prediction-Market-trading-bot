@@ -120,6 +120,30 @@ class KalshiClient:
             "GET", "/portfolio/orders", params={"status": "resting"}
         ).get("orders", [])
 
+    def _paged(self, path: str, key: str, min_ts=None, limit=200) -> list:
+        out, cursor = [], None
+        for _ in range(50):  # hard page cap
+            params = {"limit": limit}
+            if min_ts:
+                params["min_ts"] = int(min_ts)
+            if cursor:
+                params["cursor"] = cursor
+            data = self._request("GET", path, params=params)
+            page = data.get(key, [])
+            out += page
+            cursor = data.get("cursor")
+            if not cursor or not page:
+                break
+        return out
+
+    def get_fills(self, min_ts=None) -> list:
+        """Every executed fill (optionally since a unix timestamp)."""
+        return self._paged("/portfolio/fills", "fills", min_ts)
+
+    def get_settlements(self, min_ts=None) -> list:
+        """Every settled market (optionally since a unix timestamp)."""
+        return self._paged("/portfolio/settlements", "settlements", min_ts)
+
     # --- trading ---
     def create_limit_order(self, ticker: str, side: str, action: str,
                            count: int, price_cents: int):
