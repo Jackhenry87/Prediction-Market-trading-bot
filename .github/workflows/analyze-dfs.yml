@@ -1,0 +1,41 @@
+name: analyze-dfs
+
+# Analyze DFS pick'em (+EV) from the phone.
+# 1. Edit dfs_picks.csv in the repo (paste the app's lines + sharp odds).
+# 2. Actions tab -> analyze-dfs -> Run workflow.
+# 3. Read DFS_ANALYSIS.md. You place any bets manually — this touches no app.
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Analyze
+        run: |
+          if [ ! -f dfs_picks.csv ]; then
+            cp dfs_picks.example.csv dfs_picks.csv
+            echo "::notice::No dfs_picks.csv found — analyzing the example. Edit dfs_picks.csv with your own lines and re-run."
+          fi
+          python dfs_analyzer.py
+      - name: Commit analysis
+        run: |
+          git config user.name "auto-trade-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f DFS_ANALYSIS.md dfs_picks.csv 2>/dev/null || true
+          if ! git diff --cached --quiet; then
+            git commit -m "Update DFS analysis [skip ci]"
+            git pull --rebase
+            git push
+          fi

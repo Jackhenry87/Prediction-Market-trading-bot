@@ -1,0 +1,4 @@
+player,market,dfs_line,dfs_side,payout_mult,num_legs,sharp_line,sharp_over_odds,sharp_under_odds,fair_prob
+LeBron James,points,25.5,over,3.0,2,27.5,1.90,1.90,
+Aaron Judge,hits,1.5,under,3.0,2,1.5,2.10,1.75,
+Nikola Jokic,assists,8.5,over,5.0,3,8.5,1.95,1.87,
