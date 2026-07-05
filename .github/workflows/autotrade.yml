@@ -55,9 +55,10 @@ jobs:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
           KALSHI_PRIVATE_KEY_PATH: kalshi_prod.pem
           KALSHI_ENV: ${{ vars.KALSHI_ENV || 'prod' }}
-          # Paper mode by default: log & score signals, place NO real orders.
-          # Set repo Variable DRY_RUN=false to trade live again.
-          DRY_RUN: ${{ vars.DRY_RUN || 'true' }}
+          # LIVE by default (owner's choice): places real orders. The ledger
+          # now records every signal so the scoreboard measures results even
+          # while trading live. Set repo Variable DRY_RUN=true to paper-test.
+          DRY_RUN: ${{ vars.DRY_RUN || 'false' }}
           KILL_SWITCH: ${{ vars.KILL_SWITCH || 'false' }}
           MAX_ORDER_SIZE: ${{ vars.MAX_ORDER_SIZE || '2' }}
           MAX_TOTAL_EXPOSURE: ${{ vars.MAX_TOTAL_EXPOSURE || '20' }}
