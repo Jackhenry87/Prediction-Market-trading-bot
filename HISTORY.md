@@ -1,6 +1,6 @@
 # 📜 Kalshi Trade History
 
-_Generated 2026-07-05 23:28 UTC from your account's fills & settlements._
+_Generated 2026-07-05 23:32 UTC from your account's fills & settlements._
 
 **203 fills. Realized P&L on settled markets: $-40.41.**
 
