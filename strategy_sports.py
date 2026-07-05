@@ -1,15 +1,18 @@
-"""Sports model: devigged sportsbook consensus vs Kalshi MLB moneylines.
+"""Sports model: devigged sportsbook consensus vs Kalshi moneylines,
+across every 2-way US league in season (MLB, NBA, NFL, NHL, WNBA).
 
 We don't predict games. Sportsbooks' odds, with their profit margin (vig)
 stripped out, are the sharpest public estimate of win probability there
-is. When Kalshi's price for a team differs from that fair value by more
-than fees, we take Kalshi's side of the gap.
+is — the aggregated smart money that beats the cappers. When Kalshi's
+price for a team differs from that fair value by more than fees, we take
+Kalshi's side of the gap.
 
-Odds come from The Odds API (the-odds-api.com, free tier — set
-ODDS_API_KEY). Pinnacle's line is used when present (sharpest book);
-otherwise the median across books. Only pregame markets are considered:
-in-play prices move faster than an hourly scanner and stale-odds trades
-would be self-deception.
+Odds come from The Odds API (the-odds-api.com, set ODDS_API_KEY).
+Pinnacle's line is used when present (sharpest book); otherwise the median
+across books. Only pregame moneylines; only leagues currently in season
+(the free /v4/sports listing costs no credits, so we query odds only for
+sports that are actually active). Soccer is deliberately excluded: its
+3-way lines (draw) need different devig math and Kalshi structuring.
 
     python strategy_sports.py     # read-only scan, no orders
 """
@@ -29,7 +32,18 @@ from trade_logger import get_logger, setup_logging
 
 log = get_logger("strategy_sports")
 
-SERIES = [dict(series="KXMLBGAME", sport="baseball_mlb", name="MLB")]
+# Each 2-way US league: The Odds API sport key + best-known Kalshi game
+# series ticker. A sport out of season is skipped automatically (no games);
+# a wrong Kalshi ticker just returns no events and is skipped with a warning
+# — correct any that never produce events after the first live run.
+SERIES = [
+    dict(series="KXMLBGAME", sport="baseball_mlb", name="MLB"),
+    dict(series="KXNBA", sport="basketball_nba", name="NBA"),
+    dict(series="KXNFLGAME", sport="americanfootball_nfl", name="NFL"),
+    dict(series="KXNHLGAME", sport="icehockey_nhl", name="NHL"),
+    dict(series="KXWNBA", sport="basketball_wnba", name="WNBA"),
+]
+SPORTS_LIST_URL = "https://api.the-odds-api.com/v4/sports/"
 ODDS_URL = "https://api.the-odds-api.com/v4/sports/{sport}/odds/"
 ODDS_REGIONS = "us"
 MIN_START_H = 0.15    # skip games starting within ~10 min (execution risk)
@@ -98,6 +112,15 @@ def match_team(label: str, games: list):
     return hits[0] if len(hits) == 1 else None
 
 
+def in_season_sports(api_key: str) -> set:
+    """Sport keys currently active. The /v4/sports listing costs zero
+    API credits, so this lets us pull paid odds only for live leagues."""
+    resp = requests.get(SPORTS_LIST_URL, params={"apiKey": api_key}, timeout=20)
+    resp.raise_for_status()
+    return {s["key"] for s in resp.json()
+            if s.get("active") and not s.get("has_outrights")}
+
+
 def fetch_games(api_key: str, sport: str) -> list:
     resp = requests.get(
         ODDS_URL.format(sport=sport),
@@ -150,7 +173,17 @@ def scan(api_key: str) -> list:
     ticker so one-bet-per-event grouping works."""
     client = KalshiClient(env="prod")
     results = []
+    try:
+        active = in_season_sports(api_key)
+    except Exception as exc:
+        log.warning("Could not fetch in-season list (%s); trying all sports", exc)
+        active = {c["sport"] for c in SERIES}
+
     for cfg in SERIES:
+        if cfg["sport"] not in active:
+            log.info("%s: out of season, skipping (no odds credits spent)",
+                     cfg["name"])
+            continue
         try:
             games = fetch_games(api_key, cfg["sport"])
         except Exception as exc:

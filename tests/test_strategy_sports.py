@@ -73,3 +73,25 @@ def test_evaluate_market_finds_gap():
     fair = {"ticker": "T", "yes_sub_title": "Detroit",
             "yes_ask": 61, "yes_bid": 58}
     assert ss.evaluate_market(fair, [GAME]) == []
+
+
+def test_in_season_filter(monkeypatch):
+    class R:
+        def raise_for_status(self): pass
+        def json(self): return [
+            {"key": "baseball_mlb", "active": True, "has_outrights": False},
+            {"key": "basketball_nba", "active": False, "has_outrights": False},
+            {"key": "baseball_world_series", "active": True, "has_outrights": True},
+        ]
+    monkeypatch.setattr(ss.requests, "get", lambda *a, **k: R())
+    active = ss.in_season_sports("key")
+    assert active == {"baseball_mlb"}   # inactive NBA and outrights excluded
+
+
+def test_series_config_sane():
+    keys = [c["sport"] for c in ss.SERIES]
+    tickers = [c["series"] for c in ss.SERIES]
+    assert len(keys) == len(set(keys)) and len(tickers) == len(set(tickers))
+    for c in ss.SERIES:
+        assert c["series"].startswith("KX")
+        assert "_" in c["sport"]  # odds-api keys look like 'basketball_nba'
