@@ -24,3 +24,4 @@ __pycache__/
 .vscode/
 paper_trades*.csv
 executed_trades.csv
+trade_history.csv

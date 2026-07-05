@@ -1,0 +1,50 @@
+name: backfill-history
+
+# Manually pull your real Kalshi trade history and commit it to the repo.
+# Run from the phone: Actions tab -> backfill-history -> Run workflow.
+# Optional "start_date" input (YYYY-MM-DD); defaults to 2026-07-01.
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: "Earliest date to include (YYYY-MM-DD)"
+        required: false
+        default: "2026-07-01"
+
+permissions:
+  contents: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Write Kalshi private key from repository secret
+        env:
+          KALSHI_PEM: ${{ secrets.KALSHI_PRIVATE_KEY_PEM }}
+        run: printf '%s\n' "$KALSHI_PEM" > kalshi_prod.pem
+      - name: Pull trade history
+        env:
+          KALSHI_API_KEY_ID: ${{ secrets.KALSHI_API_KEY_ID }}
+          KALSHI_PRIVATE_KEY_PATH: kalshi_prod.pem
+          KALSHI_ENV: ${{ vars.KALSHI_ENV || 'prod' }}
+          MAX_ORDER_SIZE: ${{ vars.MAX_ORDER_SIZE || '2' }}
+          MAX_TOTAL_EXPOSURE: ${{ vars.MAX_TOTAL_EXPOSURE || '20' }}
+        run: python backfill_history.py "${{ github.event.inputs.start_date }}"
+      - name: Commit history
+        run: |
+          git config user.name "auto-trade-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f trade_history.csv HISTORY.md 2>/dev/null || true
+          if ! git diff --cached --quiet; then
+            git commit -m "Backfill Kalshi trade history [skip ci]"
+            git pull --rebase
+            git push
+          fi
