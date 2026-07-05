@@ -74,6 +74,10 @@ class Settings:
     trade_min_price: float = 60.0  # only buy contracts priced in this band
     trade_max_price: float = 90.0  # (cents) — avoids near-locks & longshots
     enabled_models: tuple = ("weather", "sports", "crypto", "commodities")
+    max_theme_pct: float = 40.0   # cap total exposure to any one theme
+    #                               (weather/crypto/sports/commodities) so a
+    #                               pile of correlated bets can't become one
+    #                               oversized wager
 
 
 def load_settings(require_market: bool = True) -> Settings:
@@ -141,6 +145,7 @@ def load_kalshi_settings(require_market: bool = True) -> Settings:
                 "ENABLED_MODELS", "weather,sports,crypto,commodities").split(",")
             if m.strip()
         ),
+        max_theme_pct=float(os.getenv("MAX_THEME_PCT", "40")),
         market_ticker=_require("MARKET_TICKER") if require_market
         else os.getenv("MARKET_TICKER", "").strip(),
         dry_run=_bool("DRY_RUN", default=True),

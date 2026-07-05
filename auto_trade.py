@@ -67,6 +67,40 @@ def event_of(ticker: str) -> str:
     return ticker or ""
 
 
+# Ticker prefix -> theme, so we can cap correlated bets (e.g. all the weather
+# markets on a heat-wave day are really ONE bet). Order matters: longest /
+# most specific first.
+_THEME_PREFIXES = [
+    ("KXHIGH", "weather"), ("KXLOW", "weather"),
+    ("KXBTC", "crypto"), ("KXETH", "crypto"),
+    ("KXWTI", "commodities"), ("KXNGAS", "commodities"), ("KXGOLD", "commodities"),
+    ("KXMLB", "sports"), ("KXNBA", "sports"), ("KXNFL", "sports"),
+    ("KXNHL", "sports"), ("KXWNBA", "sports"),
+]
+
+
+def theme_of(ticker: str) -> str:
+    """Which correlated theme a market belongs to (weather/crypto/sports/
+    commodities), inferred from its ticker. 'other' if unrecognized."""
+    t = (ticker or "").upper()
+    for prefix, theme in _THEME_PREFIXES:
+        if t.startswith(prefix):
+            return theme
+    return "other"
+
+
+def theme_exposure(positions: dict) -> dict:
+    """Current USD committed per theme, from open positions."""
+    out = {}
+    for p in positions.get("market_positions", []):
+        if float(p.get("position", 0) or 0) == 0:
+            continue
+        cents = _position_exposure_cents(p) or 0
+        out[theme_of(p.get("ticker"))] = out.get(
+            theme_of(p.get("ticker")), 0.0) + cents / 100.0
+    return out
+
+
 def dynamic_order_caps(balance_cents: float, exposure_usd: float, settings):
     """(max_usd, min_usd) per order: MAX_ORDER_PCT / MIN_ORDER_PCT of the
     bankroll (cash + committed positions), never above the absolute
@@ -225,11 +259,17 @@ def main() -> int:
 
     manage_exits(client, settings, positions, resting)
 
+    bankroll = balance / 100 + exposure
     max_usd, min_usd = dynamic_order_caps(balance, exposure, settings)
     log.info("Dynamic sizing: bankroll $%.2f -> per-order max $%.2f (%.0f%%), "
-             "min $%.2f (%.0f%%)", balance / 100 + exposure, max_usd,
+             "min $%.2f (%.0f%%)", bankroll, max_usd,
              settings.max_order_pct, min_usd, settings.min_order_pct)
     held_events = {event_of(t) for t in already_held}
+    theme_used = theme_exposure(positions)
+    theme_cap = bankroll * settings.max_theme_pct / 100.0
+    log.info("Per-theme cap: $%.2f (%.0f%% of bankroll). Current: %s",
+             theme_cap, settings.max_theme_pct,
+             {k: round(v, 2) for k, v in theme_used.items()} or "none")
 
     placed = 0
     for signal in picks:
@@ -252,6 +292,13 @@ def main() -> int:
             log.info("SKIP %s: $%.2f is below the %.0f%% bankroll minimum "
                      "($%.2f)", signal["ticker"], notional,
                      settings.min_order_pct, min_usd)
+            continue
+        theme = theme_of(signal["ticker"])
+        if theme_used.get(theme, 0.0) + notional > theme_cap:
+            log.info("SKIP %s: theme '%s' at $%.2f, +$%.2f would exceed the "
+                     "$%.2f cap (%.0f%% of bankroll)", signal["ticker"], theme,
+                     theme_used.get(theme, 0.0), notional, theme_cap,
+                     settings.max_theme_pct)
             continue
 
         log.info(
@@ -290,6 +337,7 @@ def main() -> int:
             log.warning("Execution-log write failed: %s", exc)
         exposure += notional
         balance -= notional * 100
+        theme_used[theme] = theme_used.get(theme, 0.0) + notional
         held_events.add(event_of(signal["ticker"]))
         placed += 1
 
