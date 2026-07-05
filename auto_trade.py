@@ -26,9 +26,11 @@ from config import ConfigError, load_kalshi_settings
 from kalshi_client import KalshiClient
 from kalshi_exposure import (ExposureError, _position_exposure_cents,
                              current_exposure_usd)
+from ledger import apply_price_band, log_signals
 from safety import check_order
 import strategy_crypto
 import strategy_sports
+import strategy_weather
 from strategy_weather import scan, score_pending_paper_trades, SIGMA_F
 from trade_logger import get_logger, setup_logging
 
@@ -149,25 +151,45 @@ def main() -> int:
         except Exception as exc:
             log.warning("%s scoring skipped (%s)", label, exc)
 
-    results = []
+    # Scan each model separately so signals are logged to the right ledger.
+    per_model = []  # (results, ledger_path)
     try:
-        results += scan()
+        per_model.append((scan(), strategy_weather.PAPER_LOG))
     except Exception as exc:
         log.error("Weather scan failed: %s — continuing without it", exc)
     try:
-        results += strategy_crypto.scan()
+        per_model.append((strategy_crypto.scan(), strategy_crypto.PAPER_LOG))
     except Exception as exc:
         log.error("Crypto scan failed: %s — continuing without it", exc)
     if settings.odds_api_key:
         try:
-            results += strategy_sports.scan(settings.odds_api_key)
+            per_model.append((strategy_sports.scan(settings.odds_api_key),
+                              strategy_sports.PAPER_LOG))
         except Exception as exc:
             log.error("Sports scan failed: %s — continuing without it", exc)
     else:
         log.info("Sports model idle: ODDS_API_KEY not configured.")
+
+    # Price-band filter (your 60–90% rule): trade only mid-priced contracts.
+    log.info("Trading only contracts priced %.0f–%.0f¢ (skips near-locks and "
+             "longshots).", settings.trade_min_price, settings.trade_max_price)
+    results = []
+    for res, path in per_model:
+        banded = apply_price_band(res, settings.trade_min_price,
+                                  settings.trade_max_price)
+        # Record EVERY in-band signal for scoring, traded or not — this is
+        # the measurement that was missing.
+        try:
+            n = log_signals(banded, path)
+            if n:
+                log.info("Logged %d new signal(s) to %s", n, path.name)
+        except Exception as exc:
+            log.warning("Ledger write to %s failed: %s", path.name, exc)
+        results += banded
+
     if not results:
-        log.error("No scan produced results. Exiting.")
-        return 1
+        log.info("No in-band signals this run. Exiting.")
+        return 0
 
     picks = pick_best_per_event(results)
     if not picks:

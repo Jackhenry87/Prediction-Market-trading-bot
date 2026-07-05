@@ -46,9 +46,11 @@ CITIES = [
          lat=30.3208, lon=-97.7660),
 ]
 # Forecast error (std dev, deg F) for 1-2 day NWS high-temp forecasts.
-# Deliberately conservative: wider sigma -> humbler probabilities -> fewer
-# and stronger signals. Tighten only with evidence from paper trading.
-SIGMA_F = 3.0
+# Widened from 3.0 -> 4.5 after the first live week: temperature errors have
+# fatter tails than a normal, and the old value was overconfident in the
+# extreme buckets — exactly where the early losses came from. Humbler
+# probabilities -> fewer, stronger signals. Re-tune from the scoreboard.
+SIGMA_F = 4.5
 # Only report trades with at least this much expected value per contract,
 # in cents, after fees. Below this, spread/model noise eats the edge.
 MIN_EDGE_CENTS = 5.0

@@ -11,11 +11,11 @@ def test_normal_cdf_basics():
 
 def test_bucket_probability_sums_to_one():
     mu = 88.0
-    # buckets: <=85, 85-87, 87-89, 89-91, >=91 (edges shared)
-    buckets = [(None, 85), (85, 87), (87, 89), (89, 91), (91, None)]
+    # a full partition of the line must sum to 1 regardless of sigma
+    buckets = [(None, 84), (84, 86), (86, 90), (90, 92), (92, None)]
     total = sum(sw.bucket_probability(mu, lo, hi) for lo, hi in buckets)
     assert abs(total - 1.0) < 1e-9
-    # the bucket containing the forecast is the most likely
+    # the wide bucket centered on the forecast is the mode
     probs = [sw.bucket_probability(mu, lo, hi) for lo, hi in buckets]
     assert max(probs) == probs[2]
 
@@ -59,10 +59,10 @@ def test_evaluate_market_finds_overpriced_yes():
 
 
 def test_evaluate_market_no_signal_when_fair():
-    # bucket 85-91 is ~68% under the model and priced there -> fees kill it
+    # bucket 85-91 is ~50% under the model (sigma 4.5); priced there -> no edge
     market = {"ticker": "T-3", "subtitle": "85 to 91",
               "floor_strike": 85, "cap_strike": 91,
-              "yes_ask": 70, "yes_bid": 66}
+              "yes_ask": 52, "yes_bid": 48}
     assert sw.evaluate_market(market, mu=88.0) == []
 
 

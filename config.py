@@ -71,6 +71,8 @@ class Settings:
     max_order_pct: float = 4.0    # max buy as % of bankroll (cash+positions)
     min_order_pct: float = 1.0    # skip trades smaller than this % of bankroll
     take_profit_pct: float = 50.0  # auto-sell target: entry cost +50%
+    trade_min_price: float = 60.0  # only buy contracts priced in this band
+    trade_max_price: float = 90.0  # (cents) — avoids near-locks & longshots
 
 
 def load_settings(require_market: bool = True) -> Settings:
@@ -130,6 +132,8 @@ def load_kalshi_settings(require_market: bool = True) -> Settings:
         max_order_pct=max_pct,
         min_order_pct=min_pct,
         take_profit_pct=float(os.getenv("TAKE_PROFIT_PCT", "50")),
+        trade_min_price=float(os.getenv("TRADE_MIN_PRICE", "60")),
+        trade_max_price=float(os.getenv("TRADE_MAX_PRICE", "90")),
         market_ticker=_require("MARKET_TICKER") if require_market
         else os.getenv("MARKET_TICKER", "").strip(),
         dry_run=_bool("DRY_RUN", default=True),
