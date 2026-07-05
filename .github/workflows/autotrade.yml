@@ -70,6 +70,10 @@ jobs:
           # crypto and commodities OFF (weakest edge). Re-enable by setting
           # repo Variable ENABLED_MODELS, e.g. weather,sports,crypto,commodities
           ENABLED_MODELS: ${{ vars.ENABLED_MODELS || 'weather,sports' }}
+          # no single theme (weather/crypto/sports/commodities) may exceed
+          # this % of bankroll — stops piles of correlated bets from becoming
+          # one oversized wager
+          MAX_THEME_PCT: ${{ vars.MAX_THEME_PCT || '40' }}
         run: python auto_trade.py
 
       - name: Commit updated scoreboards back to the repo

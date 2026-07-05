@@ -182,3 +182,23 @@ def test_scoreboard_build(tmp_path):
     assert "🟢 1 W — 🔴 1 L — ⏳ 1 pending" in text
     assert "net **-16¢**" in text
     assert "🟢 **win (+35c)**" in text and "🔴 loss (-51c)" in text
+
+
+def test_theme_of_and_exposure():
+    from auto_trade import theme_of, theme_exposure
+    assert theme_of("KXHIGHNY-26JUL02-B99.5") == "weather"
+    assert theme_of("KXBTCD-26JUL0517-T61999.99") == "crypto"
+    assert theme_of("KXETHD-26JUL0517-T1749.99") == "crypto"
+    assert theme_of("KXMLBGAME-26JUL04-DET") == "sports"
+    assert theme_of("KXWTI-26JUL05") == "commodities"
+    assert theme_of("KXMENWORLDCUP-26-ES") == "other"
+
+    positions = {"market_positions": [
+        {"ticker": "KXHIGHNY-26JUL02-B99.5", "position": 5, "market_exposure": 400},
+        {"ticker": "KXHIGHCHI-26JUL02-B95.5", "position": 3, "market_exposure": 200},
+        {"ticker": "KXBTCD-26JUL05-T62", "position": 2, "market_exposure": 50},
+        {"ticker": "KXFLAT", "position": 0, "market_exposure": 999}]}  # flat ignored
+    exp = theme_exposure(positions)
+    assert abs(exp["weather"] - 6.0) < 1e-9      # $4.00 + $2.00
+    assert abs(exp["crypto"] - 0.5) < 1e-9       # $0.50
+    assert "other" not in exp
