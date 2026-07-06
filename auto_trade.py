@@ -277,6 +277,15 @@ def main() -> int:
     manage_exits(client, settings, positions, resting)
 
     bankroll = balance / 100 + exposure
+    # hard caps grow with the account (owner spec): static env values are
+    # the floor, bankroll % scales them, absolute ceilings backstop
+    from dataclasses import replace
+
+    from safety import scaled_exposure_cap, scaled_order_cap
+    settings = replace(settings,
+                       max_order_size=scaled_order_cap(bankroll, settings),
+                       max_total_exposure=scaled_exposure_cap(bankroll,
+                                                              settings))
     max_usd, min_usd = dynamic_order_caps(balance, exposure, settings)
     log.info("Dynamic sizing: bankroll $%.2f -> per-order max $%.2f (%.0f%%), "
              "min $%.2f (%.0f%%)", bankroll, max_usd,

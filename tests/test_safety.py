@@ -70,3 +70,31 @@ def test_multiple_violations_all_reported():
     problems = check(settings=FakeSettings(kill_switch=True),
                      price=2.0, size_shares=-1)
     assert len(problems) >= 3
+
+
+def test_scaled_caps_grow_with_bankroll(monkeypatch):
+    from dataclasses import dataclass
+
+    import safety
+
+    @dataclass
+    class S:
+        max_order_size: float = 2.0
+        max_total_exposure: float = 20.0
+
+    # defaults: order 10% of bankroll (floor $2, ceiling $50);
+    # exposure 80% of bankroll (floor $20, ceiling $250)
+    monkeypatch.delenv("MAX_ORDER_BANKROLL_PCT", raising=False)
+    monkeypatch.delenv("MAX_ORDER_ABS", raising=False)
+    # tiny account: the static floor keeps trading possible
+    assert safety.scaled_order_cap(15.36, S()) == 2.0      # 10% = $1.54 < $2
+    assert safety.scaled_exposure_cap(15.36, S()) == 20.0
+    # grown account: caps scale automatically — no repo Variable edits
+    assert safety.scaled_order_cap(100.0, S()) == 10.0     # 10% of $100
+    assert safety.scaled_exposure_cap(100.0, S()) == 80.0  # 80% of $100
+    # huge account (or a bankroll-computation bug): ceilings backstop
+    assert safety.scaled_order_cap(10_000.0, S()) == 50.0
+    assert safety.scaled_exposure_cap(10_000.0, S()) == 250.0
+    # knobs are env-tunable
+    monkeypatch.setenv("MAX_ORDER_BANKROLL_PCT", "5")
+    assert safety.scaled_order_cap(100.0, S()) == 5.0
