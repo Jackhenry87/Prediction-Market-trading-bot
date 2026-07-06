@@ -47,15 +47,45 @@ def _executed_section(lines: list) -> None:
         return
     idx = {h: i for i, h in enumerate(header)}
     spent = sum(float(r[idx["cost_usd"]]) for r in body if r[idx.get("cost_usd", -1)])
-    lines += [f"**{len(body)} orders, ${spent:.2f} deployed.**", "",
-              "| Placed (UTC) | Model | Market | Side | Qty | Price | Cost |",
-              "|---|---|---|---|---|---|---|"]
+
+    def outcome(r):
+        i = idx.get("outcome")
+        return r[i] if i is not None and len(r) > i else ""
+
+    def realized_usd(r):
+        # outcome like "win (+42c)" is per contract; scale by count
+        try:
+            cents = float(outcome(r).split("(")[1].rstrip("c)"))
+            return cents * float(r[idx["count"]]) / 100.0
+        except (IndexError, ValueError):
+            return None
+
+    settled = [r for r in body if outcome(r)]
+    wins = sum(1 for r in settled if outcome(r).startswith("win"))
+    realized = sum(realized_usd(r) or 0.0 for r in settled)
+    head = f"**{len(body)} orders, ${spent:.2f} deployed.**"
+    if settled:
+        rsign = "+" if realized >= 0 else "-"
+        head += (f" Settled: **{wins} W — {len(settled) - wins} L, "
+                 f"realized {rsign}${abs(realized):.2f}**; "
+                 f"{len(body) - len(settled)} open.")
+    lines += [head, "",
+              "| Placed (UTC) | Model | Market | Side | Qty | Price | Cost | Result |",
+              "|---|---|---|---|---|---|---|---|"]
     for r in reversed(body[-MAX_ROWS:]):
         when = r[idx["placed_at_utc"]][5:16].replace("T", " ")
+        out = outcome(r)
+        usd = realized_usd(r)
+        if not out:
+            res = "⏳ open"
+        else:
+            dot = "🟢" if out.startswith("win") else "🔴"
+            sign = "+" if (usd or 0) >= 0 else "-"
+            res = f"{dot} {out.split(' ')[0]} ({sign}${abs(usd or 0):.2f})"
         lines.append(
             f"| {when} | {r[idx['model']]} | {r[idx['ticker']]} "
             f"| {r[idx['side']].upper()} | {r[idx['count']]} "
-            f"| {r[idx['price_cents']]}¢ | ${r[idx['cost_usd']]} |")
+            f"| {r[idx['price_cents']]}¢ | ${r[idx['cost_usd']]} | {res} |")
     lines.append("")
 
 

@@ -246,11 +246,13 @@ def main() -> int:
 
     if not results:
         log.info("No in-band signals this run. Exiting.")
+        refresh_records(settings)
         return 0
 
     picks = pick_best_per_event(results)
     if not picks:
         log.info("No signals today — nothing to trade. Exiting.")
+        refresh_records(settings)
         return 0
 
     try:
@@ -357,13 +359,42 @@ def main() -> int:
         placed += 1
 
     log.info("Run complete: %d order(s) placed. Exiting (no loop).", placed)
+    refresh_records(settings, client)
+    return 0
+
+
+def refresh_records(settings, client=None) -> None:
+    """Make the record TRUE before rebuilding the scoreboard: pull any real
+    orders the ledger missed from Kalshi's own fills (source of truth —
+    CI workspaces are ephemeral), score settled executions, then rebuild.
+    Runs on EVERY exit path, including no-signal runs."""
+    from ledger import EXEC_LOG, reconcile_fills
+    if client is None:
+        try:
+            client = KalshiClient(settings.kalshi_api_key_id,
+                                  settings.kalshi_private_key_path,
+                                  settings.kalshi_env)
+        except Exception as exc:
+            log.warning("Records: no authenticated client (%s)", exc)
+            client = None
+    if client is not None:
+        try:
+            added = reconcile_fills(client)
+            if added:
+                log.info("Reconciled %d order(s) from Kalshi fills that the "
+                         "ledger had missed.", added)
+        except Exception as exc:
+            log.warning("Fill reconciliation failed: %s", exc)
+        try:
+            score_pending_paper_trades(EXEC_LOG)
+        except Exception as exc:
+            log.warning("Executed-trade scoring failed: %s", exc)
     try:
         import scoreboard
         scoreboard.build()
         log.info("SCOREBOARD.md refreshed.")
     except Exception as exc:
         log.warning("Scoreboard generation failed: %s", exc)
-    return 0
 
 
 if __name__ == "__main__":
