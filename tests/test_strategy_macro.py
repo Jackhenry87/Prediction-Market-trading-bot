@@ -9,8 +9,8 @@ def test_transforms():
     assert sm.latest_actual(obs, "level")[1] == 113.0
     # yoy_pct = (latest/12-months-ago - 1)*100 = (113/101 - 1)*100
     assert abs(sm.latest_actual(obs, "yoy_pct")[1] - (113/101 - 1) * 100) < 1e-9
-    # mom change = latest - prev
-    assert abs(sm.latest_actual(obs, "mom_change_k")[1] - 1.0) < 1e-9
+    # mom change in jobs = (latest - prev) * 1000
+    assert abs(sm.latest_actual(obs, "mom_change_jobs")[1] - 1000.0) < 1e-9
 
 
 def test_known_outcome_yes_side():

@@ -43,12 +43,17 @@ MIN_EDGE_CENTS = 3.0
 # to turn the raw FRED observation into the number the market is about.
 # VERIFY every row against a real settled Kalshi market before arming.
 MACRO_SERIES = [
-    dict(fred="UNRATE", kalshi="KXUNRATE", transform="level",
+    # jobless claims: weekly (Thu), the frequent testbed. ICSA is the raw
+    # claim count; Kalshi thresholds are raw counts too -> 'level'.
+    dict(fred="ICSA", kalshi="KXJOBLESSCLAIMS", transform="level",
+         name="Initial jobless claims (count)"),
+    dict(fred="UNRATE", kalshi="KXU3", transform="level",
          name="US unemployment rate (%)"),
     dict(fred="CPIAUCSL", kalshi="KXCPIYOY", transform="yoy_pct",
          name="CPI year-over-year (%)"),
-    dict(fred="PAYEMS", kalshi="KXPAYROLLS", transform="mom_change_k",
-         name="Nonfarm payrolls (thousands, MoM change)"),
+    # PAYEMS is in THOUSANDS; Kalshi payroll strikes are raw jobs -> x1000
+    dict(fred="PAYEMS", kalshi="KXPAYROLLS", transform="mom_change_jobs",
+         name="Nonfarm payrolls (MoM change, jobs)"),
 ]
 
 
@@ -73,8 +78,9 @@ def latest_actual(obs: list, transform: str):
         return obs[-1][0], obs[-1][1]
     if transform == "yoy_pct" and len(obs) >= 13:
         return obs[-1][0], (obs[-1][1] / obs[-13][1] - 1.0) * 100.0
-    if transform == "mom_change_k" and len(obs) >= 2:
-        return obs[-1][0], obs[-1][1] - obs[-2][1]  # PAYEMS is in thousands
+    if transform == "mom_change_jobs" and len(obs) >= 2:
+        # PAYEMS is in thousands; ×1000 to match Kalshi's raw-jobs strikes
+        return obs[-1][0], (obs[-1][1] - obs[-2][1]) * 1000.0
     return None
 
 
