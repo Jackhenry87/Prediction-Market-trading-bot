@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block body %}
+<h2>Sign up</h2>
+<form action="/signup" method="post">
+  <p><label>Username<br><input name="username" required minlength="3"></label></p>
+  <p><label>Email (optional)<br><input name="email" type="email"></label></p>
+  <p><label>Password<br><input name="password" type="password" required minlength="6"></label></p>
+  <button class="btn" type="submit">Create account — get $1,000 play money</button>
+</form>
+<p class="muted">Already have an account? <a href="/login">Log in</a>.</p>
+{% endblock %}

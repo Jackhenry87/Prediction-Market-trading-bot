@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block body %}
+<h2>My bets</h2>
+<p>Balance: <span class="bal">{{ user["balance_cents"] | dollars }}</span></p>
+
+<details>
+  <summary>🤖 Bot API key (keep secret)</summary>
+  <p><code>{{ user["api_key"] }}</code></p>
+  <p class="muted">Send it as the <code>X-API-Key</code> header to place bets
+  programmatically. See the README.</p>
+</details>
+
+<table>
+  <tr><th>Game</th><th>Side</th><th>Stake</th><th>Odds</th><th>Status</th><th>Payout</th></tr>
+  {% for b in bets %}
+  <tr>
+    <td>{{ b["away"] }} @ {{ b["home"] }}</td>
+    <td>{{ b["home"] if b["side"]=="home" else b["away"] }}</td>
+    <td>{{ b["stake_cents"] | dollars }}</td>
+    <td>{{ "%.2f"|format(b["odds"]) }}</td>
+    <td>{% if b["status"]=="won" %}🟢 won{% elif b["status"]=="lost" %}🔴 lost
+        {% else %}⏳ open{% endif %}</td>
+    <td>{{ b["payout_cents"] | dollars if b["status"]=="won" else "—" }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% if not bets %}<p class="muted">No bets yet — <a href="/">pick a game</a>.</p>{% endif %}
+{% endblock %}

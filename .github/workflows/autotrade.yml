@@ -53,6 +53,7 @@ jobs:
         env:
           KALSHI_API_KEY_ID: ${{ secrets.KALSHI_API_KEY_ID }}
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
           KALSHI_PRIVATE_KEY_PATH: kalshi_prod.pem
           KALSHI_ENV: ${{ vars.KALSHI_ENV || 'prod' }}
           # LIVE by default (owner's choice): places real orders. The ledger

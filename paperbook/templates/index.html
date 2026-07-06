@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block body %}
+<h2>Upcoming games</h2>
+{% if not games %}<p class="muted">No games loaded yet. An admin runs the
+odds loader to populate them.</p>{% endif %}
+<table>
+  <tr><th>Game</th><th>Home odds</th><th>Away odds</th>
+      {% if user %}<th>Bet</th>{% endif %}</tr>
+  {% for g in games %}
+  <tr>
+    <td>{{ g["away"] }} @ {{ g["home"] }}<br><span class="muted">{{ g["sport"] }}</span></td>
+    <td>{{ "%.2f"|format(g["home_odds"]) if g["home_odds"] else "—" }}</td>
+    <td>{{ "%.2f"|format(g["away_odds"]) if g["away_odds"] else "—" }}</td>
+    {% if user %}
+    <td>
+      <form action="/bet" method="post" style="display:flex;gap:.3rem;flex-wrap:wrap">
+        <input type="hidden" name="game_id" value="{{ g['id'] }}">
+        <select name="side">
+          <option value="home">{{ g["home"] }}</option>
+          <option value="away">{{ g["away"] }}</option>
+        </select>
+        <input type="number" name="stake_dollars" min="1" step="1" value="10" style="width:5rem">
+        <button class="btn" type="submit">Bet</button>
+      </form>
+    </td>
+    {% endif %}
+  </tr>
+  {% endfor %}
+</table>
+
+<h2>🏆 Leaderboard</h2>
+<table>
+  <tr><th>#</th><th>Player</th><th>Balance</th></tr>
+  {% for u in leaders %}
+  <tr><td>{{ loop.index }}</td><td>{{ u["username"] }}</td>
+      <td>{{ u["balance_cents"] | dollars }}</td></tr>
+  {% endfor %}
+</table>
+{% if not user %}<p><a class="btn" href="/signup">Sign up to play</a></p>{% endif %}
+{% endblock %}
