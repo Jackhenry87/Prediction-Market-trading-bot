@@ -1,17 +1,115 @@
 {
-  "open": {
+  "any": {
     "status": 200,
     "body": {
-      "cursor": "",
-      "events": [],
-      "milestones": []
-    }
-  },
-  "unopened": {
-    "status": 200,
-    "body": {
-      "cursor": "",
-      "events": [],
+      "cursor": "CgYI7O2WzgYSGEtYRklGQUdBTUUtMjZNQVIyNkNaRUlSTA",
+      "events": [
+        {
+          "event_ticker": "KXFIFAGAME-26MAR31IRQBOL",
+          "mutually_exclusive": true,
+          "sub_title": "IRQ vs BOL (Mar 31)",
+          "title": "Iraq vs Bolivia",
+          "markets": []
+        },
+        {
+          "event_ticker": "KXFIFAGAME-26MAR31CODJAM",
+          "mutually_exclusive": true,
+          "sub_title": "COD vs JAM (Mar 31)",
+          "title": "Congo DR vs Jamaica",
+          "markets": []
+        },
+        {
+          "event_ticker": "KXFIFAGAME-26MAR31SWEPOL",
+          "mutually_exclusive": true,
+          "sub_title": "SWE vs POL (Mar 31)",
+          "title": "Sweden vs Poland",
+          "markets": []
+        },
+        {
+          "event_ticker": "KXFIFAGAME-26MAR31KOSTUR",
+          "mutually_exclusive": true,
+          "sub_title": "KOS vs TUR (Mar 31)",
+          "title": "Kosovo vs Turkiye",
+          "markets": []
+        },
+        {
+          "event_ticker": "KXFIFAGAME-26MAR31CZEDEN",
+          "mutually_exclusive": true,
+          "sub_title": "CZE vs DEN (Mar 31)",
+          "title": "Czechia vs Denmark",
+          "markets": []
+        },
+        {
+          "event_ticker": "KXFIFAGAME-26MAR31BIHITA",
+          "mutually_exclusive": true,
+          "sub_title": "BIH vs ITA (Mar 31)",
+          "title": "Bosnia and Herzegovina vs Italy",
+          "markets": []
+        },
+        {
+          "event_ticker": "KXFIFAGAME-26MAR26NCLJAM",
+          "mutually_exclusive": true,
+          "sub_title": "NCL vs JAM (Mar 26)",
+          "title": "New Caledonia vs Jamaica",
+          "markets": []
+        },
+        {
+          "event_ticker": "KXFIFAGAME-26MAR26BOLSUR",
+          "mutually_exclusive": true,
+          "sub_title": "BOL vs SUR (Mar 26)",
+          "title": "Bolivia vs Suriname",
+          "markets": []
+        },
+        {
+          "event_ticker": "KXFIFAGAME-26MAR26WALBIH",
+          "mutually_exclusive": true,
+          "sub_title": "WAL vs BIH (Mar 26)",
+          "title": "Wales vs Bosnia and Herzegovina",
+          "markets": []
+        },
+        {
+          "event_ticker": "KXFIFAGAME-26MAR26UKRSWE",
+          "mutually_exclusive": true,
+          "sub_title": "UKR vs SWE (Mar 26)",
+          "title": "Ukraine vs Sweden",
+          "markets": []
+        },
+        {
+          "event_ticker": "KXFIFAGAME-26MAR26SVKKOS",
+          "mutually_exclusive": true,
+          "sub_title": "SVK vs KOS (Mar 26)",
+          "title": "Slovakia vs Kosovo",
+          "markets": []
+        },
+        {
+          "event_ticker": "KXFIFAGAME-26MAR26POLALB",
+          "mutually_exclusive": true,
+          "sub_title": "POL vs ALB (Mar 26)",
+          "title": "Poland vs Albania",
+          "markets": []
+        },
+        {
+          "event_ticker": "KXFIFAGAME-26MAR26ITANIR",
+          "mutually_exclusive": true,
+          "sub_title": "ITA vs NIR (Mar 26)",
+          "title": "Italy vs Northern Ireland",
+          "markets": []
+        },
+        {
+          "event_ticker": "KXFIFAGAME-26MAR26DENMKD",
+          "mutually_exclusive": true,
+          "sub_title": "DEN vs MKD (Mar 26)",
+          "title": "Denmark vs North Macedonia",
+          "markets": []
+        },
+        {
+          "event_ticker": "KXFIFAGAME-26MAR26CZEIRL",
+          "mutually_exclusive": true,
+          "sub_title": "CZE vs IRL (Mar 26)",
+          "title": "Czechia vs Ireland",
+          "markets": []
+        }
+      ],
       "milestones": []
     }
   }
