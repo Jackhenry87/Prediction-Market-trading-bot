@@ -128,3 +128,66 @@ def test_wrong_date_or_league_not_mapped():
 def test_league_series_mapping_sane():
     for league in ("mlb", "nba", "nfl", "nhl", "wnba"):
         assert sm.LEAGUE_SERIES[league].startswith("KX")
+
+
+def test_wc_slug_regex_and_routing():
+    assert sm.WC_RE.match("fifwc-prt-esp-2026-07-06-esp")
+    assert sm.WC_RE.match("fifwc-prt-esp-2026-07-06-prt")
+    assert sm.WC_RE.match("fifwc-prt-esp-2026-07-06-draw")
+    # props, advance, totals, scores: all rejected (different bets)
+    assert not sm.WC_RE.match("fifwc-usa-bel-2026-07-06-team-to-advance")
+    assert not sm.WC_RE.match("fifwc-prt-esp-2026-07-06-total-8pt5")
+    assert not sm.WC_RE.match("fifwc-prt-esp-2026-07-06-exact-score-2-1")
+    assert not sm.WC_RE.match("fifwc-prt-esp-2026-07-06-btts")
+    assert not sm.WC_RE.match("fifwc-prt-esp-2026-07-06-goals-lamine-yamal-gte1")
+
+
+WC_EVENTS = [{
+    "event_ticker": "KXFIFAGAME-26JUL06PRTESP",
+    "title": "Portugal vs Spain",
+    "markets": [
+        {"ticker": "KXFIFAGAME-26JUL06PRTESP-PRT", "status": "active",
+         "yes_sub_title": "Portugal", "yes_ask": 30, "yes_bid": 27},
+        {"ticker": "KXFIFAGAME-26JUL06PRTESP-ESP", "status": "active",
+         "yes_sub_title": "Spain", "yes_ask": 46, "yes_bid": 43},
+        {"ticker": "KXFIFAGAME-26JUL06PRTESP-TIE", "status": "active",
+         "yes_sub_title": "Tie", "yes_ask": 29, "yes_bid": 26},
+    ],
+}]
+
+
+def _wc_cons(slug, outcome="Yes", price=0.44):
+    return dict(slug=slug, outcome=outcome, title="Will Spain win?",
+                wallets=4, stake=2500.0, avg_price=price)
+
+
+def test_wc_signal_maps_match_winner():
+    sig = sm.wc_signal(_wc_cons("fifwc-prt-esp-2026-07-06-esp"), WC_EVENTS)
+    assert sig and sig["ticker"] == "KXFIFAGAME-26JUL06PRTESP-ESP"
+    assert sig["side"] == "yes" and sig["price_cents"] == 46
+    assert "4 sharps" in sig["subtitle"]
+    # reversed code order in the Kalshi ticker still matches
+    rev = [dict(WC_EVENTS[0], event_ticker="KXFIFAGAME-26JUL06ESPPRT")]
+    assert sm.wc_signal(_wc_cons("fifwc-prt-esp-2026-07-06-esp"), rev)
+
+
+def test_wc_signal_maps_draw_to_tie():
+    sig = sm.wc_signal(_wc_cons("fifwc-prt-esp-2026-07-06-draw", price=0.27),
+                       WC_EVENTS)
+    assert sig and sig["ticker"] == "KXFIFAGAME-26JUL06PRTESP-TIE"
+
+
+def test_wc_signal_fails_closed():
+    # no chase: sharps at 30c, Kalshi asks 46c -> blocked
+    assert sm.wc_signal(_wc_cons("fifwc-prt-esp-2026-07-06-esp", price=0.30),
+                        WC_EVENTS) is None
+    # wrong date -> no event match
+    assert sm.wc_signal(_wc_cons("fifwc-prt-esp-2026-07-07-esp"),
+                        WC_EVENTS) is None
+    # suffix that is a trigram but NOT one of the two teams -> refused
+    assert sm.wc_signal(_wc_cons("fifwc-prt-esp-2026-07-06-bra"),
+                        WC_EVENTS) is None
+    # missing side market (no TIE listed) -> no trade
+    no_tie = [dict(WC_EVENTS[0], markets=WC_EVENTS[0]["markets"][:2])]
+    assert sm.wc_signal(_wc_cons("fifwc-prt-esp-2026-07-06-draw"),
+                        no_tie) is None

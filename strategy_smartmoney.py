@@ -14,14 +14,15 @@ Pipeline per run:
      Only a market+outcome bought by >= MIN_WALLETS DISTINCT sharps with
      real stakes counts — one whale is noise, several sharps agreeing is
      the signal.
-  3. Map consensus on big-league moneylines (MLB/NBA/NFL/NHL/WNBA) to the
-     Kalshi game market and signal the matching side. Our fair prob is
-     the sharps' stake-weighted entry plus a small premium, so EV math
-     refuses to chase a line that has already run away from their entry.
+  3. Map consensus onto Kalshi: big-league moneylines (MLB/NBA/NFL/NHL/
+     WNBA -> KX*GAME series) and World Cup regulation match-winner/draw
+     markets (fifwc slugs -> KXFIFAGAME). Our fair prob is the sharps'
+     stake-weighted entry plus a small premium, so EV math refuses to
+     chase a line that has already run away from their entry.
 
-Non-mappable consensus (crypto 15-minute markets, props, politics without
-a Kalshi twin) is logged for visibility and skipped — there is no legal
-venue for us to take it.
+Non-mappable consensus (crypto 15-minute markets, totals/props/exact
+scores, team-to-advance — a different bet than regulation winner — and
+venues without a Kalshi twin) is logged for visibility and skipped.
 
     python strategy_smartmoney.py    # read-only scan, no orders
 """
@@ -75,6 +76,17 @@ MONEYLINE_RE = re.compile(
 LEAGUE_SERIES = {c["sport"].split("_")[-1]: c["series"] for c in SERIES}
 LEAGUE_SERIES.update({"mlb": "KXMLBGAME", "nba": "KXNBA", "nfl": "KXNFLGAME",
                       "nhl": "KXNHLGAME", "wnba": "KXWNBA"})
+
+# World Cup: Polymarket fifwc-prt-esp-2026-07-06-esp is the regulation
+# match-winner ("Will Spain win on ...?") and -draw the tie. Kalshi's game
+# series uses the SAME FIFA trigrams in its event tickers
+# (KXFIFAGAME-26JUL06PRTESP, probe-verified). team-to-advance is a
+# DIFFERENT bet (draw -> penalties still advances someone) with no
+# verified Kalshi twin, so it is deliberately NOT mapped; likewise all
+# totals/exact-score/player props.
+WC_SERIES = "KXFIFAGAME"
+WC_RE = re.compile(
+    r"^fifwc-([a-z]{3})-([a-z]{3})-(\d{4})-(\d{2})-(\d{2})-([a-z]{3}|draw)$")
 
 
 def _get(url: str, **params) -> list:
@@ -195,18 +207,39 @@ def kalshi_date_token(y: str, m: str, d: str) -> str:
     return f"{y[2:]}{MONTHS[int(m) - 1]}{d}"
 
 
+def _priced_signal(cons: dict, market: dict, event: dict) -> dict:
+    """YES signal on this Kalshi market at the sharps' price + premium, or
+    None when the ask already ran past their entry (no chasing)."""
+    p = min(cons["avg_price"] + PREMIUM_PTS / 100.0, MAX_PROB)
+    label = (market.get("yes_sub_title") or market.get("subtitle")
+             or market.get("title") or "")
+    yes_ask = price_cents(market, "yes_ask")
+    if not yes_ask or not 0 < yes_ask < 100:
+        return None
+    ev = 100.0 * p - yes_ask - taker_fee_cents(yes_ask)
+    if ev < MIN_EDGE_CENTS:   # line already ran past the sharps
+        log.info("No chase: %s ask %.0fc vs sharp entry %.0fc",
+                 label, yes_ask, 100 * cons["avg_price"])
+        return None
+    return dict(side="yes", price_cents=yes_ask, model_prob=p,
+                ev_cents=ev, ticker=market.get("ticker"),
+                subtitle=f"{label} ({cons['wallets']} sharps, "
+                         f"${cons['stake']:.0f})",
+                event_ticker=event.get("event_ticker")
+                or event.get("ticker") or "",
+                event_title=event.get("title", ""))
+
+
 def consensus_signal(cons: dict, events: list) -> dict:
-    """Map one consensus item onto a Kalshi game market. Returns a signal
-    dict (plus event_ticker/title) or None. Refuses ambiguity."""
+    """Map one US-league moneyline consensus onto a Kalshi game market.
+    Returns a signal dict (plus event_ticker/title) or None."""
     m = MONEYLINE_RE.match(cons["slug"])
     if not m:
         return None
     token = kalshi_date_token(m.group(2), m.group(3), m.group(4))
-    p = min(cons["avg_price"] + PREMIUM_PTS / 100.0, MAX_PROB)
     team_words = _words(cons["outcome"])
     if not team_words:
         return None
-
     for event in events:
         event_ticker = event.get("event_ticker") or event.get("ticker") or ""
         if token not in event_ticker:
@@ -216,22 +249,35 @@ def consensus_signal(cons: dict, events: list) -> dict:
                 continue
             label = (market.get("yes_sub_title") or market.get("subtitle")
                      or market.get("title") or "")
-            if not (team_words <= _words(label)):
+            if team_words <= _words(label):
+                return _priced_signal(cons, market, event)
+    return None
+
+
+def wc_signal(cons: dict, events: list) -> dict:
+    """Map a World Cup match-winner (or draw) consensus onto the matching
+    KXFIFAGAME market. Every uncertainty fails CLOSED: unknown suffix, no
+    matching event, or no matching side market -> no trade."""
+    m = WC_RE.match(cons["slug"])
+    if not m:
+        return None
+    a, b, suffix = m.group(1), m.group(2), m.group(6)
+    if suffix not in (a, b, "draw"):     # a prop that looks like a trigram
+        return None
+    token = kalshi_date_token(m.group(3), m.group(4), m.group(5))
+    tails = (token + a.upper() + b.upper(), token + b.upper() + a.upper())
+    want = ("-TIE", "-DRAW") if suffix == "draw" \
+        else (f"-{suffix.upper()}",)
+    for event in events:
+        event_ticker = event.get("event_ticker") or event.get("ticker") or ""
+        if not event_ticker.endswith(tails[0]) \
+                and not event_ticker.endswith(tails[1]):
+            continue
+        for market in event.get("markets") or []:
+            if market.get("status") not in (None, "active", "open"):
                 continue
-            yes_ask = price_cents(market, "yes_ask")
-            if not yes_ask or not 0 < yes_ask < 100:
-                return None
-            ev = 100.0 * p - yes_ask - taker_fee_cents(yes_ask)
-            if ev < MIN_EDGE_CENTS:   # line already ran past the sharps
-                log.info("No chase: %s ask %.0fc vs sharp entry %.0fc",
-                         label, yes_ask, 100 * cons["avg_price"])
-                return None
-            return dict(side="yes", price_cents=yes_ask, model_prob=p,
-                        ev_cents=ev, ticker=market.get("ticker"),
-                        subtitle=f"{label} ({cons['wallets']} sharps, "
-                                 f"${cons['stake']:.0f})",
-                        event_ticker=event_ticker,
-                        event_title=event.get("title", ""))
+            if any(str(market.get("ticker", "")).endswith(w) for w in want):
+                return _priced_signal(cons, market, event)
     return None
 
 
@@ -251,15 +297,8 @@ def scan() -> list:
 
     client = KalshiClient(env="prod")
     events_by_series = {}
-    results = []
-    for cons in consensus:
-        m = MONEYLINE_RE.match(cons["slug"])
-        if not m:
-            log.info("Unmappable consensus (no Kalshi venue): %s | %s | "
-                     "%d sharps $%.0f @ %.0fc", cons["title"], cons["outcome"],
-                     cons["wallets"], cons["stake"], 100 * cons["avg_price"])
-            continue
-        series = LEAGUE_SERIES.get(m.group(1))
+
+    def events_for(series: str) -> list:
         if series not in events_by_series:
             try:
                 data = client._request(
@@ -271,7 +310,21 @@ def scan() -> list:
                 log.warning("Kalshi events fetch failed for %s: %s",
                             series, exc)
                 events_by_series[series] = []
-        sig = consensus_signal(cons, events_by_series[series])
+        return events_by_series[series]
+
+    results = []
+    for cons in consensus:
+        ml = MONEYLINE_RE.match(cons["slug"])
+        if ml:
+            sig = consensus_signal(cons,
+                                   events_for(LEAGUE_SERIES[ml.group(1)]))
+        elif WC_RE.match(cons["slug"]):
+            sig = wc_signal(cons, events_for(WC_SERIES))
+        else:
+            log.info("Unmappable consensus (no Kalshi venue): %s | %s | "
+                     "%d sharps $%.0f @ %.0fc", cons["title"], cons["outcome"],
+                     cons["wallets"], cons["stake"], 100 * cons["avg_price"])
+            continue
         if not sig:
             continue
         event_ticker = sig.pop("event_ticker")
