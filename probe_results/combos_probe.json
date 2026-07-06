@@ -1,0 +1,369 @@
+{
+  "series_guesses": {
+    "KXMULTI": {
+      "n": 0,
+      "sample": null
+    },
+    "KXCOMBO": {
+      "n": 0,
+      "sample": null
+    },
+    "KXPARLAY": {
+      "n": 0,
+      "sample": null
+    },
+    "KXMULTIS": {
+      "n": 0,
+      "sample": null
+    },
+    "KXCOMBOS": {
+      "n": 0,
+      "sample": null
+    },
+    "KXMULTIGAME": {
+      "n": 0,
+      "sample": null
+    },
+    "KXPARLAYS": {
+      "n": 0,
+      "sample": null
+    }
+  },
+  "combo_events": [
+    {
+      "series": "KXPOPCHANGESTATE10",
+      "event": "KXPOPCHANGESTATE10-35",
+      "title": "Will any U.S. state experience a population decrease of at least 10% between 2025 and 2035?"
+    },
+    {
+      "series": "KXTVSEASONRELEASEACOURTOFTHORNSANDROSES",
+      "event": "KXTVSEASONRELEASEACOURTOFTHORNSANDROSES",
+      "title": "A Court Of Thorns and Roses: Released before 2030?"
+    },
+    {
+      "series": "KXSONICS",
+      "event": "KXSONICS-30",
+      "title": "Portland Trailblazers bought and changed to Seattle SuperSonics?"
+    },
+    {
+      "series": "KXMARRIAGESTYLESKRAVITZ",
+      "event": "KXMARRIAGESTYLESKRAVITZ-HSZK",
+      "title": "Harry Styles and Zoe\u0308 Kravitz: Marriage date"
+    },
+    {
+      "series": "KXLIPATURNERLOCATION",
+      "event": "KXLIPATURNERLOCATION-30",
+      "title": "Where will Dua Lipa and Callum Turner\u2019s wedding occur?"
+    },
+    {
+      "series": "KXARTISTCOLLABTHUGANDGUNNA",
+      "event": "KXARTISTCOLLABTHUGANDGUNNA-30",
+      "title": "When will Young Thug and Gunna make a song together?"
+    },
+    {
+      "series": "KXARTISTCOLLABDRAKEKENDRICK",
+      "event": "KXARTISTCOLLABDRAKEKENDRICK-30",
+      "title": "Will Drake and Kendrick Lamar make a song together before 2030?"
+    },
+    {
+      "series": "POWER",
+      "event": "POWER-28",
+      "title": "2028: Who will win the Presidency, House, and Senate?"
+    },
+    {
+      "series": "KXZELENSKYPUTIN",
+      "event": "KXZELENSKYPUTIN-29",
+      "title": "Will Zelenskyy and Putin speak?"
+    },
+    {
+      "series": "KXTRUMPREMOVE",
+      "event": "KXTRUMPREMOVE",
+      "title": "Will Trump be impeached and removed from office?"
+    },
+    {
+      "series": "KXABRAHAMSY",
+      "event": "KXABRAHAMSY-29",
+      "title": "Will Israel and Syria normalize relations during Trump's term?"
+    },
+    {
+      "series": "KXABRAHAMSA",
+      "event": "KXABRAHAMSA-29",
+      "title": "Will Israel and Saudi Arabia normalize relations during Trump's term?"
+    },
+    {
+      "series": "KXABRAHAMQ",
+      "event": "KXABRAHAMQ-29",
+      "title": "Will Israel and Qatar normalize relations during Trump's term?"
+    },
+    {
+      "series": "KXPUTINDJTLOCATION",
+      "event": "KXPUTINDJTLOCATION-29",
+      "title": "Where will Trump and Putin next meet?"
+    },
+    {
+      "series": "KXBANTRANS",
+      "event": "KXBANTRANS-26",
+      "title": "Will US Supreme Court ban transgender girls and women from competing on female sports teams?"
+    },
+    {
+      "series": "KXPUTINZELENSKYYLOCATION",
+      "event": "KXPUTINZELENSKYYLOCATION-28",
+      "title": "Where will Putin and Zelenskyy next meet?"
+    },
+    {
+      "series": "KXVANCERUBIORUN",
+      "event": "KXVANCERUBIORUN-28JAN",
+      "title": "Will Rubio and Vance run for President?"
+    },
+    {
+      "series": "KXOSCARNOMMAKEUP",
+      "event": "KXOSCARNOMMAKEUP-27",
+      "title": "Oscar nominees: Best Makeup and Hairstyling"
+    },
+    {
+      "series": "KXMUSICREPORT",
+      "event": "KXMUSICREPORT-TOPSALE27DEC31",
+      "title": "Top U.S. Selling Album (Physical and Digital Sales Combined): 2026"
+    },
+    {
+      "series": "KXBOSNIANGEN",
+      "event": "KXBOSNIANGEN-26OCT04",
+      "title": "Bosnia and Herzegovina Parliamentary Election"
+    },
+    {
+      "series": "KXNBAMVPDPOY",
+      "event": "KXNBAMVPDPOY-27",
+      "title": "Victor Wembanyama to win MVP and DPOY in the 2026-27 season"
+    },
+    {
+      "series": "KXCOMPANYACTIONMERGER",
+      "event": "KXCOMPANYACTIONMERGER-27",
+      "title": "When will Tesla and SpaceX merge?"
+    },
+    {
+      "series": "KXLEAVEHOUSECOMBO",
+      "event": "KXLEAVEHOUSECOMBO-27JAN01",
+      "title": "Swalwell, Gonzales, Mills, and Cherfilus-McCormick out as Representatives?"
+    },
+    {
+      "series": "KXCOMMGIFTS",
+      "event": "KXCOMMGIFTS-26SEP30",
+      "title": "FY2026 Commerce Department gifts and bequests (including Gold Card receipts)"
+    },
+    {
+      "series": "KXGOVSENDIFF",
+      "event": "KXGOVSENDIFF-27FEB01",
+      "title": "How many states will elect a governor and senator from different parties in 2026?"
+    }
+  ],
+  "combo_markets": [
+    {
+      "ticker": "KXPOPCHANGESTATE10-35",
+      "title": "Will  experience a population decrease of at least 10% between 2025 and 2035? Between 2025 and 2035?"
+    },
+    {
+      "ticker": "KXSOCIALSECURITYDEPLETE-33-33JAN01",
+      "title": "Will it be reported by any of the Source Agencies that the OASI Trust Fund reserves are depleted such that full schedule"
+    },
+    {
+      "ticker": "KXCITYCHAMPS-TEX30JUL01SDRCTRAS-1",
+      "title": "San Antonio Pro Basketball team, Dallas Pro Basketball team, Houston Pro Basketball team, Dallas Pro Football team, Hous"
+    },
+    {
+      "ticker": "KXCITYCHAMPS-TEX30JUL01SDRCTRAS-2",
+      "title": "San Antonio Pro Basketball team, Dallas Pro Basketball team, Houston Pro Basketball team, Dallas Pro Football team, Hous"
+    },
+    {
+      "ticker": "KXCITYCHAMPS-TEX30JUL01SDRCTRAS-3",
+      "title": "San Antonio Pro Basketball team, Dallas Pro Basketball team, Houston Pro Basketball team, Dallas Pro Football team, Hous"
+    },
+    {
+      "ticker": "KXCITYCHAMPS-TEX30JUL01SDRCTRAS-4",
+      "title": "San Antonio Pro Basketball team, Dallas Pro Basketball team, Houston Pro Basketball team, Dallas Pro Football team, Hous"
+    },
+    {
+      "ticker": "KXCITYCHAMPS-PHI30JUL017EPF-1",
+      "title": "Philadelphia Pro Basketball team, Philadelphia Pro Football team, Philadelphia Pro Baseball team, and the Philadelphia F"
+    },
+    {
+      "ticker": "KXCITYCHAMPS-PHI30JUL017EPF-2",
+      "title": "Philadelphia Pro Basketball team, Philadelphia Pro Football team, Philadelphia Pro Baseball team, and the Philadelphia F"
+    },
+    {
+      "ticker": "KXCITYCHAMPS-PHI30JUL017EPF-3",
+      "title": "Philadelphia Pro Basketball team, Philadelphia Pro Football team, Philadelphia Pro Baseball team, and the Philadelphia F"
+    },
+    {
+      "ticker": "KXCITYCHAMPS-PHI30JUL017EPF-4",
+      "title": "Philadelphia Pro Basketball team, Philadelphia Pro Football team, Philadelphia Pro Baseball team, and the Philadelphia F"
+    },
+    {
+      "ticker": "KXCITYCHAMPS-OH30JUL01CBBGRB-1",
+      "title": "Cleveland Pro Basketball team, Cleveland Pro Football team, Cincinnati Pro Football team, Cleveland Pro Baseball team, C"
+    },
+    {
+      "ticker": "KXCITYCHAMPS-OH30JUL01CBBGRB-2",
+      "title": "Cleveland Pro Basketball team, Cleveland Pro Football team, Cincinnati Pro Football team, Cleveland Pro Baseball team, C"
+    },
+    {
+      "ticker": "KXCITYCHAMPS-OH30JUL01CBBGRB-3",
+      "title": "Cleveland Pro Basketball team, Cleveland Pro Football team, Cincinnati Pro Football team, Cleveland Pro Baseball team, C"
+    },
+    {
+      "ticker": "KXCITYCHAMPS-OH30JUL01CBBGRB-4",
+      "title": "Cleveland Pro Basketball team, Cleveland Pro Football team, Cincinnati Pro Football team, Cleveland Pro Baseball team, C"
+    },
+    {
+      "ticker": "KXCITYCHAMPS-NYC30JUL01KNGJYMRI-1",
+      "title": "New York Pro Basketball team, Brooklyn Pro Basketball team, New York G Pro Football team, New York J Pro Football team, "
+    },
+    {
+      "ticker": "KXCITYCHAMPS-NYC30JUL01KNGJYMRI-2",
+      "title": "New York Pro Basketball team, Brooklyn Pro Basketball team, New York G Pro Football team, New York J Pro Football team, "
+    },
+    {
+      "ticker": "KXCITYCHAMPS-NYC30JUL01KNGJYMRI-3",
+      "title": "New York Pro Basketball team, Brooklyn Pro Basketball team, New York G Pro Football team, New York J Pro Football team, "
+    },
+    {
+      "ticker": "KXCITYCHAMPS-NYC30JUL01KNGJYMRI-4",
+      "title": "New York Pro Basketball team, Brooklyn Pro Basketball team, New York G Pro Football team, New York J Pro Football team, "
+    },
+    {
+      "ticker": "KXCITYCHAMPS-MIN30JUL01TVTW-1",
+      "title": "Minnesota Pro Basketball team, Minnesota Pro Football team, Minnesota Pro Baseball Team, and the Minnesota Wild: At leas"
+    },
+    {
+      "ticker": "KXCITYCHAMPS-MIN30JUL01TVTW-2",
+      "title": "Minnesota Pro Basketball team, Minnesota Pro Football team, Minnesota Pro Baseball Team, and the Minnesota Wild: At leas"
+    },
+    {
+      "ticker": "KXCITYCHAMPS-MIN30JUL01TVTW-3",
+      "title": "Minnesota Pro Basketball team, Minnesota Pro Football team, Minnesota Pro Baseball Team, and the Minnesota Wild: At leas"
+    },
+    {
+      "ticker": "KXCITYCHAMPS-MIN30JUL01TVTW-4",
+      "title": "Minnesota Pro Basketball team, Minnesota Pro Football team, Minnesota Pro Baseball Team, and the Minnesota Wild: At leas"
+    },
+    {
+      "ticker": "KXCITYCHAMPS-MIA30JUL01HDMP-1",
+      "title": "Miami Pro Basketball team, Miami Pro Football team, Miami Pro Baseball team, and the Florida Panthers: At least 1 champi"
+    },
+    {
+      "ticker": "KXCITYCHAMPS-MIA30JUL01HDMP-2",
+      "title": "Miami Pro Basketball team, Miami Pro Football team, Miami Pro Baseball team, and the Florida Panthers: At least 2 champi"
+    },
+    {
+      "ticker": "KXCITYCHAMPS-MIA30JUL01HDMP-3",
+      "title": "Miami Pro Basketball team, Miami Pro Football team, Miami Pro Baseball team, and the Florida Panthers: At least 3 champi"
+    }
+  ],
+  "open_series_count": 1239,
+  "poly_combos": [
+    {
+      "slug": "0x038797bf9525a64820",
+      "n": 4,
+      "title": "Switzerland vs. Colombia: Both Teams to Score AND Argentina vs. Egypt: Both Teams to Score AND Argentina vs. E",
+      "outcome": "",
+      "price": 0.1247389
+    },
+    {
+      "slug": "0x03a63fcdce0920a47e",
+      "n": 2,
+      "title": "United States vs. Belgium: 2nd Half O/U 1.5 AND United States vs. Belgium: O/U 2.5 AND United States to win th",
+      "outcome": "",
+      "price": 0.1791999804
+    },
+    {
+      "slug": "will-china-gdp-growth-in-q2-2026-be-between-4pt9-and-5pt2",
+      "n": 2,
+      "title": "Will China GDP growth in Q2 2026 be between 4.9% and 5.2%?",
+      "outcome": "Yes",
+      "price": 0.013
+    },
+    {
+      "slug": "will-china-gdp-growth-in-q2-2026-be-between-5pt2-and-5pt5",
+      "n": 2,
+      "title": "Will China GDP growth in Q2 2026 be between 5.2% and 5.5%?",
+      "outcome": "Yes",
+      "price": 0.001
+    },
+    {
+      "slug": "will-china-gdp-growth-in-q2-2026-be-between-4pt0-and-4pt3",
+      "n": 2,
+      "title": "Will China GDP growth in Q2 2026 be between 4.0% and 4.3%?",
+      "outcome": "Yes",
+      "price": 0.001
+    },
+    {
+      "slug": "will-the-price-of-bitcoin-be-between-66000-68000-on-july-8-2026",
+      "n": 2,
+      "title": "Will the price of Bitcoin be between $66,000 and $68,000 on July 8?",
+      "outcome": "No",
+      "price": 0.887
+    },
+    {
+      "slug": "0x036b4679390589cc8d",
+      "n": 1,
+      "title": "United States vs. Belgium: O/U 0.5 AND Argentina vs. Egypt: Team to Advance",
+      "outcome": "",
+      "price": 0.8143929994
+    },
+    {
+      "slug": "0x033f00627eabe6c941",
+      "n": 1,
+      "title": "United States vs. Belgium: O/U 1.5 AND Will Belgium win on 2026-07-06?",
+      "outcome": "",
+      "price": 0.2848
+    },
+    {
+      "slug": "0x03c007e26af418393f",
+      "n": 1,
+      "title": "Will France win on 2026-07-09? AND Will Argentina win on 2026-07-07?",
+      "outcome": "",
+      "price": 0.4579999962
+    },
+    {
+      "slug": "0x03a0755169d62ff13d",
+      "n": 1,
+      "title": "United States vs. Belgium: O/U 8.5 Total Corners AND United States vs. Belgium: Team to Advance AND United Sta",
+      "outcome": "",
+      "price": 0.2469999496
+    },
+    {
+      "slug": "0x03cb3d155a0129b4be",
+      "n": 1,
+      "title": "United States vs. Belgium: O/U 9.5 Total Corners AND United States vs. Belgium: O/U 2.5 AND United States vs. ",
+      "outcome": "",
+      "price": 0.204999999
+    },
+    {
+      "slug": "0x036fe6f3064f17003a",
+      "n": 1,
+      "title": "United States vs. Belgium: Team to Advance AND Exact Score: United States 1 - 2 Belgium?",
+      "outcome": "",
+      "price": 0.093
+    },
+    {
+      "slug": "0x031c68be2bcd50ebe9",
+      "n": 1,
+      "title": "Spread: Argentina (-1.5) AND Argentina vs. Egypt: Both Teams to Score",
+      "outcome": "",
+      "price": 0.137957918
+    },
+    {
+      "slug": "0x039260070ec65263a8",
+      "n": 1,
+      "title": "Folarin Balogun: 1+ goals AND Leandro Trossard: 1+ assists",
+      "outcome": "",
+      "price": 0.0961539539
+    },
+    {
+      "slug": "0x039cd97165627af4dc",
+      "n": 1,
+      "title": "United States vs. Belgium: O/U 7.5 Total Corners AND United States vs. Belgium: 1st Half O/U 2.5 AND United St",
+      "outcome": "",
+      "price": 0.403029993
+    }
+  ]
+}
