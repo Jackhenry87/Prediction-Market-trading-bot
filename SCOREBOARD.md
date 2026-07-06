@@ -1,16 +1,30 @@
 # 📊 Trading Scoreboard
 
-_Updated 2026-07-06 04:35 UTC — auto-generated every run; do not edit._
+_Updated 2026-07-06 05:32 UTC — auto-generated every run; do not edit._
 
 Signals are scored against official settlement whether or not a real order was placed. P&L shown is per 1-contract stakes.
 
 ## 💵 Real orders placed
 
-_No real orders placed yet._
+**4 orders, $2.91 deployed.**
+
+| Placed (UTC) | Model | Market | Side | Qty | Price | Cost |
+|---|---|---|---|---|---|---|
+| 07-06 05:32 | weather | KXHIGHLAX-26JUL06-B76.5 | NO | 1 | 78¢ | $0.78 |
+| 07-06 05:32 | weather | KXHIGHDEN-26JUL06-B98.5 | NO | 1 | 73¢ | $0.73 |
+| 07-06 05:32 | weather | KXHIGHMIA-26JUL06-B93.5 | NO | 1 | 75¢ | $0.75 |
+| 07-06 05:32 | weather | KXHIGHCHI-26JUL06-B78.5 | NO | 1 | 65¢ | $0.65 |
 
 ## 🌡️ Weather model
 
-_No signals recorded yet._
+### 🟢 0 W — 🔴 0 L — ⏳ 4 pending — net **+0¢**
+
+| Scanned (UTC) | Market | Side | Price | Model | Result |
+|---|---|---|---|---|---|
+| 07-06 05:32 | KXHIGHLAX-26JUL06-B76.5 | NO | 78¢ | 95% | ⏳ pending |
+| 07-06 05:32 | KXHIGHDEN-26JUL06-B98.5 | NO | 73¢ | 88% | ⏳ pending |
+| 07-06 05:32 | KXHIGHMIA-26JUL06-B93.5 | NO | 75¢ | 94% | ⏳ pending |
+| 07-06 05:32 | KXHIGHCHI-26JUL06-B78.5 | NO | 65¢ | 82% | ⏳ pending |
 
 ## ₿ Crypto model
 
