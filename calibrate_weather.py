@@ -17,6 +17,7 @@ rounded up to 0.5F). Read-only; run from the calibrate-weather workflow.
 import json
 import math
 import sys
+import time
 from datetime import date, timedelta
 
 import requests
@@ -31,15 +32,27 @@ AR_URL = "https://archive-api.open-meteo.com/v1/archive"
 
 
 def daily_map(url: str, lat: float, lon: float, start: str, end: str) -> dict:
-    resp = requests.get(url, params={
-        "latitude": lat, "longitude": lon, "daily": "temperature_2m_max",
-        "temperature_unit": "fahrenheit", "timezone": "auto",
-        "start_date": start, "end_date": end}, timeout=45)
-    resp.raise_for_status()
-    d = resp.json().get("daily", {})
-    return {t: v for t, v in zip(d.get("time", []),
-                                 d.get("temperature_2m_max", []))
-            if v is not None}
+    """One year of daily highs. The first run showed Open-Meteo can be slow
+    on later requests (LAX/Austin timed out at 45s) — use a generous timeout
+    and one retry with a pause."""
+    last_exc = None
+    for attempt in range(3):
+        if attempt:
+            time.sleep(20 * attempt)
+        try:
+            resp = requests.get(url, params={
+                "latitude": lat, "longitude": lon,
+                "daily": "temperature_2m_max",
+                "temperature_unit": "fahrenheit", "timezone": "auto",
+                "start_date": start, "end_date": end}, timeout=120)
+            resp.raise_for_status()
+            d = resp.json().get("daily", {})
+            return {t: v for t, v in zip(d.get("time", []),
+                                         d.get("temperature_2m_max", []))
+                    if v is not None}
+        except Exception as exc:
+            last_exc = exc
+    raise last_exc
 
 
 def error_stats(errs: list) -> dict:
