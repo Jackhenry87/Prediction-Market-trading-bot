@@ -64,7 +64,9 @@ def create_user(username: str, email: str, pw_hash: str) -> dict:
             "balance_cents, created_at) VALUES (?,?,?,?,?,?)",
             (username, email, pw_hash, key, START_BALANCE_CENTS, int(time.time())),
         )
-        return get_user(cur.lastrowid)
+        # read back on the SAME connection (row isn't committed to others yet)
+        return c.execute("SELECT * FROM users WHERE id=?",
+                         (cur.lastrowid,)).fetchone()
 
 
 def get_user(user_id: int):

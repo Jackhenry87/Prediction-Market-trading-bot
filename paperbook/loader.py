@@ -15,10 +15,18 @@ import requests
 
 from . import db
 
-SPORTS = ["baseball_mlb", "basketball_wnba", "basketball_nba",
-          "americanfootball_nfl", "icehockey_nhl"]
+SPORTS_URL = "https://api.the-odds-api.com/v4/sports/"
 ODDS_URL = "https://api.the-odds-api.com/v4/sports/{s}/odds/"
 SCORES_URL = "https://api.the-odds-api.com/v4/sports/{s}/scores/"
+
+
+def active_sports(api_key: str) -> list:
+    """Every in-season sport with head-to-head game markets (not futures).
+    The /v4/sports listing costs no API credits."""
+    resp = requests.get(SPORTS_URL, params={"apiKey": api_key}, timeout=20)
+    resp.raise_for_status()
+    return [s["key"] for s in resp.json()
+            if s.get("active") and not s.get("has_outrights")]
 
 
 def _consensus(game):
@@ -41,8 +49,14 @@ def load(api_key: str) -> int:
     if not api_key:
         _seed_demo()
         return 0
+    try:
+        sports = active_sports(api_key)
+    except Exception as exc:
+        print(f"could not list sports ({exc})")
+        return 0
+    print(f"{len(sports)} sports in season")
     n = 0
-    for sport in SPORTS:
+    for sport in sports:
         try:
             resp = requests.get(ODDS_URL.format(s=sport),
                                 params={"apiKey": api_key, "regions": "us",
@@ -71,7 +85,12 @@ def settle(api_key: str) -> int:
         return 0
     settled = 0
     open_ids = {g["id"] for g in db.open_games()}
-    for sport in SPORTS:
+    try:
+        sports = active_sports(api_key)
+    except Exception as exc:
+        print(f"could not list sports ({exc})")
+        return 0
+    for sport in sports:
         try:
             resp = requests.get(SCORES_URL.format(s=sport),
                                 params={"apiKey": api_key, "daysFrom": 3},
