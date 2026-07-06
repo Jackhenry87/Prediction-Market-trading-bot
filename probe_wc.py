@@ -22,11 +22,13 @@ KEEP = ("ticker", "yes_sub_title", "subtitle", "title", "yes_ask", "yes_bid",
 
 def main() -> int:
     out = {}
-    for status in ("open", "unopened"):
+    # no status filter: round 3 showed zero open/unopened events, yet an
+    # unfiltered call sees them — read the shape off recent (closed) games
+    for status in ("any",):
         time.sleep(2)   # round 2 saw 429s — be polite
         resp = requests.get(
             f"{BASE}/events",
-            params={"series_ticker": "KXFIFAGAME", "status": status,
+            params={"series_ticker": "KXFIFAGAME",
                     "with_nested_markets": "true", "limit": 15},
             timeout=30, headers=HEADERS)
         body = resp.json() if resp.status_code == 200 else resp.text[:300]
