@@ -1,0 +1,16 @@
+# systemd unit for an always-on VPS.
+#   sudo cp deploy/release-runner.service /etc/systemd/system/
+#   sudo systemctl enable --now release-runner
+[Unit]
+Description=Macro release-time trading runner
+After=network-online.target
+
+[Service]
+WorkingDirectory=/opt/trading-bot
+EnvironmentFile=/opt/trading-bot/.env
+ExecStart=/opt/trading-bot/venv/bin/python release_runner.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
