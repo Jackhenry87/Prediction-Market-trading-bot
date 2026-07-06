@@ -11,6 +11,9 @@ metric mapping would produce confident WRONG trades, this model:
   - is OFF by default (add 'macro' to ENABLED_MODELS to arm it),
   - only fires when we have a FRESH actual value (released within
     FRESH_HOURS) so we're acting on genuine news, not stale data,
+  - only trades the event whose PERIOD matches the observation we hold
+    (event_matches_observation) — a June print never prices a November
+    market; if the period can't be parsed we refuse to claim certainty,
   - buys only the KNOWN-correct side, with a limit, capturing the lag.
 
 Every ticker/series mapping below is a best guess until confirmed against
@@ -18,8 +21,9 @@ a real settled market — verify from a live run's log before trusting it.
 """
 
 import os
+import re
 import sys
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import requests
 
@@ -58,15 +62,19 @@ MACRO_SERIES = [
 
 
 def fetch_fred(series_id: str, api_key: str) -> list:
-    """Recent observations (date, value), newest last."""
+    """MOST RECENT observations (date, value), newest last. sort_order must
+    be 'desc' here: FRED applies 'limit' AFTER sorting, so asc+limit returns
+    the oldest rows of the whole series (1940s!), not the latest — a bug the
+    first paper run caught when 'current' unemployment came back as Jan 1950."""
     resp = requests.get(FRED_URL, params={
         "series_id": series_id, "api_key": api_key, "file_type": "json",
-        "sort_order": "asc", "limit": 25}, timeout=20)
+        "sort_order": "desc", "limit": 25}, timeout=20)
     resp.raise_for_status()
     obs = []
     for o in resp.json().get("observations", []):
         if o.get("value") not in (".", "", None):
             obs.append((o["date"], float(o["value"])))
+    obs.reverse()   # newest last, matching everything downstream
     return obs
 
 
@@ -82,6 +90,45 @@ def latest_actual(obs: list, transform: str):
         # PAYEMS is in thousands; ×1000 to match Kalshi's raw-jobs strikes
         return obs[-1][0], (obs[-1][1] - obs[-2][1]) * 1000.0
     return None
+
+
+MONTH_ABBR = dict(JAN=1, FEB=2, MAR=3, APR=4, MAY=5, JUN=6,
+                  JUL=7, AUG=8, SEP=9, OCT=10, NOV=11, DEC=12)
+
+
+def event_period(event_ticker: str):
+    """(year, month, day-or-None) embedded in a Kalshi macro event ticker:
+    KXU3-26NOV -> (2026, 11, None); KXJOBLESSCLAIMS-26JUL09 -> (2026, 7, 9).
+    None when no recognizable period — then we refuse to claim certainty."""
+    m = re.search(r"-(\d{2})([A-Z]{3})(\d{2})?$", event_ticker or "")
+    if not m or m.group(2) not in MONTH_ABBR:
+        return None
+    return 2000 + int(m.group(1)), MONTH_ABBR[m.group(2)], \
+        int(m.group(3)) if m.group(3) else None
+
+
+def event_matches_observation(event_ticker: str, obs_date: str) -> bool:
+    """True only when this event settles on the observation we hold — the
+    guard against 'certain' trades on the WRONG period (the other bug the
+    paper run caught: pricing November's market off June's print at '100%').
+    Monthly tickers must match the observation's reference month; weekly
+    claims tickers carry the RELEASE date, which lands within a week after
+    the week-ending observation date."""
+    period = event_period(event_ticker)
+    if not period:
+        return False
+    year, month, day = period
+    try:
+        obs = datetime.strptime(obs_date, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return False
+    if day is None:                       # monthly: same reference month
+        return (obs.year, obs.month) == (year, month)
+    try:
+        release = date(year, month, day)  # weekly claims: Thu after week end
+    except ValueError:
+        return False
+    return 0 < (release - obs).days <= 7
 
 
 def series_last_updated(series_id: str, api_key: str):
@@ -169,6 +216,12 @@ def scan(fred_key: str) -> list:
             log.warning("Skipping %s markets: %s", cfg["kalshi"], exc)
             continue
         for event in data.get("events", []):
+            event_ticker = (event.get("event_ticker")
+                            or event.get("ticker") or "")
+            if not event_matches_observation(event_ticker, release_date):
+                log.debug("%s: period != observation %s — outcome NOT known, "
+                          "skipping", event_ticker, release_date)
+                continue
             signals = []
             for market in event.get("markets") or []:
                 if market.get("status") not in (None, "active", "open"):
@@ -179,7 +232,7 @@ def scan(fred_key: str) -> list:
             if signals:
                 signals.sort(key=lambda s: -s["ev_cents"])
                 results.append(dict(
-                    date=event.get("event_ticker") or event.get("ticker") or "",
+                    date=event_ticker,
                     mu=value, city=cfg["name"],
                     title=event.get("title", ""), signals=signals))
     return results
