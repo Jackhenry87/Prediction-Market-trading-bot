@@ -32,13 +32,12 @@ def main() -> int:
 
     week_ago = int(time.time() - 7 * 86400)
     fills_7d = client.get_fills(week_ago)
-    fills_all = client.get_fills(None)
-    show("fills(min_ts=7d)", fills_7d,
-         ["ticker", "action", "side", "count", "yes_price", "no_price",
-          "order_id", "created_time", "is_taker"])
-    show("fills(min_ts=None)", fills_all,
-         ["ticker", "action", "side", "count", "yes_price", "no_price",
-          "order_id", "created_time"])
+    print("== RAW first buy fill and first sell fill (all keys):")
+    for want in ("buy", "sell"):
+        for f in fills_7d:
+            if (f.get("action") or "").lower() == want:
+                print(json.dumps(f, indent=1, default=str))
+                break
 
     setts = client.get_settlements(week_ago)
     show("settlements(7d)", setts,
