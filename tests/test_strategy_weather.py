@@ -202,3 +202,37 @@ def test_theme_of_and_exposure():
     assert abs(exp["weather"] - 6.0) < 1e-9      # $4.00 + $2.00
     assert abs(exp["crypto"] - 0.5) < 1e-9       # $0.50
     assert "other" not in exp
+
+
+def test_per_city_sigma_used_and_fallback():
+    # measured cities carry their own sigma; unmeasured fall back to SIGMA_F
+    by_series = {c["series"]: c for c in sw.CITIES}
+    assert by_series["KXHIGHNY"]["sigma"] == 3.0
+    assert by_series["KXHIGHMIA"]["sigma"] == 2.0
+    assert "sigma" not in by_series["KXHIGHLAX"]   # timed out -> fallback
+    for c in sw.CITIES:
+        assert 0 < c.get("sigma", sw.SIGMA_F) <= sw.SIGMA_F
+
+
+def test_bucket_probability_sigma_param():
+    # tighter sigma concentrates probability in the center bucket
+    tight = sw.bucket_probability(88.0, 85, 91, sigma=2.0)
+    wide = sw.bucket_probability(88.0, 85, 91, sigma=4.5)
+    default = sw.bucket_probability(88.0, 85, 91)
+    assert tight > wide
+    assert abs(default - wide) < 1e-12         # None/omitted -> SIGMA_F
+    # and a full partition still sums to 1 under a per-city sigma
+    buckets = [(None, 80), (80, 85), (85, 91), (91, 96), (96, None)]
+    total = sum(sw.bucket_probability(88.0, lo, hi, sigma=2.0)
+                for lo, hi in buckets)
+    assert abs(total - 1.0) < 1e-9
+
+
+def test_evaluate_market_sigma_changes_verdict():
+    # 85-91 bucket at 55c: fair under sigma 4.5 (~50%), cheap under the
+    # measured sigma 2.0 (~87%) -> the calibration unlocks this edge
+    market = {"ticker": "T", "floor_strike": 85, "cap_strike": 91,
+              "yes_ask": 55, "yes_bid": 56}
+    assert sw.evaluate_market(market, mu=88.0) == []
+    signals = sw.evaluate_market(market, mu=88.0, sigma=2.0)
+    assert signals and signals[0]["side"] == "yes"

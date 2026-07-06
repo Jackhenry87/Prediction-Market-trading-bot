@@ -5,7 +5,7 @@ The private key is deliberately kept out of __repr__/logs.
 """
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from dotenv import load_dotenv
 
@@ -50,14 +50,6 @@ def _positive_float(name: str) -> float:
 
 @dataclass
 class Settings:
-    # repr=False so the key can never leak via print(settings) or logging
-    private_key: str = field(repr=False, default="")
-    signature_type: int = 0
-    funder_address: str = ""
-    clob_api_url: str = "https://clob.polymarket.com"
-    polygon_rpc_url: str = "https://polygon-rpc.com"
-    chain_id: int = 137
-    market_token_id: str = ""
     dry_run: bool = True
     kill_switch: bool = False
     max_order_size: float = 0.0
@@ -81,38 +73,9 @@ class Settings:
     #                               oversized wager
 
 
-def load_settings(require_market: bool = True) -> Settings:
-    signature_type = int(os.getenv("POLY_SIGNATURE_TYPE", "0"))
-    if signature_type not in (0, 1, 2):
-        raise ConfigError("POLY_SIGNATURE_TYPE must be 0, 1 or 2")
-
-    funder_address = os.getenv("POLY_FUNDER_ADDRESS", "").strip()
-    if signature_type in (1, 2) and not funder_address:
-        raise ConfigError(
-            "POLY_FUNDER_ADDRESS is required when POLY_SIGNATURE_TYPE is 1 or 2 "
-            "(the proxy wallet address shown on your polymarket.com profile)."
-        )
-
-    return Settings(
-        private_key=_require("POLYGON_WALLET_PRIVATE_KEY"),
-        signature_type=signature_type,
-        funder_address=funder_address,
-        clob_api_url=os.getenv("CLOB_API_URL", "https://clob.polymarket.com").strip(),
-        polygon_rpc_url=os.getenv("POLYGON_RPC_URL", "https://polygon-rpc.com").strip(),
-        chain_id=int(os.getenv("CHAIN_ID", "137")),
-        market_token_id=_require("MARKET_TOKEN_ID") if require_market
-        else os.getenv("MARKET_TOKEN_ID", "").strip(),
-        dry_run=_bool("DRY_RUN", default=True),
-        kill_switch=_bool("KILL_SWITCH", default=False),
-        max_order_size=_positive_float("MAX_ORDER_SIZE"),
-        max_total_exposure=_positive_float("MAX_TOTAL_EXPOSURE"),
-    )
-
-
 def load_kalshi_settings(require_market: bool = True) -> Settings:
-    """Settings for the Kalshi scripts. The Polymarket wallet key is NOT
-    required here — only Kalshi API credentials plus the shared safety rails.
-    """
+    """Settings for the Kalshi scripts: API credentials plus the shared
+    safety rails (DRY_RUN, KILL_SWITCH, exposure caps)."""
     env = os.getenv("KALSHI_ENV", "demo").strip().lower()
     if env not in ("demo", "prod"):
         raise ConfigError("KALSHI_ENV must be 'demo' or 'prod'")

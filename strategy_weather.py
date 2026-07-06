@@ -31,25 +31,29 @@ SERIES_TICKER = "KXHIGHNY"  # kept for log labels / backwards compatibility
 
 # Kalshi settles each city's market on the NWS Daily Climate Report of ONE
 # specific station. Coordinates below are those stations — not "the city".
+# 'sigma' is the MEASURED 1-day-ahead forecast-error std dev for that
+# station (calibrate_weather.py, 366 days of Open-Meteo archived forecasts
+# vs ERA5 actuals, run 2026-07-06), inflated ~10% for station-vs-grid
+# representativeness. Cities without a measurement use SIGMA_F.
 CITIES = [
     dict(series="KXHIGHNY", name="NYC (Central Park)",
-         lat=40.7794, lon=-73.9692),
+         lat=40.7794, lon=-73.9692, sigma=3.0),
     dict(series="KXHIGHCHI", name="Chicago (Midway)",
-         lat=41.7861, lon=-87.7522),
+         lat=41.7861, lon=-87.7522, sigma=2.0),
     dict(series="KXHIGHMIA", name="Miami (Intl Airport)",
-         lat=25.7906, lon=-80.3164),
+         lat=25.7906, lon=-80.3164, sigma=2.0),
     dict(series="KXHIGHDEN", name="Denver (Intl Airport)",
-         lat=39.8467, lon=-104.6562),
+         lat=39.8467, lon=-104.6562, sigma=2.5),
     dict(series="KXHIGHLAX", name="Los Angeles (LAX)",
-         lat=33.9382, lon=-118.3866),
+         lat=33.9382, lon=-118.3866),   # calibration timed out — remeasure
     dict(series="KXHIGHAUS", name="Austin (Camp Mabry)",
-         lat=30.3208, lon=-97.7660),
+         lat=30.3208, lon=-97.7660),    # calibration timed out — remeasure
 ]
-# Forecast error (std dev, deg F) for 1-2 day NWS high-temp forecasts.
-# Widened from 3.0 -> 4.5 after the first live week: temperature errors have
-# fatter tails than a normal, and the old value was overconfident in the
-# extreme buckets — exactly where the early losses came from. Humbler
-# probabilities -> fewer, stronger signals. Re-tune from the scoreboard.
+# Fallback forecast-error std dev (deg F) for stations without a measured
+# sigma. History: guessed 3.0 -> widened to 4.5 after the first live week's
+# losses -> measurement showed the real error is ~1.5-2.3F and the losses
+# came from elsewhere (concentration, since fixed by the theme cap). Keep
+# the humble 4.5 ONLY as the unmeasured-city fallback.
 SIGMA_F = 4.5
 # Only report trades with at least this much expected value per contract,
 # in cents, after fees. Below this, spread/model noise eats the edge.
@@ -61,13 +65,15 @@ def normal_cdf(x: float, mu: float, sigma: float) -> float:
     return 0.5 * (1.0 + math.erf((x - mu) / (sigma * math.sqrt(2.0))))
 
 
-def bucket_probability(mu: float, floor_strike, cap_strike) -> float:
-    """P(high temp lands in this market's bucket) under Normal(mu, SIGMA_F).
-    Tail markets have only one bound."""
+def bucket_probability(mu: float, floor_strike, cap_strike,
+                       sigma: float = None) -> float:
+    """P(high temp lands in this market's bucket) under Normal(mu, sigma).
+    Tail markets have only one bound. sigma defaults to SIGMA_F."""
+    s = sigma if sigma else SIGMA_F
     lo = float(floor_strike) if floor_strike is not None else -math.inf
     hi = float(cap_strike) if cap_strike is not None else math.inf
-    lo_cdf = 0.0 if lo == -math.inf else normal_cdf(lo, mu, SIGMA_F)
-    hi_cdf = 1.0 if hi == math.inf else normal_cdf(hi, mu, SIGMA_F)
+    lo_cdf = 0.0 if lo == -math.inf else normal_cdf(lo, mu, s)
+    hi_cdf = 1.0 if hi == math.inf else normal_cdf(hi, mu, s)
     return max(hi_cdf - lo_cdf, 0.0)
 
 
@@ -100,10 +106,10 @@ def price_cents(market: dict, field: str):
     return None
 
 
-def evaluate_market(market: dict, mu: float) -> list:
+def evaluate_market(market: dict, mu: float, sigma: float = None) -> list:
     """Return signal dicts for +EV ways to take liquidity in this market."""
     p = bucket_probability(mu, market.get("floor_strike"),
-                           market.get("cap_strike"))
+                           market.get("cap_strike"), sigma)
     signals = []
 
     yes_ask = price_cents(market, "yes_ask")
@@ -169,6 +175,7 @@ def scan() -> list:
             log.warning("Skipping %s: %s", city["name"], exc)
             continue
 
+        sigma = city.get("sigma") or SIGMA_F
         for event in data.get("events", []):
             date = date_from_event_ticker(event.get("event_ticker")
                                           or event.get("ticker") or "")
@@ -179,9 +186,10 @@ def scan() -> list:
             for market in event.get("markets") or []:
                 if market.get("status") not in (None, "active", "open"):
                     continue
-                signals.extend(evaluate_market(market, mu))
+                signals.extend(evaluate_market(market, mu, sigma))
             signals.sort(key=lambda s: -s["ev_cents"])
             results.append(dict(date=date, mu=mu, city=city["name"],
+                                sigma=sigma,
                                 title=event.get("title", ""),
                                 signals=signals))
     return results
@@ -248,7 +256,7 @@ def main() -> int:
     total_signals = 0
     for r in results:
         log.info("%s (%s): NWS forecast high %.0fF, sigma %.1fF",
-                 r["title"], r["date"], r["mu"], SIGMA_F)
+                 r["title"], r["date"], r["mu"], r.get("sigma") or SIGMA_F)
         if not r["signals"]:
             log.info("  No edge >= %.0fc after fees. Correctly priced (or "
                      "books empty).", MIN_EDGE_CENTS)
