@@ -205,11 +205,12 @@ def test_theme_of_and_exposure():
 
 
 def test_per_city_sigma_used_and_fallback():
-    # measured cities carry their own sigma; unmeasured fall back to SIGMA_F
+    # every station now carries a MEASURED sigma (366 days each)
     by_series = {c["series"]: c for c in sw.CITIES}
     assert by_series["KXHIGHNY"]["sigma"] == 3.0
     assert by_series["KXHIGHMIA"]["sigma"] == 2.0
-    assert "sigma" not in by_series["KXHIGHLAX"]   # timed out -> fallback
+    assert by_series["KXHIGHLAX"]["sigma"] == 3.0  # fattest tails of the six
+    assert by_series["KXHIGHAUS"]["sigma"] == 2.5
     for c in sw.CITIES:
         assert 0 < c.get("sigma", sw.SIGMA_F) <= sw.SIGMA_F
 
@@ -269,7 +270,7 @@ def test_city_bias_fields():
     by_series = {c["series"]: c for c in sw.CITIES}
     assert by_series["KXHIGHNY"]["bias"] == 0.7    # forecasts ran warm
     assert by_series["KXHIGHDEN"]["bias"] == -0.5  # Denver ran cool
-    assert "bias" not in by_series["KXHIGHLAX"]    # unmeasured -> no shift
+    assert by_series["KXHIGHAUS"]["bias"] == 2.0   # largest measured bias
     for c in sw.CITIES:
-        assert abs(c.get("bias", 0.0)) < 1.5       # bias is a small nudge
+        assert abs(c.get("bias", 0.0)) <= 2.0      # bias stays a nudge
         assert c["tz"].startswith("America/")

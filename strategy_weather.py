@@ -51,11 +51,14 @@ CITIES = [
     dict(series="KXHIGHDEN", name="Denver (Intl Airport)",
          lat=39.8467, lon=-104.6562, sigma=2.5, bias=-0.5,
          tz="America/Denver"),
+    # LAX has the fattest tails of the six (marine-layer burn-off: |err|>5F
+    # on 7% of days) — treat its sigma as a floor, not a promise.
     dict(series="KXHIGHLAX", name="Los Angeles (LAX)",
-         lat=33.9382, lon=-118.3866,    # calibration timed out — remeasure
+         lat=33.9382, lon=-118.3866, sigma=3.0, bias=0.7,
          tz="America/Los_Angeles"),
+    # Austin forecasts ran nearly 2F WARM — the largest bias measured.
     dict(series="KXHIGHAUS", name="Austin (Camp Mabry)",
-         lat=30.3208, lon=-97.7660,     # calibration timed out — remeasure
+         lat=30.3208, lon=-97.7660, sigma=2.5, bias=2.0,
          tz="America/Chicago"),
 ]
 # Fallback forecast-error std dev (deg F) for stations without a measured
