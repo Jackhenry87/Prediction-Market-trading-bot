@@ -73,6 +73,50 @@ class Settings:
     #                               oversized wager
 
 
+@dataclass
+class DashboardSettings:
+    """Config for the read-only web dashboard (dashboard/). Credentials are
+    OPTIONAL — without them the dashboard replays trade_history.csv instead
+    of polling the live account. It can never place orders either way."""
+    kalshi_api_key_id: str = ""
+    kalshi_private_key_path: str = ""
+    kalshi_env: str = "demo"
+    password: str = ""          # empty = no login gate (local use)
+    poll_seconds: int = 20      # live-mode poll cadence
+
+
+def load_dashboard_settings() -> DashboardSettings:
+    env = os.getenv("KALSHI_ENV", "demo").strip().lower()
+    if env not in ("demo", "prod"):
+        raise ConfigError("KALSHI_ENV must be 'demo' or 'prod'")
+
+    key_id = os.getenv("KALSHI_API_KEY_ID", "").strip()
+    key_path = os.getenv("KALSHI_PRIVATE_KEY_PATH", "").strip()
+    if key_path and not os.path.isfile(key_path):
+        raise ConfigError(
+            f"KALSHI_PRIVATE_KEY_PATH points to {key_path!r} but no such "
+            f"file exists."
+        )
+
+    raw_poll = os.getenv("DASHBOARD_POLL_SECONDS", "20").strip()
+    try:
+        poll_seconds = int(raw_poll)
+    except ValueError:
+        raise ConfigError(
+            f"DASHBOARD_POLL_SECONDS must be an integer, got {raw_poll!r}"
+        ) from None
+    if poll_seconds < 5:
+        raise ConfigError("DASHBOARD_POLL_SECONDS must be >= 5 (rate limits)")
+
+    return DashboardSettings(
+        kalshi_api_key_id=key_id,
+        kalshi_private_key_path=key_path,
+        kalshi_env=env,
+        password=os.getenv("DASHBOARD_PASSWORD", "").strip(),
+        poll_seconds=poll_seconds,
+    )
+
+
 def load_kalshi_settings(require_market: bool = True) -> Settings:
     """Settings for the Kalshi scripts: API credentials plus the shared
     safety rails (DRY_RUN, KILL_SWITCH, exposure caps)."""

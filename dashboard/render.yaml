@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: autotrader-dashboard
+    runtime: python
+    buildCommand: pip install -r requirements.txt -r dashboard/requirements.txt
+    startCommand: uvicorn dashboard.app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DASHBOARD_PASSWORD
+        sync: false          # set in the Render dashboard, never in git
+      - key: KALSHI_API_KEY_ID
+        sync: false          # optional: omit for replay mode
+      - key: KALSHI_ENV
+        value: prod

@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Autotrader — Kalshi desk</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%233987e5'/%3E%3Ctext x='16' y='22' font-size='17' font-weight='800' font-family='system-ui' fill='white' text-anchor='middle'%3EK%3C/text%3E%3C/svg%3E">
+<style>
+  :root{
+    --page:#0d0d0d; --surface:#1a1a19; --surface-2:#222220;
+    --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --baseline:#383835; --border:rgba(255,255,255,.10);
+    --good:#0ca30c; --bad:#d03b3b; --sell:#e66767; --warn:#fab219;
+    --weather:#3987e5; --sports:#199e70; --crypto:#c98500;
+    --macro:#9085e9; --commodities:#d95926; --other:#898781;
+    --chart:#3987e5;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--page);color:var(--ink);
+       font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;
+       -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1240px;margin:0 auto;padding:20px 24px 60px}
+
+  /* ---------- header ---------- */
+  header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:6px 0 18px}
+  .logo{width:38px;height:38px;border-radius:10px;flex:none;
+        background:linear-gradient(135deg,#3987e5,#9085e9);
+        display:grid;place-items:center;font-weight:800;font-size:19px}
+  h1{font-size:19px;margin:0;letter-spacing:.2px}
+  h1 small{display:block;font-size:12px;font-weight:400;color:var(--muted);letter-spacing:.4px}
+  .pills{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+  .pill{border:1px solid var(--border);border-radius:999px;padding:5px 12px;
+        font-size:12px;color:var(--ink-2);display:flex;align-items:center;gap:7px;
+        background:var(--surface)}
+  .dot{width:8px;height:8px;border-radius:50%;flex:none}
+  .dot.live{background:var(--good);animation:pulse 1.6s ease-out infinite}
+  .dot.replay{background:var(--warn);animation:pulse 1.6s ease-out infinite}
+  .dot.off{background:var(--muted)}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,255,255,.25)}
+                   70%{box-shadow:0 0 0 7px rgba(255,255,255,0)}100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}}
+
+  /* ---------- ticker tape ---------- */
+  .tape{overflow:hidden;border-block:1px solid var(--border);background:var(--surface);
+        border-radius:10px;white-space:nowrap;margin-bottom:22px}
+  .tape-inner{display:inline-block;padding:9px 0;animation:tape 60s linear infinite}
+  .tape:hover .tape-inner{animation-play-state:paused}
+  @keyframes tape{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+  .tk{display:inline-flex;align-items:center;gap:7px;margin:0 22px;font-size:12.5px;color:var(--ink-2)}
+  .tk b{color:var(--ink);font-weight:600}
+  .tk .up{color:var(--good)} .tk .dn{color:var(--sell)}
+
+  /* ---------- stat tiles ---------- */
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:22px}
+  .tile{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px}
+  .tile .k{font-size:12px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase}
+  .tile .v{font-size:28px;font-weight:700;margin-top:5px;transition:color .4s}
+  .tile .s{font-size:12px;color:var(--ink-2);margin-top:3px}
+  .v.pos{color:var(--good)} .v.neg{color:var(--bad)}
+  .flash{animation:tileflash .9s ease-out}
+  @keyframes tileflash{0%{background:var(--surface-2)}100%{background:var(--surface)}}
+
+  /* ---------- main grid ---------- */
+  .grid{display:grid;grid-template-columns:1.9fr 1fr;gap:14px;align-items:start}
+  .stack{display:flex;flex-direction:column;gap:14px}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px}
+  .card h2{margin:0 0 4px;font-size:14px;letter-spacing:.4px;color:var(--ink-2);
+           text-transform:uppercase;font-weight:600}
+  .card .sub{font-size:12px;color:var(--muted);margin-bottom:12px}
+
+  /* chart */
+  #chartbox{position:relative}
+  #chart{width:100%;height:320px;display:block}
+  #tip{position:absolute;pointer-events:none;background:var(--surface-2);
+       border:1px solid var(--border);border-radius:8px;padding:7px 10px;
+       font-size:12px;color:var(--ink-2);display:none;white-space:nowrap;
+       box-shadow:0 6px 18px rgba(0,0,0,.45);z-index:3}
+  #tip b{color:var(--ink)}
+
+  /* feed */
+  #feed{max-height:560px;overflow-y:auto;display:flex;flex-direction:column;gap:9px;
+        scrollbar-width:thin;scrollbar-color:var(--baseline) transparent;padding-right:2px}
+  .trade{border:1px solid var(--border);border-left:3px solid var(--muted);
+         border-radius:10px;padding:10px 12px;background:var(--surface-2);
+         display:grid;grid-template-columns:auto 1fr auto;gap:4px 10px;align-items:center}
+  .trade.buy{border-left-color:var(--good)} .trade.sell{border-left-color:var(--sell)}
+  .trade.enter{animation:slidein .55s cubic-bezier(.2,.8,.25,1)}
+  @keyframes slidein{from{opacity:0;transform:translateY(-14px) scale(.97)}
+                     to{opacity:1;transform:none}}
+  .trade.glow{animation:slidein .55s cubic-bezier(.2,.8,.25,1),
+              glow 1.8s ease-out}
+  @keyframes glow{0%{box-shadow:0 0 0 1px var(--border),0 0 22px rgba(57,135,229,.55)}
+                  100%{box-shadow:0 0 0 0 transparent}}
+  .badge{font-size:10.5px;font-weight:700;letter-spacing:.6px;padding:3px 8px;border-radius:6px}
+  .badge.buy{background:rgba(12,163,12,.16);color:var(--good)}
+  .badge.sell{background:rgba(230,103,103,.14);color:var(--sell)}
+  .trade .t{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .trade .m{grid-column:1/3;font-size:12px;color:var(--muted);display:flex;gap:8px;align-items:center}
+  .tdot{width:7px;height:7px;border-radius:50%;display:inline-block;flex:none}
+  .trade .cost{font-weight:700;font-size:14px;text-align:right}
+  .trade .res{grid-column:3;font-size:11.5px;font-weight:700;text-align:right}
+  .res.win{color:var(--good)} .res.loss{color:var(--bad)} .res.pend{color:var(--muted);font-weight:400}
+  .settleflash{animation:settlepop .9s ease-out}
+  @keyframes settlepop{0%{transform:scale(1.03)}100%{transform:none}}
+
+  /* models + positions */
+  .mrow{display:grid;grid-template-columns:110px 1fr 150px;gap:10px;align-items:center;padding:9px 0;
+        border-top:1px solid var(--grid)}
+  .mrow:first-of-type{border-top:0}
+  .mname{font-size:13px;color:var(--ink-2);display:flex;gap:8px;align-items:center;text-transform:capitalize}
+  .mbarbox{position:relative;height:14px}
+  .mzero{position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--baseline)}
+  .mbar{position:absolute;top:1px;height:12px;border-radius:0 4px 4px 0;transition:width .8s cubic-bezier(.2,.8,.25,1)}
+  .mbar.neg{border-radius:4px 0 0 4px}
+  .mstat{font-size:12px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+  .mstat b{color:var(--ink);font-size:13px}
+  .pos-item{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid var(--grid);
+            font-size:13px;align-items:center}
+  .pos-item:first-of-type{border-top:0}
+  .pos-item .px{font-variant-numeric:tabular-nums;color:var(--ink-2);transition:color .3s}
+  .px.bump{color:var(--warn)}
+  .empty{color:var(--muted);font-size:13px;padding:12px 0}
+
+  footer{margin-top:26px;font-size:12px;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap}
+  @media (prefers-reduced-motion: reduce){
+    .tape-inner,.dot.live,.dot.replay{animation:none}
+    .trade.enter,.trade.glow{animation:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="logo">K</div>
+    <h1>Autotrader<small>Kalshi prediction-market desk</small></h1>
+    <div class="pills">
+      <span class="pill"><span id="modedot" class="dot off"></span><span id="modetxt">connecting…</span></span>
+      <span class="pill" id="envpill">env —</span>
+      <span class="pill" id="exchpill">exchange —</span>
+      <span class="pill" id="updpill">updated —</span>
+    </div>
+  </header>
+
+  <div class="tape"><div class="tape-inner" id="tape"></div></div>
+
+  <div class="tiles">
+    <div class="tile"><div class="k">Bankroll</div><div class="v" id="t-bal">—</div><div class="s" id="t-bal-s">cash balance</div></div>
+    <div class="tile"><div class="k">Realized P&amp;L</div><div class="v" id="t-pnl">—</div><div class="s" id="t-pnl-s">settled markets</div></div>
+    <div class="tile"><div class="k">Win rate</div><div class="v" id="t-wr">—</div><div class="s" id="t-wr-s">— settled</div></div>
+    <div class="tile"><div class="k">Deployed</div><div class="v" id="t-dep">—</div><div class="s" id="t-dep-s">total cost of fills</div></div>
+    <div class="tile"><div class="k">Fills</div><div class="v" id="t-n">—</div><div class="s" id="t-n-s">— pending</div></div>
+  </div>
+
+  <div class="grid">
+    <div class="stack">
+      <div class="card">
+        <h2>Cumulative realized P&amp;L</h2>
+        <div class="sub">running total across settled markets, $ — hover for detail</div>
+        <div id="chartbox"><svg id="chart" role="img" aria-label="Cumulative realized profit and loss line chart"></svg><div id="tip"></div></div>
+      </div>
+      <div class="card">
+        <h2>Model scoreboard</h2>
+        <div class="sub">net realized P&amp;L per model theme — record W–L, ⏳ pending</div>
+        <div id="models"></div>
+      </div>
+    </div>
+    <div class="stack">
+      <div class="card">
+        <h2>Live fill feed</h2>
+        <div class="sub" id="feedsub">every buy &amp; sell, newest first</div>
+        <div id="feed"></div>
+      </div>
+      <div class="card">
+        <h2>Open positions</h2>
+        <div class="sub" id="possub">held markets, marked to last trade</div>
+        <div id="positions"><div class="empty">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <span>Read-only dashboard — it can never place, change, or cancel an order.</span>
+    <span id="restpill"></span>
+  </footer>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const THEME_COLORS = {weather:"var(--weather)",sports:"var(--sports)",crypto:"var(--crypto)",
+                      macro:"var(--macro)",commodities:"var(--commodities)",other:"var(--other)"};
+const fmt$ = (v,sign) => (v==null?"—":(sign&&v>0?"+":"")+(v<0?"-":"")+"$"+Math.abs(v).toFixed(2));
+const cents = v => v==null?"—":Math.round(v)+"¢";
+
+let stats=null, feedTrades=[], balance=null, mode="replay";
+
+/* ---------- count-up tiles ---------- */
+const shown={};
+function countUp(id, target, render){
+  if(target==null){ $(id).textContent="—"; return; }
+  const from = shown[id]==null?target:shown[id]; shown[id]=target;
+  if(from===target){ $(id).textContent=render(target); return; }
+  const t0=performance.now(), dur=700;
+  function step(t){
+    const p=Math.min(1,(t-t0)/dur), e=1-Math.pow(1-p,3);
+    $(id).textContent=render(from+(target-from)*e);
+    if(p<1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+  const el=$(id).closest(".tile"); el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash");
+}
+function signClass(el,v){ el.classList.toggle("pos",v>0); el.classList.toggle("neg",v<0); }
+
+function renderTiles(){
+  if(!stats) return;
+  countUp("t-bal", balance, v=>fmt$(v));
+  $("t-bal-s").textContent = mode==="replay" ? "simulated (replay)" : "live cash balance";
+  countUp("t-pnl", stats.realized_pnl_usd, v=>fmt$(v,true)); signClass($("t-pnl"), stats.realized_pnl_usd);
+  countUp("t-wr", stats.win_rate, v=>v.toFixed(1)+"%");
+  $("t-wr-s").textContent = (stats.wins+stats.losses)+" markets settled · "+stats.wins+"W–"+stats.losses+"L";
+  countUp("t-dep", stats.deployed_usd, v=>fmt$(v));
+  countUp("t-n", stats.trades, v=>String(Math.round(v)));
+  $("t-n-s").textContent = stats.pending+" markets pending";
+}
+
+/* ---------- ticker tape ---------- */
+function renderTape(){
+  const items = feedTrades.slice(0,18).map(t=>{
+    const cls = t.action==="BUY"?"up":"dn", arrow = t.action==="BUY"?"▲":"▼";
+    return `<span class="tk"><span class="${cls}">${arrow} ${t.action}</span>`+
+           `<b>${t.ticker}</b> ${t.side} ${t.count}× @ ${cents(t.price_cents)}</span>`;
+  }).join("");
+  $("tape").innerHTML = items ? items+items : "";  /* doubled for seamless loop */
+}
+
+/* ---------- feed ---------- */
+function tradeCard(t, animate, glow){
+  const el=document.createElement("div");
+  el.className="trade "+t.action.toLowerCase()+(animate?(glow?" glow":" enter"):"");
+  el.dataset.ticker=t.ticker;
+  const when=(t.datetime_utc||"").replace("T"," ").slice(5,16);
+  let res;
+  if(t.settlement) {
+    const win=(t.pnl_usd??0)>=0;
+    res=`<span class="res ${win?"win":"loss"}">${win?"WIN":"LOSS"} ${fmt$(t.pnl_usd,true)}</span>`;
+  } else res=`<span class="res pend">open</span>`;
+  el.innerHTML=`<span class="badge ${t.action.toLowerCase()}">${t.action}</span>`+
+    `<span class="t" title="${t.ticker}">${t.ticker}</span>`+
+    `<span class="cost">${fmt$(t.cost_usd)}</span>`+
+    `<span class="m"><span class="tdot" style="background:${THEME_COLORS[t.theme]||THEME_COLORS.other}"></span>`+
+    `${t.theme} · ${t.side} ${t.count}× @ ${cents(t.price_cents)} · ${when}</span>${res}`;
+  return el;
+}
+function renderFeed(){
+  const box=$("feed"); box.innerHTML="";
+  feedTrades.slice(0,60).forEach(t=>box.appendChild(tradeCard(t,false)));
+}
+function pushTrade(t){
+  feedTrades.unshift(t); feedTrades=feedTrades.slice(0,120);
+  const box=$("feed");
+  box.prepend(tradeCard(t,true,true));
+  while(box.children.length>60) box.lastChild.remove();
+  renderTape();
+}
+
+/* ---------- P&L chart ---------- */
+const PAD={l:62,r:14,t:12,b:26};
+let chartPts=[];
+function renderChart(){
+  const svg=$("chart"); if(!stats) return;
+  const series=stats.pnl_series||[];
+  const W=svg.clientWidth||800, H=svg.clientHeight||280;
+  svg.setAttribute("viewBox",`0 0 ${W} ${H}`); svg.innerHTML="";
+  if(series.length<2){ svg.innerHTML=`<text x="${W/2}" y="${H/2}" fill="var(--muted)" font-size="13" text-anchor="middle">not enough settled fills yet</text>`; return; }
+  const xs=series.map(d=>d[0]), ys=series.map(d=>d[1]);
+  const x0=Math.min(...xs), x1=Math.max(...xs);
+  let y0=Math.min(0,...ys), y1=Math.max(0,...ys);
+  const span=(y1-y0)||1; y0-=span*.08; y1+=span*.08;
+  const X=t=>PAD.l+(W-PAD.l-PAD.r)*(t-x0)/((x1-x0)||1);
+  const Y=v=>H-PAD.b-(H-PAD.t-PAD.b)*(v-y0)/(y1-y0);
+  let g="";
+  const ticks=4;
+  for(let i=0;i<=ticks;i++){
+    const v=y0+(y1-y0)*i/ticks, y=Y(v);
+    g+=`<line x1="${PAD.l}" x2="${W-PAD.r}" y1="${y}" y2="${y}" stroke="var(--grid)" stroke-width="1"/>`+
+       `<text x="${PAD.l-8}" y="${y+4}" fill="var(--muted)" font-size="11" text-anchor="end" font-variant-numeric="tabular-nums">${fmt$(Math.round(v*100)/100)}</text>`;
+  }
+  if(y0<0&&y1>0) g+=`<line x1="${PAD.l}" x2="${W-PAD.r}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--baseline)" stroke-width="1" stroke-dasharray="4 4"/>`;
+  const nlab=4;
+  for(let i=0;i<=nlab;i++){
+    const t=x0+(x1-x0)*i/nlab, d=new Date(t*1000);
+    g+=`<text x="${X(t)}" y="${H-8}" fill="var(--muted)" font-size="11" text-anchor="middle">${(d.getUTCMonth()+1)+"/"+d.getUTCDate()}</text>`;
+  }
+  const pts=series.map(d=>[X(d[0]),Y(d[1])]);
+  chartPts=series.map((d,i)=>({x:pts[i][0],y:pts[i][1],ts:d[0],v:d[1]}));
+  const line=pts.map((p,i)=>(i?"L":"M")+p[0].toFixed(1)+" "+p[1].toFixed(1)).join(" ");
+  const area=line+` L ${pts[pts.length-1][0].toFixed(1)} ${Y(Math.max(y0,0))} L ${pts[0][0].toFixed(1)} ${Y(Math.max(y0,0))} Z`;
+  g+=`<defs><linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="var(--chart)" stop-opacity=".28"/>
+        <stop offset="1" stop-color="var(--chart)" stop-opacity="0"/></linearGradient></defs>`;
+  g+=`<path d="${area}" fill="url(#fade)"/>`;
+  g+=`<path d="${line}" fill="none" stroke="var(--chart)" stroke-width="2" stroke-linejoin="round"/>`;
+  const last=pts[pts.length-1];
+  g+=`<circle cx="${last[0]}" cy="${last[1]}" r="4" fill="var(--chart)" stroke="var(--surface)" stroke-width="2"/>`;
+  g+=`<line id="xh" y1="${PAD.t}" y2="${H-PAD.b}" stroke="var(--baseline)" stroke-width="1" visibility="hidden"/>`;
+  g+=`<circle id="xhdot" r="4.5" fill="var(--chart)" stroke="var(--surface)" stroke-width="2" visibility="hidden"/>`;
+  svg.innerHTML=g;
+}
+$("chartbox").addEventListener("mousemove",e=>{
+  if(!chartPts.length) return;
+  const r=$("chart").getBoundingClientRect(), mx=e.clientX-r.left;
+  let best=chartPts[0];
+  for(const p of chartPts) if(Math.abs(p.x-mx)<Math.abs(best.x-mx)) best=p;
+  const xh=$("xh"), dot=$("xhdot"), tip=$("tip");
+  if(!xh) return;
+  xh.setAttribute("x1",best.x); xh.setAttribute("x2",best.x); xh.setAttribute("visibility","visible");
+  dot.setAttribute("cx",best.x); dot.setAttribute("cy",best.y); dot.setAttribute("visibility","visible");
+  const d=new Date(best.ts*1000);
+  tip.innerHTML=`${d.toISOString().slice(0,16).replace("T"," ")} UTC<br><b>${fmt$(best.v,true)}</b> cumulative`;
+  tip.style.display="block";
+  const bw=$("chartbox").clientWidth;
+  tip.style.left=Math.min(best.x+14,bw-170)+"px"; tip.style.top=Math.max(best.y-52,0)+"px";
+});
+$("chartbox").addEventListener("mouseleave",()=>{
+  $("tip").style.display="none";
+  const xh=$("xh"),dot=$("xhdot");
+  if(xh){xh.setAttribute("visibility","hidden");dot.setAttribute("visibility","hidden");}
+});
+
+/* ---------- model scoreboard ---------- */
+function renderModels(){
+  if(!stats) return;
+  const themes=(stats.themes||[]).filter(t=>t.trades>0);
+  const maxAbs=Math.max(.01,...themes.map(t=>Math.abs(t.pnl_usd)));
+  $("models").innerHTML=themes.map(t=>{
+    const w=Math.max(1.5,48*Math.abs(t.pnl_usd)/maxAbs);
+    const neg=t.pnl_usd<0;
+    return `<div class="mrow">
+      <span class="mname"><span class="tdot" style="background:${THEME_COLORS[t.theme]||THEME_COLORS.other}"></span>${t.theme}</span>
+      <div class="mbarbox"><div class="mzero"></div>
+        <div class="mbar ${neg?"neg":""}" style="background:${THEME_COLORS[t.theme]||THEME_COLORS.other};
+             width:${w}%;${neg?`right:50%`:`left:50%`}"></div></div>
+      <span class="mstat"><b>${fmt$(t.pnl_usd,true)}</b> · ${t.wins}W–${t.losses}L · ⏳${t.pending}</span>
+    </div>`;
+  }).join("")||`<div class="empty">no fills yet</div>`;
+}
+
+/* ---------- positions ---------- */
+function renderPositions(list){
+  const box=$("positions");
+  if(mode==="replay"){ $("possub").textContent="live mode only — add Kalshi keys to .env"; box.innerHTML=`<div class="empty">shown when running with credentials</div>`; return; }
+  if(!list||!list.length){ box.innerHTML=`<div class="empty">no open positions</div>`; return; }
+  box.innerHTML=list.map(p=>`<div class="pos-item" data-ticker="${p.ticker}">
+      <span><span class="tdot" style="background:${THEME_COLORS[p.theme]||THEME_COLORS.other}"></span>
+      ${p.ticker}</span>
+      <span class="px">${p.position>0?"+":""}${p.position} · ${fmt$(p.exposure_usd)}${p.last_price_cents!=null?" · "+cents(p.last_price_cents):""}</span>
+    </div>`).join("");
+}
+function bumpQuote(ticker, price){
+  document.querySelectorAll(`.pos-item[data-ticker="${ticker}"] .px`).forEach(el=>{
+    const parts=el.textContent.split(" · ");
+    el.textContent=parts.slice(0,2).join(" · ")+" · "+cents(price);
+    el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump");
+    setTimeout(()=>el.classList.remove("bump"),900);
+  });
+}
+
+/* ---------- header ---------- */
+function renderHeader(snap){
+  mode=snap.mode||mode;
+  $("modedot").className="dot "+(mode==="live"?"live":"replay");
+  $("modetxt").textContent=mode==="live"?"LIVE":"REPLAY";
+  $("envpill").textContent="env: "+(snap.env||"—");
+  if(snap.exchange_active!=null) $("exchpill").textContent="exchange "+(snap.exchange_active?"open":"closed");
+  else $("exchpill").textContent = mode==="replay"?"exchange n/a":"exchange —";
+  if(snap.updated_at) $("updpill").textContent="updated "+snap.updated_at.slice(11,19)+" UTC";
+  $("feedsub").textContent = mode==="replay"
+    ? "REPLAY of your real history — add keys for live"
+    : "every buy & sell, newest first";
+  $("restpill").textContent = mode==="live" ? (snap.resting_orders??0)+" resting orders" : "";
+}
+
+/* ---------- websocket ---------- */
+function applySnapshot(s){
+  stats=s.stats; balance=s.balance_usd; feedTrades=s.feed||[];
+  renderHeader(s); renderTiles(); renderTape(); renderFeed(); renderChart(); renderModels();
+  renderPositions(s.positions);
+}
+function connect(){
+  const ws=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host+"/ws");
+  let ping;
+  ws.onopen=()=>{ ping=setInterval(()=>{try{ws.send("p")}catch(e){}},20000); };
+  ws.onmessage=ev=>{
+    const m=JSON.parse(ev.data);
+    if(m.type==="snapshot") applySnapshot(m);
+    else if(m.type==="trade"){
+      if(m.stats) stats=m.stats;
+      if(m.balance_usd!=null) balance=m.balance_usd;
+      pushTrade(m.trade); renderTiles(); renderChart(); renderModels();
+    }
+    else if(m.type==="settle"){
+      const card=document.querySelector(`.trade[data-ticker="${m.ticker}"]`);
+      if(card){card.classList.remove("settleflash");void card.offsetWidth;card.classList.add("settleflash");}
+    }
+    else if(m.type==="balance"){ balance=m.balance_usd; renderTiles(); }
+    else if(m.type==="quote"){ bumpQuote(m.ticker,m.last_price_cents); }
+    else if(m.type==="heartbeat"){
+      renderHeader({mode,env:$("envpill").textContent.slice(5),updated_at:m.updated_at,
+                    exchange_active:m.exchange_active,resting_orders:m.resting_orders});
+      renderPositions(m.positions);
+    }
+  };
+  ws.onclose=()=>{ clearInterval(ping); setTimeout(connect,2500); };
+}
+fetch("/api/snapshot").then(r=>r.json()).then(applySnapshot).catch(()=>{});
+connect();
+window.addEventListener("resize",()=>renderChart());
+</script>
+</body>
+</html>

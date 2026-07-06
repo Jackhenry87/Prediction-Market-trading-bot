@@ -83,6 +83,9 @@ Manual tools: `kalshi_fetch_orderbook.py` (balance + book),
 
 ## Other components
 
+- `dashboard/` — read-only live web dashboard (`uvicorn dashboard.app:app`):
+  animated fill feed, P&L chart, model scoreboard. Live-polls the account
+  with keys, replays `trade_history.csv` without. See `dashboard/README.md`.
 - `paperbook/` — a free-to-play paper sportsbook web app (FastAPI +
   SQLite) with user accounts; `paperbook_client.py` lets the bot trade it.
 - `dfs_analyzer.py` — devig-based +EV picker for DFS slates.
