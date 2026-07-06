@@ -15,7 +15,12 @@ on:
     - cron: '32 13 * * 4'   # Thu 13:32 UTC (claims, EST)
     - cron: '32 12 * * 5'   # Fri 12:32 UTC (payrolls, EDT)
     - cron: '32 13 * * 5'   # Fri 13:32 UTC (payrolls, EST)
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Verify run: act on latest data even if not freshly released"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -50,8 +55,10 @@ jobs:
           KILL_SWITCH: ${{ vars.KILL_SWITCH || 'false' }}
           MAX_ORDER_SIZE: ${{ vars.MAX_ORDER_SIZE || '2' }}
           MAX_TOTAL_EXPOSURE: ${{ vars.MAX_TOTAL_EXPOSURE || '20' }}
-          BURST_WINDOW_SECONDS: '600'   # 10-min poll window inside the job
+          BURST_WINDOW_SECONDS: ${{ github.event.inputs.force == 'true' && '30' || '600' }}
           BURST_POLL_SECONDS: '15'
+          # verify run: exercise the full FRED->Kalshi path regardless of freshness
+          MACRO_FORCE_FRESH: ${{ github.event.inputs.force == 'true' && '1' || '' }}
         run: python release_runner.py --once
       - name: Commit logs + macro ledger
         if: always()

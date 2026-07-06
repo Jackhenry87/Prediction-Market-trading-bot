@@ -17,6 +17,7 @@ Every ticker/series mapping below is a best guess until confirmed against
 a real settled market — verify from a live run's log before trusting it.
 """
 
+import os
 import sys
 from datetime import datetime, timezone
 
@@ -29,6 +30,7 @@ from pathlib import Path
 log = get_logger("strategy_macro")
 
 FRED_URL = "https://api.stlouisfed.org/fred/series/observations"
+FRED_META_URL = "https://api.stlouisfed.org/fred/series"
 PAPER_LOG = Path(__file__).resolve().parent / "paper_trades_macro.csv"
 
 # Only act on a release this fresh (hours) — that's the crowd-lag window.
@@ -76,15 +78,31 @@ def latest_actual(obs: list, transform: str):
     return None
 
 
-def is_fresh(release_date: str) -> bool:
-    """FRED dates are the reference month, not the release instant, so this
-    is a coarse guard; the executor's freshness ultimately depends on how
-    often it runs. Treat anything within FRESH_HOURS of 'now' as fresh."""
-    try:
-        d = datetime.strptime(release_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-    except ValueError:
+def series_last_updated(series_id: str, api_key: str):
+    """When FRED last refreshed this series — i.e. roughly when the number
+    was released. This is the correct freshness signal (NOT the observation
+    date, which is the reference period)."""
+    resp = requests.get(FRED_META_URL, params={
+        "series_id": series_id, "api_key": api_key, "file_type": "json"},
+        timeout=20)
+    resp.raise_for_status()
+    raw = resp.json()["seriess"][0]["last_updated"]  # e.g. "2026-07-02 07:31:02-05"
+    # normalize the timezone offset (FRED gives -05, Python wants -0500)
+    raw = raw.strip()
+    if len(raw) >= 3 and raw[-3] in "+-" and raw[-2:].isdigit():
+        raw = raw + "00"
+    return datetime.strptime(raw, "%Y-%m-%d %H:%M:%S%z")
+
+
+def is_fresh(last_updated: datetime) -> bool:
+    """Released within FRESH_HOURS — the crowd-lag window. MACRO_FORCE_FRESH
+    bypasses it for verification runs (safe: paper-only)."""
+    if os.getenv("MACRO_FORCE_FRESH"):
+        return True
+    if not last_updated:
         return False
-    return (datetime.now(timezone.utc) - d).total_seconds() / 3600.0 <= FRESH_HOURS
+    age_h = (datetime.now(timezone.utc) - last_updated).total_seconds() / 3600.0
+    return age_h <= FRESH_HOURS
 
 
 def known_outcome_signal(market: dict, actual: float) -> dict:
@@ -123,18 +141,19 @@ def scan(fred_key: str) -> list:
         try:
             obs = fetch_fred(cfg["fred"], fred_key)
             actual = latest_actual(obs, cfg["transform"])
+            updated = series_last_updated(cfg["fred"], fred_key)
         except Exception as exc:
             log.warning("Skipping %s (FRED failed: %s)", cfg["name"], exc)
             continue
         if not actual:
             continue
         release_date, value = actual
-        if not is_fresh(release_date):
-            log.info("%s: latest %s=%.2f (%s) not fresh — no lag to capture",
-                     cfg["name"], cfg["fred"], value, release_date)
+        if not is_fresh(updated):
+            log.info("%s: latest %s=%.2f (updated %s) not fresh — no lag to "
+                     "capture", cfg["name"], cfg["fred"], value, updated)
             continue
-        log.info("%s: FRESH actual %.2f (released %s) — checking %s markets",
-                 cfg["name"], value, release_date, cfg["kalshi"])
+        log.info("%s: FRESH actual %.2f (FRED updated %s) — checking %s markets",
+                 cfg["name"], value, updated, cfg["kalshi"])
         try:
             data = client._request(
                 "GET", "/events",
