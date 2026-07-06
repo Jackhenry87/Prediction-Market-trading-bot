@@ -93,6 +93,39 @@ WC_SERIES = "KXFIFAGAME"
 WC_RE = re.compile(
     r"^fifwc-([a-z]{3})-([a-z]{3})-(\d{4})-(\d{2})-(\d{2})-([a-z]{3}|draw)$")
 
+# Team-to-advance — the sharps' favorite knockout bet. Kalshi's venue for
+# tournament games isn't a fixed series (KXFIFAGAME held only qualifiers),
+# so advance consensus is mapped by DISCOVERY: search all open events for
+# the two team names, then let the market STRUCTURE decide the semantics.
+# A knockout game listed with exactly two team markets and no TIE must
+# settle on who advances (a 2-outcome market can't leave a draw
+# unresolved) -> safe to place. A TIE market present means regulation
+# settlement -> a DIFFERENT bet than the sharps made -> refused.
+WC_ADV_RE = re.compile(
+    r"^fifwc-[a-z]{3}-[a-z]{3}-\d{4}-\d{2}-\d{2}-team-to-advance$")
+
+# Tennis: binary by nature (no draws), so Polymarket match winners map
+# 1:1 onto Kalshi's per-match series. Routed by TITLE (Polymarket tennis
+# slugs don't follow the team-sport pattern):
+#   "Wimbledon ATP: Jiri Lehecka vs Alexander Zverev" -> KXATPMATCH
+TENNIS_TITLE_RE = re.compile(
+    r"\b(ATP|WTA)\b[^:]*:\s*(.+?)\s+vs\.?\s+(.+?)\s*$", re.I)
+TENNIS_SERIES = {"ATP": "KXATPMATCH", "WTA": "KXWTAMATCH"}
+
+
+def _surname_words(name: str) -> set:
+    """Distinctive words of a player/team name for matching (>=3 chars)."""
+    return {w for w in re.split(r"[^A-Za-z]+", (name or "").upper())
+            if len(w) >= 3}
+
+
+def _vs_teams(title: str) -> tuple:
+    """('United States', 'Belgium') from 'United States vs. Belgium: ...'"""
+    head = (title or "").split(":")[0]
+    parts = re.split(r"\s+vs\.?\s+", head, flags=re.I)
+    return (parts[0].strip(), parts[1].strip()) if len(parts) == 2 \
+        else (None, None)
+
 
 def _get(url: str, **params) -> list:
     resp = requests.get(url, params=params, timeout=30,
@@ -291,6 +324,70 @@ def wc_signal(cons: dict, events: list) -> dict:
     return None
 
 
+def _match_side_market(event: dict, outcome_words: set):
+    """The open market in this event whose label matches the outcome."""
+    for market in event.get("markets") or []:
+        if market.get("status") not in (None, "active", "open"):
+            continue
+        label = (market.get("yes_sub_title") or market.get("subtitle")
+                 or market.get("title") or "")
+        if outcome_words and outcome_words <= _surname_words(label):
+            return market
+    return None
+
+
+def tennis_signal(cons: dict, events: list) -> dict:
+    """Map a tennis match-winner consensus onto KX{ATP,WTA}MATCH. Both
+    surnames must match exactly ONE open event; ambiguity fails closed."""
+    m = TENNIS_TITLE_RE.search(cons.get("title") or "")
+    if not m:
+        return None
+    s1 = _surname_words(m.group(2).split()[-1])
+    s2 = _surname_words(m.group(3).split()[-1])
+    if not s1 or not s2:
+        return None
+    hits = [ev for ev in events
+            if s1 <= _surname_words(ev.get("title"))
+            and s2 <= _surname_words(ev.get("title"))]
+    if len(hits) != 1:
+        return None
+    market = _match_side_market(
+        hits[0], _surname_words((cons.get("outcome") or "").split()[-1]))
+    return _priced_signal(cons, market, hits[0]) if market else None
+
+
+def advance_signal(cons: dict, open_events: list) -> dict:
+    """Map a team-to-advance consensus onto a DISCOVERED binary knockout
+    market. Fails closed on: teams not parseable, zero or multiple title
+    matches, a TIE/DRAW market present (regulation venue — a different
+    bet), or no matching side market."""
+    team_a, team_b = _vs_teams(cons.get("title"))
+    if not team_a or not team_b:
+        return None
+    wa, wb = _surname_words(team_a), _surname_words(team_b)
+    hits = []
+    for ev in open_events:
+        tw = _surname_words(ev.get("title"))
+        if wa and wb and wa <= tw and wb <= tw:
+            hits.append(ev)
+    if len(hits) != 1:
+        return None
+    event = hits[0]
+    markets = [mk for mk in event.get("markets") or []
+               if mk.get("status") in (None, "active", "open")]
+    for mk in markets:
+        blob = (f"{mk.get('ticker', '')} {mk.get('yes_sub_title', '')} "
+                f"{mk.get('title', '')}").upper()
+        if "TIE" in _surname_words(blob) or "DRAW" in _surname_words(blob):
+            log.info("Advance refused (regulation venue with TIE): %s",
+                     event.get("event_ticker"))
+            return None
+    if len(markets) != 2:      # not a clean binary knockout listing
+        return None
+    market = _match_side_market(event, _surname_words(cons.get("outcome")))
+    return _priced_signal(cons, market, event) if market else None
+
+
 def scan() -> list:
     """Standard model result shape; 'date' carries the Kalshi event ticker
     so one-bet-per-event grouping and the sports theme cap apply."""
@@ -322,14 +419,46 @@ def scan() -> list:
                 events_by_series[series] = []
         return events_by_series[series]
 
+    def all_open_events() -> list:
+        """Every open event, paged once per scan — venue DISCOVERY for
+        advance plays, since tournament games aren't a fixed series."""
+        if "__ALL__" not in events_by_series:
+            out, cursor = [], ""
+            try:
+                for _ in range(12):
+                    params = {"status": "open", "limit": 200,
+                              "with_nested_markets": "true"}
+                    if cursor:
+                        params["cursor"] = cursor
+                    data = client._request("GET", "/events", params=params)
+                    out.extend(data.get("events", []))
+                    cursor = data.get("cursor") or ""
+                    if not cursor:
+                        break
+            except Exception as exc:
+                log.warning("Open-events discovery fetch failed: %s", exc)
+            events_by_series["__ALL__"] = out
+        return events_by_series["__ALL__"]
+
     results = []
     for cons in consensus:
         ml = MONEYLINE_RE.match(cons["slug"])
+        tennis = TENNIS_TITLE_RE.search(cons.get("title") or "")
         if ml:
             sig = consensus_signal(cons,
                                    events_for(LEAGUE_SERIES[ml.group(1)]))
         elif WC_RE.match(cons["slug"]):
             sig = wc_signal(cons, events_for(WC_SERIES))
+        elif WC_ADV_RE.match(cons["slug"]):
+            sig = advance_signal(cons, all_open_events())
+            if not sig:
+                log.info("Advance play not placeable (no binary Kalshi "
+                         "venue found): %s | %s | %d sharps $%.0f @ %.0fc",
+                         cons["title"], cons["outcome"], cons["wallets"],
+                         cons["stake"], 100 * cons["avg_price"])
+        elif tennis:
+            sig = tennis_signal(
+                cons, events_for(TENNIS_SERIES[tennis.group(1).upper()]))
         else:
             log.info("Unmappable consensus (no Kalshi venue): %s | %s | "
                      "%d sharps $%.0f @ %.0fc", cons["title"], cons["outcome"],
