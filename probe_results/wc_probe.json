@@ -1,0 +1,359 @@
+{
+  "fifwc_slugs": [
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-esp",
+      "trades": 44,
+      "title": "Will Spain win on 2026-07-06?",
+      "outcome": "Yes",
+      "price": 0.5
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-total-8pt5",
+      "trades": 32,
+      "title": "Portugal vs. Spain: O/U 8.5",
+      "outcome": "Under",
+      "price": 0.997
+    },
+    {
+      "slug": "fifwc-usa-bel-2026-07-06-team-to-advance",
+      "trades": 26,
+      "title": "United States vs. Belgium: Team to Advance",
+      "outcome": "United States",
+      "price": 0.54
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-prt",
+      "trades": 22,
+      "title": "Will Portugal win on 2026-07-06?",
+      "outcome": "Yes",
+      "price": 0.2399999997
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-team-to-advance",
+      "trades": 18,
+      "title": "Portugal vs. Spain: Team to Advance",
+      "outcome": "Spain",
+      "price": 0.65
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-exact-score-3-1",
+      "trades": 15,
+      "title": "Exact Score: Portugal 3 - 1 Spain?",
+      "outcome": "No",
+      "price": 0.977
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-exact-score-1-2",
+      "trades": 12,
+      "title": "Exact Score: Portugal 1 - 2 Spain?",
+      "outcome": "No",
+      "price": 0.89
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-exact-score-1-1",
+      "trades": 11,
+      "title": "Exact Score: Portugal 1 - 1 Spain?",
+      "outcome": "No",
+      "price": 0.86
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-btts",
+      "trades": 10,
+      "title": "Portugal vs. Spain: Both Teams to Score",
+      "outcome": "Yes",
+      "price": 0.5999999993
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-total-0pt5",
+      "trades": 10,
+      "title": "Portugal vs. Spain: O/U 0.5",
+      "outcome": "Over",
+      "price": 0.9399999991
+    },
+    {
+      "slug": "fifwc-usa-bel-2026-07-06-usa",
+      "trades": 10,
+      "title": "Will United States win on 2026-07-06?",
+      "outcome": "Yes",
+      "price": 0.4
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-draw",
+      "trades": 10,
+      "title": "Will Portugal vs. Spain end in a draw?",
+      "outcome": "Yes",
+      "price": 0.2799999804
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-exact-score-2-3",
+      "trades": 6,
+      "title": "Exact Score: Portugal 2 - 3 Spain?",
+      "outcome": "Yes",
+      "price": 0.033999968
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-total-1pt5",
+      "trades": 5,
+      "title": "Portugal vs. Spain: O/U 1.5",
+      "outcome": "Over",
+      "price": 0.79
+    },
+    {
+      "slug": "fifwc-usa-bel-2026-07-06-bel",
+      "trades": 4,
+      "title": "Will Belgium win on 2026-07-06?",
+      "outcome": "Yes",
+      "price": 0.3399999857
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-exact-score-1-3",
+      "trades": 4,
+      "title": "Exact Score: Portugal 1 - 3 Spain?",
+      "outcome": "Yes",
+      "price": 0.0699999682
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-exact-score-2-2",
+      "trades": 4,
+      "title": "Exact Score: Portugal 2 - 2 Spain?",
+      "outcome": "Yes",
+      "price": 0.0699999931
+    },
+    {
+      "slug": "fifwc-usa-bel-2026-07-06-total-2pt5",
+      "trades": 4,
+      "title": "United States vs. Belgium: O/U 2.5",
+      "outcome": "Over",
+      "price": 0.58
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-spread-away-1pt5",
+      "trades": 4,
+      "title": "Spread: Spain (-1.5)",
+      "outcome": "Spain",
+      "price": 0.27
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-exact-score-2-0",
+      "trades": 4,
+      "title": "Exact Score: Portugal 2 - 0 Spain?",
+      "outcome": "No",
+      "price": 0.967
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-goals-mikel-oyarzabal-gte1",
+      "trades": 4,
+      "title": "Mikel Oyarzabal: 1+ goals",
+      "outcome": "Yes",
+      "price": 0.4
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-goals-lamine-yamal-gte1",
+      "trades": 4,
+      "title": "Lamine Yamal: 1+ goals",
+      "outcome": "No",
+      "price": 0.6599999167
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-exact-score-any-other",
+      "trades": 3,
+      "title": "Exact Score: Any Other Score?",
+      "outcome": "No",
+      "price": 0.92
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-corners-total-9pt5",
+      "trades": 3,
+      "title": "Portugal vs. Spain: O/U 9.5 Total Corners",
+      "outcome": "Over",
+      "price": 0.5499999943
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-first-to-score-home",
+      "trades": 3,
+      "title": "Portugal to score first vs. Spain?",
+      "outcome": "Yes",
+      "price": 0.3699999674
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-exact-score-3-2",
+      "trades": 3,
+      "title": "Exact Score: Portugal 3 - 2 Spain?",
+      "outcome": "No",
+      "price": 0.975
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-exact-score-3-0",
+      "trades": 3,
+      "title": "Exact Score: Portugal 3 - 0 Spain?",
+      "outcome": "No",
+      "price": 0.988
+    },
+    {
+      "slug": "fifwc-usa-bel-2026-07-06-draw",
+      "trades": 3,
+      "title": "Will United States vs. Belgium end in a draw?",
+      "outcome": "No",
+      "price": 0.73
+    },
+    {
+      "slug": "fifwc-arg-egy-2026-07-07-arg",
+      "trades": 3,
+      "title": "Will Argentina win on 2026-07-07?",
+      "outcome": "No",
+      "price": 0.29
+    },
+    {
+      "slug": "fifwc-usa-bel-2026-07-06-total-8pt5",
+      "trades": 3,
+      "title": "United States vs. Belgium: O/U 8.5",
+      "outcome": "Under",
+      "price": 0.996
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-exact-score-2-1",
+      "trades": 3,
+      "title": "Exact Score: Portugal 2 - 1 Spain?",
+      "outcome": "Yes",
+      "price": 0.08
+    },
+    {
+      "slug": "fifwc-usa-bel-2026-07-06-spread-home-1pt5",
+      "trades": 3,
+      "title": "Spread: United States (-1.5)",
+      "outcome": "United States",
+      "price": 0.2
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-assists-lamine-yamal-gte1",
+      "trades": 3,
+      "title": "Lamine Yamal: 1+ assists",
+      "outcome": "Yes",
+      "price": 0.2899998666
+    },
+    {
+      "slug": "fifwc-usa-bel-2026-07-06-goals-folarin-balogun-gte1",
+      "trades": 3,
+      "title": "Folarin Balogun: 1+ goals",
+      "outcome": "No",
+      "price": 0.62
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-goals-cristiano-ronaldo-gte1",
+      "trades": 3,
+      "title": "Cristiano Ronaldo: 1+ goals",
+      "outcome": "Yes",
+      "price": 0.3399999694
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-exact-score-0-0",
+      "trades": 2,
+      "title": "Exact Score: Portugal 0 - 0 Spain?",
+      "outcome": "No",
+      "price": 0.9399999991
+    },
+    {
+      "slug": "fifwc-usa-bel-2026-07-06-exact-score-2-1",
+      "trades": 2,
+      "title": "Exact Score: United States 2 - 1 Belgium?",
+      "outcome": "Yes",
+      "price": 0.1
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-team-total-home-1pt5",
+      "trades": 2,
+      "title": "Portugal vs. Spain: Portugal O/U 1.5",
+      "outcome": "Over",
+      "price": 0.32
+    },
+    {
+      "slug": "fifwc-prt-esp-2026-07-06-exact-score-1-0",
+      "trades": 2,
+      "title": "Exact Score: Portugal 1 - 0 Spain?",
+      "outcome": "Yes",
+      "price": 0.0599999944
+    },
+    {
+      "slug": "fifwc-fra-mar-2026-07-09-fra",
+      "trades": 2,
+      "title": "Will France win on 2026-07-09?",
+      "outcome": "Yes",
+      "price": 0.6199999628
+    }
+  ],
+  "kalshi_KXMENWORLDCUP": {
+    "status": 200,
+    "body": {
+      "cursor": "",
+      "events": [
+        {
+          "available_on_brokers": true,
+          "category": "Sports",
+          "collateral_return_type": "MECNET",
+          "event_ticker": "KXMENWORLDCUP-26",
+          "last_updated_ts": "2026-06-26T14:35:36.084375Z",
+          "markets": [
+            {
+              "status": "active",
+              "ticker": "KXMENWORLDCUP-26-FR",
+              "title": "Will the France win the 2026 Men's World Cup?",
+              "yes_sub_title": "France"
+            },
+            {
+              "status": "active",
+              "ticker": "KXMENWORLDCUP-26-ES",
+              "title": "Will the Spain win the 2026 Men's World Cup?",
+              "yes_sub_title": "Spain"
+            },
+            {
+              "status": "finalized",
+              "ticker": "KXMENWORLDCUP-26-BR",
+              "title": "Will the Brazil win the 2026 Men's World Cup?",
+              "yes_sub_title": "Brazil"
+            }
+          ],
+          "mutually_exclusive": true,
+          "product_metadata": {
+            "competition": "World Soccer Cup",
+            "competition_scope": "Future"
+          },
+          "series_ticker": "KXMENWORLDCUP",
+          "settlement_sources": [
+            {
+              "name": "Fox Sports",
+              "url": "https://www.foxsports.com/"
+            },
+            {
+              "name": "ESPN",
+              "url": "https://www.espn.com/"
+            },
+            {
+              "name": "The Wall Street Journal",
+              "url": "https://www.wsj.com/"
+            }
+          ],
+          "strike_period": "",
+          "sub_title": "2026",
+          "title": "2026 FIFA World Cup Winner"
+        }
+      ],
+      "milestones": []
+    }
+  },
+  "kalshi_KXMENWORLDCUPGAME": {
+    "status": 200,
+    "body": {
+      "cursor": "",
+      "events": [],
+      "milestones": []
+    }
+  },
+  "kalshi_KXWORLDCUP": {
+    "status": 200,
+    "body": {
+      "cursor": "",
+      "events": [],
+      "milestones": []
+    }
+  }
+}
