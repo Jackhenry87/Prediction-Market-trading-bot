@@ -82,6 +82,15 @@ def copy_pass(client, settings, session_seen: set) -> int:
         log.error("REFUSING TO COPY: %s (failing closed)", exc)
         return 0
     bankroll = balance_usd + exposure
+    # hard caps GROW with the account (owner spec): floor at the static
+    # env values, scale by bankroll, absolute ceilings as the backstop
+    from dataclasses import replace
+
+    from safety import scaled_exposure_cap, scaled_order_cap
+    settings = replace(settings,
+                       max_order_size=scaled_order_cap(bankroll, settings),
+                       max_total_exposure=scaled_exposure_cap(bankroll,
+                                                              settings))
     placed = 0
 
     flat = [(r, s) for r in results for s in r["signals"]]

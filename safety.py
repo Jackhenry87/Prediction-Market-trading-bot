@@ -3,6 +3,8 @@ check_order() before anything is signed or sent. Returns the list of
 violations (empty list = order allowed); each violation is also logged.
 """
 
+import os
+
 from trade_logger import get_logger
 
 log = get_logger("safety")
@@ -12,6 +14,27 @@ VALID_SIDES = ("BUY", "SELL")
 
 def order_notional_usdc(price: float, size_shares: float) -> float:
     return price * size_shares
+
+
+def scaled_order_cap(bankroll_usd: float, settings) -> float:
+    """Per-order hard cap that GROWS with the account (owner spec): the
+    larger of the static MAX_ORDER_SIZE (the floor, so a small account can
+    still trade) and MAX_ORDER_BANKROLL_PCT% of bankroll — but never above
+    the MAX_ORDER_ABS ceiling, the ultimate backstop no bug can exceed."""
+    pct = float(os.getenv("MAX_ORDER_BANKROLL_PCT", "10"))
+    ceiling = float(os.getenv("MAX_ORDER_ABS", "50"))
+    return min(max(settings.max_order_size, bankroll_usd * pct / 100.0),
+               ceiling)
+
+
+def scaled_exposure_cap(bankroll_usd: float, settings) -> float:
+    """Total-exposure hard cap that grows with the account: the larger of
+    the static MAX_TOTAL_EXPOSURE floor and MAX_EXPOSURE_BANKROLL_PCT% of
+    bankroll, never above the MAX_EXPOSURE_ABS ceiling."""
+    pct = float(os.getenv("MAX_EXPOSURE_BANKROLL_PCT", "80"))
+    ceiling = float(os.getenv("MAX_EXPOSURE_ABS", "250"))
+    return min(max(settings.max_total_exposure, bankroll_usd * pct / 100.0),
+               ceiling)
 
 
 def check_order(settings, side: str, price: float, size_shares: float,
