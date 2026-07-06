@@ -66,6 +66,11 @@ MIN_STAKE_USDC = float(os.getenv("SM_MIN_STAKE", "50"))       # per-sharp stake
 PREMIUM_PTS = float(os.getenv("SM_PREMIUM_PTS", "8"))
 MAX_PROB = 0.97
 MIN_EDGE_CENTS = float(os.getenv("SM_MIN_EDGE_CENTS", "3"))
+# This model is EXEMPT from the global 60-90c band (that band exists
+# because OUR models are least calibrated at extreme prices; on copies
+# the calibration is the sharps' own track record). Its own floor still
+# refuses longshot lottery tickets.
+SM_MIN_PRICE_CENTS = float(os.getenv("SM_MIN_PRICE", "25"))
 
 MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN",
           "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
@@ -216,6 +221,10 @@ def _priced_signal(cons: dict, market: dict, event: dict) -> dict:
     yes_ask = price_cents(market, "yes_ask")
     if not yes_ask or not 0 < yes_ask < 100:
         return None
+    if yes_ask < SM_MIN_PRICE_CENTS:   # own floor: no lottery tickets
+        log.info("Below floor: %s ask %.0fc < %.0fc", label, yes_ask,
+                 SM_MIN_PRICE_CENTS)
+        return None
     ev = 100.0 * p - yes_ask - taker_fee_cents(yes_ask)
     if ev < MIN_EDGE_CENTS:   # line already ran past the sharps
         log.info("No chase: %s ask %.0fc vs sharp entry %.0fc",
@@ -223,6 +232,7 @@ def _priced_signal(cons: dict, market: dict, event: dict) -> dict:
         return None
     return dict(side="yes", price_cents=yes_ask, model_prob=p,
                 ev_cents=ev, ticker=market.get("ticker"),
+                wallets=cons["wallets"], stake=cons["stake"],
                 subtitle=f"{label} ({cons['wallets']} sharps, "
                          f"${cons['stake']:.0f})",
                 event_ticker=event.get("event_ticker")
