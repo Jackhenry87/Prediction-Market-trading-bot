@@ -51,9 +51,26 @@ def upgrade_exec_columns(path: Path = EXEC_LOG) -> None:
         csv.writer(fh).writerows(rows)
 
 
+def _fill_count(fill: dict) -> float:
+    """Contracts in this fill. Live API uses count_fp ('3.00', a fixed-point
+    STRING); keep plain count as a fallback for older payloads."""
+    for key in ("count_fp", "count"):
+        v = fill.get(key)
+        if v not in (None, ""):
+            return float(v)
+    return 0.0
+
+
 def _fill_price_cents(fill: dict) -> float:
-    """Price paid per contract for the side actually bought, in cents."""
-    if (fill.get("side") or "").lower() == "yes":
+    """Price paid per contract for the side actually bought, in cents.
+    Live API gives yes/no_price_dollars as dollar STRINGS ('0.8200');
+    cents-int yes_price/no_price kept as fallback."""
+    side = (fill.get("side") or "").lower()
+    dollars = fill.get("yes_price_dollars" if side == "yes"
+                       else "no_price_dollars")
+    if dollars not in (None, ""):
+        return float(dollars) * 100.0
+    if side == "yes":
         raw = fill.get("yes_price")
     else:
         raw = fill.get("no_price")
@@ -86,7 +103,7 @@ def reconcile_fills(client, days: float = 7, path: Path = EXEC_LOG) -> int:
         oid = str(f.get("order_id") or f.get("trade_id") or "")
         if not oid or oid in known:
             continue
-        count = float(f.get("count") or 0)
+        count = _fill_count(f)
         ts = f.get("created_time") or ""
         if isinstance(ts, (int, float)):
             ts = datetime.fromtimestamp(ts, timezone.utc).isoformat(

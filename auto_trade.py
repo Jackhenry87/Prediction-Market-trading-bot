@@ -363,6 +363,49 @@ def main() -> int:
     return 0
 
 
+def write_account_snapshot(client) -> None:
+    """The money truth, from Kalshi's own books: current balance, open
+    exposure, and realized P&L summed over every settlement since
+    RECORD_SINCE (default 2026-07-01, when this account's record starts).
+    Written to account_snapshot.json for the scoreboard's headline."""
+    import json
+    import os
+    from datetime import datetime, timezone
+    from pathlib import Path
+
+    from backfill_history import settlement_pnl
+
+    since = os.getenv("RECORD_SINCE", "2026-07-01")
+    min_ts = int(datetime.strptime(since, "%Y-%m-%d")
+                 .replace(tzinfo=timezone.utc).timestamp())
+    balance = client.get_balance_cents() / 100.0
+    try:
+        exposure = current_exposure_usd(client)
+    except Exception:
+        exposure = None
+    realized = 0.0
+    wins = losses = 0
+    for s in client.get_settlements(min_ts):
+        _, pnl = settlement_pnl(s)
+        if pnl is None:
+            continue
+        realized += pnl
+        if pnl > 0:
+            wins += 1
+        elif pnl < 0:
+            losses += 1
+    snap = dict(balance_usd=round(balance, 2),
+                exposure_usd=None if exposure is None else round(exposure, 2),
+                realized_pnl_usd=round(realized, 2),
+                settled_wins=wins, settled_losses=losses, since=since,
+                updated=datetime.now(timezone.utc).isoformat(
+                    timespec="seconds"))
+    path = Path(__file__).resolve().parent / "account_snapshot.json"
+    path.write_text(json.dumps(snap, indent=2))
+    log.info("Account: balance $%.2f, realized P&L since %s: %+.2f "
+             "(%d W / %d L)", balance, since, realized, wins, losses)
+
+
 def refresh_records(settings, client=None) -> None:
     """Make the record TRUE before rebuilding the scoreboard: pull any real
     orders the ledger missed from Kalshi's own fills (source of truth —
@@ -389,6 +432,10 @@ def refresh_records(settings, client=None) -> None:
             score_pending_paper_trades(EXEC_LOG)
         except Exception as exc:
             log.warning("Executed-trade scoring failed: %s", exc)
+        try:
+            write_account_snapshot(client)
+        except Exception as exc:
+            log.warning("Account snapshot failed: %s", exc)
     try:
         import scoreboard
         scoreboard.build()

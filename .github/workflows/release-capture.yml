@@ -67,7 +67,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           # one add per file — a multi-path add fails entirely if any path
           # is missing (e.g. no macro signals -> no CSV -> SCOREBOARD lost)
-          for f in paper_trades_macro.csv executed_trades.csv SCOREBOARD.md; do
+          for f in paper_trades_macro.csv executed_trades.csv account_snapshot.json SCOREBOARD.md; do
             git add -f "$f" 2>/dev/null || true
           done
           if ! git diff --cached --quiet; then

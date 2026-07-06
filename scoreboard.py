@@ -37,6 +37,35 @@ def _pnl_cents(outcome: str) -> float:
     return float(outcome.split("(")[1].rstrip("c)").replace("+", ""))
 
 
+def _account_section(lines: list) -> None:
+    """Headline money truth from Kalshi's own books (account_snapshot.json,
+    written by every run): balance, open exposure, realized won/lost."""
+    import json
+    path = ROOT / "account_snapshot.json"
+    if not path.exists():
+        return
+    try:
+        snap = json.loads(path.read_text())
+    except ValueError:
+        return
+    pnl = snap.get("realized_pnl_usd", 0.0)
+    sign = "+" if pnl >= 0 else "-"
+    dot = "🟢" if pnl >= 0 else "🔴"
+    exp = snap.get("exposure_usd")
+    exp_s = "n/a" if exp is None else f"${exp:.2f}"
+    lines += [
+        "## 💰 Account",
+        "",
+        f"**Balance ${snap.get('balance_usd', 0):.2f}** · "
+        f"open exposure {exp_s} · "
+        f"{dot} **won/lost since {snap.get('since', '?')}: "
+        f"{sign}${abs(pnl):.2f}** "
+        f"({snap.get('settled_wins', 0)} wins / "
+        f"{snap.get('settled_losses', 0)} losses on settled markets)",
+        "",
+    ]
+
+
 def _executed_section(lines: list) -> None:
     """Real orders actually placed (the money audit trail)."""
     path = ROOT / "executed_trades.csv"
@@ -98,6 +127,10 @@ def build(out: Path = OUT) -> None:
         "",
         "Signals are scored against official settlement whether or not a "
         "real order was placed. P&L shown is per 1-contract stakes.",
+        "",
+    ]
+    _account_section(lines)
+    lines += [
         "",
     ]
     _executed_section(lines)
