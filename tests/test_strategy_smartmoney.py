@@ -191,3 +191,94 @@ def test_wc_signal_fails_closed():
     no_tie = [dict(WC_EVENTS[0], markets=WC_EVENTS[0]["markets"][:2])]
     assert sm.wc_signal(_wc_cons("fifwc-prt-esp-2026-07-06-draw"),
                         no_tie) is None
+
+
+TENNIS_EVENTS = [
+    {"event_ticker": "KXATPMATCH-26JUL08LEHZVE", "title": "Lehecka vs Zverev",
+     "markets": [
+         {"ticker": "KXATPMATCH-26JUL08LEHZVE-LEH", "status": "active",
+          "yes_sub_title": "Lehecka", "yes_ask": 30, "yes_bid": 27},
+         {"ticker": "KXATPMATCH-26JUL08LEHZVE-ZVE", "status": "active",
+          "yes_sub_title": "Zverev", "yes_ask": 84, "yes_bid": 81}]},
+    {"event_ticker": "KXATPMATCH-26JUL08COBFER", "title": "Cobolli vs Fery",
+     "markets": []},
+]
+
+
+def _tennis_cons(price=0.85, outcome="Alexander Zverev"):
+    return dict(slug="wimbledon-atp-lehecka-zverev",
+                title="Wimbledon ATP: Jiri Lehecka vs Alexander Zverev",
+                outcome=outcome, wallets=3, stake=21544.0, avg_price=price)
+
+
+def test_tennis_signal_maps_by_surname():
+    sig = sm.tennis_signal(_tennis_cons(), TENNIS_EVENTS)
+    assert sig and sig["ticker"] == "KXATPMATCH-26JUL08LEHZVE-ZVE"
+    assert sig["price_cents"] == 84
+    # underdog side maps too
+    sig = sm.tennis_signal(_tennis_cons(price=0.28, outcome="Jiri Lehecka"),
+                           TENNIS_EVENTS)
+    assert sig and sig["ticker"] == "KXATPMATCH-26JUL08LEHZVE-LEH"
+    # and the 25c floor still refuses true lottery tickets
+    cheap = [dict(TENNIS_EVENTS[0], markets=[
+        dict(TENNIS_EVENTS[0]["markets"][0], yes_ask=15)])]
+    assert sm.tennis_signal(_tennis_cons(price=0.13,
+                                         outcome="Jiri Lehecka"),
+                            cheap) is None
+
+
+def test_tennis_signal_fails_closed():
+    # not a tennis title
+    c = _tennis_cons()
+    c["title"] = "Portugal vs. Spain: O/U 2.5"
+    assert sm.tennis_signal(c, TENNIS_EVENTS) is None
+    # ambiguous: two events with the same surname -> refuse
+    dup = TENNIS_EVENTS + [dict(TENNIS_EVENTS[0],
+                                event_ticker="KXATPMATCH-26JUL09LEHZVE")]
+    assert sm.tennis_signal(_tennis_cons(), dup) is None
+    # no matching event at all
+    assert sm.tennis_signal(_tennis_cons(), TENNIS_EVENTS[1:]) is None
+
+
+ADV_BINARY = [{
+    "event_ticker": "KXWHATEVER-26JUL06USABEL",
+    "title": "United States vs Belgium",
+    "markets": [
+        {"ticker": "KXWHATEVER-26JUL06USABEL-USA", "status": "active",
+         "yes_sub_title": "United States", "yes_ask": 55, "yes_bid": 52},
+        {"ticker": "KXWHATEVER-26JUL06USABEL-BEL", "status": "active",
+         "yes_sub_title": "Belgium", "yes_ask": 47, "yes_bid": 44}]}]
+
+
+def _adv_cons(price=0.53):
+    return dict(slug="fifwc-usa-bel-2026-07-06-team-to-advance",
+                title="United States vs. Belgium: Team to Advance",
+                outcome="United States", wallets=7, stake=511274.0,
+                avg_price=price)
+
+
+def test_advance_maps_binary_knockout_market():
+    assert sm.WC_ADV_RE.match(_adv_cons()["slug"])
+    sig = sm.advance_signal(_adv_cons(), ADV_BINARY)
+    assert sig and sig["ticker"] == "KXWHATEVER-26JUL06USABEL-USA"
+    assert sig["price_cents"] == 55 and sig["wallets"] == 7
+
+
+def test_advance_refuses_regulation_venue_with_tie():
+    # a TIE market means regulation settlement — a DIFFERENT bet: refuse
+    with_tie = [dict(ADV_BINARY[0], markets=ADV_BINARY[0]["markets"] + [
+        {"ticker": "KXWHATEVER-26JUL06USABEL-TIE", "status": "active",
+         "yes_sub_title": "Tie", "yes_ask": 25, "yes_bid": 22}])]
+    assert sm.advance_signal(_adv_cons(), with_tie) is None
+
+
+def test_advance_fails_closed_on_ambiguity():
+    # no matching event
+    assert sm.advance_signal(_adv_cons(), []) is None
+    # two events matching both team names -> refuse
+    dup = ADV_BINARY + [dict(ADV_BINARY[0], event_ticker="KXOTHER-USABEL")]
+    assert sm.advance_signal(_adv_cons(), dup) is None
+    # unparseable title
+    c = _adv_cons()
+    c["title"] = "Team to Advance"
+    assert sm.advance_signal(c, ADV_BINARY) is None
