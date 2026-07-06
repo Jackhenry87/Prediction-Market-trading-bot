@@ -10,6 +10,7 @@ filling). Read-only; runs on CI where the credentials live.
 import json
 import time
 
+from config import load_kalshi_settings
 from kalshi_client import KalshiClient
 from trade_logger import get_logger, setup_logging
 
@@ -24,7 +25,9 @@ def show(name, rows, keys):
 
 def main() -> int:
     setup_logging()
-    client = KalshiClient(env="prod")
+    s = load_kalshi_settings(require_market=False)
+    client = KalshiClient(s.kalshi_api_key_id, s.kalshi_private_key_path,
+                          s.kalshi_env)
     print("balance_cents:", client.get_balance_cents())
 
     week_ago = int(time.time() - 7 * 86400)
