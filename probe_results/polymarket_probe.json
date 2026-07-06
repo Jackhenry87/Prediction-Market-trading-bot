@@ -1,0 +1,27 @@
+{
+  "leaderboard_1w": {
+    "status": 404,
+    "body": "404 page not found\n",
+    "url": "https://lb-api.polymarket.com/leaderboard?window=1w&limit=5"
+  },
+  "leaderboard_1m_profit": {
+    "status": 404,
+    "body": "404 page not found\n",
+    "url": "https://lb-api.polymarket.com/leaderboard?window=1m&rankType=profit&limit=5"
+  },
+  "data_leaderboard": {
+    "status": 404,
+    "body": "404 page not found\n",
+    "url": "https://data-api.polymarket.com/leaderboard?window=1w&limit=5"
+  },
+  "data_trades": {
+    "status": 200,
+    "body": "[{\"proxyWallet\":\"0x8adcb0a204522d5b8c43e277504d62af32f46b14\",\"side\":\"BUY\",\"asset\":\"98734397307279596881477272535252780375268581655233498354876673968350208006313\",\"conditionId\":\"0x1da088cf4d2949df882175317dc84f4931205911009e5eacb36e6bac41f83733\",\"size\":40.540539,\"price\":0.3699999894,\"timestamp\":1783360517,\"title\":\"Spain leading at halftime?\",\"slug\":\"fifwc-prt-esp-2026-07-06-halftime-result-away\",\"icon\":\"\",\"eventSlug\":\"\",\"outcome\":\"Yes\",\"outcomeIndex\":999,\"name\":\"SwissNostradamus\",\"pseudonym\":\"Ragged-Pickle\",\"bio\":\"Swiss Fortune Teller\",\"profileImage\":\"https://polymarket-upload.s3.us-east-2.amazonaws.com/profile-image-6091320-55a1139c-4070-4502-8aed-53c9cd73a434.webp\",\"profileImageOptimized\":\"\",\"transactionHash\":\"0x0be5920592782cb4e1036b2b19843331437751e7836868407267c3e75407ac99\"},{\"proxyWallet\":\"0xc3655af2bc566194d7eff502c4288bc310f67172\",\"side\":\"BUY\",\"asset\":\"109064859640494968393096114657776147537707616410810009052624358824530750022102\",\"conditionId\":\"0x84ceac327b0b2a76ced4315420c9f1ad695512b456c6ee565f134fc82384ffc3\",\"size\":10,\"price\":0.21,\"timestamp\":1783360517,\"title\":\"Wimbledon ATP: Taylor Fritz vs Alexander Bublik\",\"slug\":\"atp-fritz-bublik-2026-07-06\",\"icon\":\"https://polymarket-upload.s3.us-east-2.amazonaws.com/atp-tour-b4390c4fb8.jpg\",\"eventSlug\":\"\",\"outcome\":\"Alexander Bublik\",\"outcomeIndex\":999,\"name\":\"0xC3655AF2BC566194d7efF502c4288Bc310f67172-1760311172549\",\"pseudonym\":\"Watery-Incense\",\"bio\":\"\",\"profileImage\":\"\",\"profileImageOptimized\":\"\",\"transactionHash\":\"0xfcb39140a65975d59ec94e96eb1ac901936c9e1eae5a79444fe3a824053016c8\"},{\"proxyWallet\":\"0x8d1d5d1c6041b13fc708b5d9f668070e1724ed4a\",\"side\":\"BUY\",\"asset\":\"78039391610679208452764073739673589214192983006520268288679110962648097431174\",\"conditionId\":\"0x83762c10fd4829ca7297963b0e3d4e47749dddf6e18ebce18f831f05bae06d48\",\"size\":600,\"price\":0.02,\"timestamp\":1783360517,\"title\":\"Ethereum Up or Down - July 6, 1PM ET\",\"slug\":\"ethereum-up-or-down-july-6-2026-1pm-et\",\"icon\":\"https://polymarket-upload.s3.us-east-2.amazo",
+    "url": "https://data-api.polymarket.com/trades?limit=3"
+  },
+  "gamma_markets": {
+    "status": 200,
+    "body": "[{\"id\":\"540817\",\"question\":\"New Rihanna Album before GTA VI?\",\"conditionId\":\"0x1fad72fae204143ff1c3035e99e7c0f65ea8d5cd9bd1070987bd1a3316f772be\",\"slug\":\"new-rhianna-album-before-gta-vi-926\",\"resolutionSource\":\"\",\"endDate\":\"2026-07-31T12:00:00Z\",\"liquidity\":\"14070.5709\",\"startDate\":\"2025-05-02T15:48:10.582Z\",\"image\":\"https://polymarket-upload.s3.us-east-2.amazonaws.com/what-will-happen-before-gta-vi-7hpNkEzQEqUE.jpg\",\"icon\":\"https://polymarket-upload.s3.us-east-2.amazonaws.com/what-will-happen-before-gta-vi-7hpNkEzQEqUE.jpg\",\"description\":\"This market will resolve to \\\"Yes\\\" if Rihanna officially releases a new album before Grand Theft Auto VI is officially released in the US. Otherwise, this market will resolve to \\\"No\\\".\\n\\nIf neither occurs by July 31, 2026, 11:59 PM ET, this market will resolve to 50-50.\\n\\nFor the purposes of this market, \\\"release\\\" refers to the game becoming publicly available for purchase or download in the US. Early access, beta versions, other forms of pre-release availability, or leaks will not count as an official release. If the release is only for certain consoles (e.g. Xbox Series X/S) it will count.\\n\\nThe resolution source for the release of GTA VI is official information from Rockstar Games or its parent company, Take-Two Interactive.\\n\\nOfficially released means that a newly released album is officially available for download or streaming (not including live events) by the resolution date.\\n\\nRe-releases, deluxe editions, compilations, or greatest hits albums will not count, unless they contain at least 50% tracks that have never been officially released in any format prior to the album's release.\\n\\nThe resolution source for the album release will be any official streaming or download site, e.g. Apple Music or Spotify.\",\"outcomes\":\"[\\\"Yes\\\", \\\"No\\\"]\",\"outcomePrices\":\"[\\\"0.51\\\", \\\"0.49\\\"]\",\"volume\":\"849457.8839690159\",\"active\":true,\"closed\":false,\"marketMakerAddress\":\"\",\"createdAt\":\"2025-05-02T15:04:43.762151Z\",\"updatedAt\":\"2026-0",
+    "url": "https://gamma-api.polymarket.com/markets?limit=1&closed=false"
+  }
+}
