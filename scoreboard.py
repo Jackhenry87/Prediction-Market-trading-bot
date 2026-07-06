@@ -16,6 +16,7 @@ SOURCES = [
     ("⚾ Sports model", ROOT / "paper_trades_sports.csv"),
     ("🛢️ Commodities model", ROOT / "paper_trades_commodities.csv"),
     ("📰 Macro resolution-lag", ROOT / "paper_trades_macro.csv"),
+    ("🦈 Smart money (Polymarket sharps)", ROOT / "paper_trades_smartmoney.csv"),
 ]
 MAX_ROWS = 20
 

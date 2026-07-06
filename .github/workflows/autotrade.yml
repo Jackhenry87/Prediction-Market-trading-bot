@@ -70,7 +70,8 @@ jobs:
           TRADE_MAX_PRICE: ${{ vars.TRADE_MAX_PRICE || '90' }}
           # crypto and commodities OFF (weakest edge). Re-enable by setting
           # repo Variable ENABLED_MODELS, e.g. weather,sports,crypto,commodities
-          ENABLED_MODELS: ${{ vars.ENABLED_MODELS || 'weather,sports' }}
+          # smartmoney = Polymarket sharp-wallet consensus executed on Kalshi
+          ENABLED_MODELS: ${{ vars.ENABLED_MODELS || 'weather,sports,smartmoney' }}
           # no single theme (weather/crypto/sports/commodities) may exceed
           # this % of bankroll — stops piles of correlated bets from becoming
           # one oversized wager
@@ -82,7 +83,7 @@ jobs:
         run: |
           git config user.name "auto-trade-bot"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f paper_trades.csv paper_trades_crypto.csv paper_trades_sports.csv paper_trades_commodities.csv executed_trades.csv sports_line_history.json 2>/dev/null || true
+          git add -f paper_trades.csv paper_trades_crypto.csv paper_trades_sports.csv paper_trades_commodities.csv paper_trades_smartmoney.csv executed_trades.csv sports_line_history.json 2>/dev/null || true
           git add SCOREBOARD.md 2>/dev/null || true
           if ! git diff --cached --quiet; then
             git commit -m "Update trade records [skip ci]"

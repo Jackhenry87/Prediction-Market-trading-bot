@@ -1,0 +1,130 @@
+"""Tests for the smart-money (Polymarket sharp-wallet consensus) model."""
+
+import strategy_smartmoney as sm
+
+NOW = 1_783_360_000.0
+
+
+def _trade(wallet, slug, outcome, price, size, ts=NOW - 3600, side="BUY"):
+    return dict(proxyWallet=wallet, slug=slug, outcome=outcome, price=price,
+                size=size, timestamp=ts, side=side, title=slug)
+
+
+def test_pnl_change_windows():
+    day = 86400
+    curve = [(NOW - 20 * day, 0.0), (NOW - 14 * day, 100.0),
+             (NOW - 7 * day, 400.0), (NOW - 1 * day, 900.0)]
+    # 2w window: baseline is the point AT now-14d -> 900 - 100
+    assert sm.pnl_change(curve, 14, now_ts=NOW) == 800.0
+    # 1w window -> 900 - 400
+    assert sm.pnl_change(curve, 7, now_ts=NOW) == 500.0
+    # history shorter than window -> falls back to curve start
+    assert sm.pnl_change(curve[2:], 30, now_ts=NOW) == 500.0
+    assert sm.pnl_change([], 14, now_ts=NOW) == 0.0
+
+
+def test_select_sharp_wallets_filters(monkeypatch):
+    day = 86400
+    tape = [_trade("0xup", "x", "Yes", 0.5, 2000),
+            _trade("0xlucky", "x", "Yes", 0.5, 2000),
+            _trade("0xdown", "x", "Yes", 0.5, 2000)]
+    curves = {
+        # steadily up: qualifies
+        "0xup": [(NOW - 14 * day, 0.0), (NOW - 7 * day, 400.0),
+                 (NOW - day, 900.0)],
+        # big fortnight but bleeding this week: rejected (consistency)
+        "0xlucky": [(NOW - 14 * day, 0.0), (NOW - 7 * day, 2000.0),
+                    (NOW - day, 1500.0)],
+        # below the 2-week floor: rejected
+        "0xdown": [(NOW - 14 * day, 0.0), (NOW - day, 100.0)],
+    }
+    monkeypatch.setattr(sm, "fetch_big_trades", lambda: tape)
+    monkeypatch.setattr(sm, "fetch_pnl_curve", lambda w: curves[w])
+    monkeypatch.setattr(sm, "SHARP_MIN_PNL_2W", 500.0)
+    sharps = sm.select_sharp_wallets()
+    assert list(sharps) == ["0xup"]
+
+
+def test_consensus_needs_distinct_wallets(monkeypatch):
+    trades = {
+        "w1": [_trade("w1", "mlb-phi-kc-2026-07-06", "Phillies", 0.60, 200),
+               # same wallet buying twice must NOT count as two sharps
+               _trade("w1", "mlb-phi-kc-2026-07-06", "Phillies", 0.62, 300)],
+        "w2": [_trade("w2", "mlb-phi-kc-2026-07-06", "Phillies", 0.58, 150)],
+        "w3": [_trade("w3", "mlb-phi-kc-2026-07-06", "Phillies", 0.61, 500),
+               _trade("w3", "nba-lal-bos-2026-07-06", "Lakers", 0.40, 400)],
+    }
+    monkeypatch.setattr(sm, "fetch_wallet_buys",
+                        lambda w, h, now_ts=None: trades[w])
+    monkeypatch.setattr(sm, "MIN_WALLETS", 3)
+    cons = sm.build_consensus({"w1": 1, "w2": 1, "w3": 1}, now_ts=NOW)
+    assert len(cons) == 1                      # Lakers had only 1 sharp
+    c = cons[0]
+    assert c["slug"] == "mlb-phi-kc-2026-07-06" and c["wallets"] == 3
+    # stake-weighted average entry
+    total = 0.60 * 200 * 0.60 + 0.62 * 300 * 0.62 + 0.58 * 150 * 0.58 \
+        + 0.61 * 500 * 0.61
+    stake = 0.60 * 200 + 0.62 * 300 + 0.58 * 150 + 0.61 * 500
+    assert abs(c["avg_price"] - total / stake) < 1e-9
+
+
+def test_moneyline_slug_regex():
+    assert sm.MONEYLINE_RE.match("mlb-phi-kc-2026-07-06")
+    assert sm.MONEYLINE_RE.match("wnba-ny-la-2026-07-06")
+    # spreads, totals, props, and non-Kalshi venues are rejected
+    assert not sm.MONEYLINE_RE.match("mlb-phi-kc-2026-07-06-spread-away-1pt5")
+    assert not sm.MONEYLINE_RE.match("fifwc-prt-esp-2026-07-06-halftime-result-away")
+    assert not sm.MONEYLINE_RE.match("xrp-updown-15m-1783359900")
+
+
+def test_kalshi_date_token():
+    assert sm.kalshi_date_token("2026", "07", "06") == "26JUL06"
+    assert sm.kalshi_date_token("2027", "12", "31") == "27DEC31"
+
+
+EVENTS = [{
+    "event_ticker": "KXMLBGAME-26JUL06PHIKC",
+    "title": "Phillies vs Royals",
+    "markets": [
+        {"ticker": "KXMLBGAME-26JUL06PHIKC-PHI", "status": "active",
+         "yes_sub_title": "Philadelphia Phillies", "yes_ask": 60, "yes_bid": 57},
+        {"ticker": "KXMLBGAME-26JUL06PHIKC-KC", "status": "active",
+         "yes_sub_title": "Kansas City Royals", "yes_ask": 42, "yes_bid": 38},
+    ],
+}]
+
+
+def _cons(price=0.58):
+    return dict(slug="mlb-phi-kc-2026-07-06", outcome="Philadelphia Phillies",
+                title="Phillies vs Royals ML", wallets=3, stake=1000.0,
+                avg_price=price)
+
+
+def test_consensus_signal_maps_to_kalshi():
+    sig = sm.consensus_signal(_cons(0.58), EVENTS)
+    assert sig and sig["ticker"] == "KXMLBGAME-26JUL06PHIKC-PHI"
+    assert sig["side"] == "yes" and sig["price_cents"] == 60
+    # prob = sharp entry + premium
+    assert abs(sig["model_prob"] - (0.58 + sm.PREMIUM_PTS / 100)) < 1e-9
+    assert "3 sharps" in sig["subtitle"]
+
+
+def test_no_chase_when_line_ran_away():
+    # sharps got 58c but Kalshi now asks 80c -> EV fails -> refuse to chase
+    events = [dict(EVENTS[0])]
+    events[0] = {**EVENTS[0], "markets": [
+        {**EVENTS[0]["markets"][0], "yes_ask": 80}]}
+    assert sm.consensus_signal(_cons(0.58), events) is None
+
+
+def test_wrong_date_or_league_not_mapped():
+    cons = _cons()
+    cons["slug"] = "mlb-phi-kc-2026-07-07"       # tomorrow's game
+    assert sm.consensus_signal(cons, EVENTS) is None
+    cons["slug"] = "fifwc-prt-esp-2026-07-06"    # no Kalshi twin
+    assert sm.consensus_signal(cons, EVENTS) is None
+
+
+def test_league_series_mapping_sane():
+    for league in ("mlb", "nba", "nfl", "nhl", "wnba"):
+        assert sm.LEAGUE_SERIES[league].startswith("KX")
