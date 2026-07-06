@@ -1,0 +1,97 @@
+{
+  "fifagame_total": 137,
+  "fifagame_tail": [
+    {
+      "event_ticker": "KXFIFAGAME-25NOV13CMRCOD",
+      "title": "Cameroon vs Congo DR",
+      "markets": []
+    },
+    {
+      "event_ticker": "KXFIFAGAME-25NOV13NOREST",
+      "title": "Norway vs Estonia",
+      "markets": []
+    },
+    {
+      "event_ticker": "KXFIFAGAME-25NOV13AZEISL",
+      "title": "Azerbaijan vs Iceland",
+      "markets": []
+    },
+    {
+      "event_ticker": "KXFIFAGAME-25NOV13ARMHUN",
+      "title": "Armenia vs Hungary",
+      "markets": []
+    },
+    {
+      "event_ticker": "KXFIFAGAME-25NOV13UAEIRQ",
+      "title": "United Arab Emirates vs Iraq",
+      "markets": []
+    },
+    {
+      "event_ticker": "KXFIFAGAME-25NOV13NGRGAB",
+      "title": "Nigeria vs Gabon",
+      "markets": []
+    }
+  ],
+  "july_fifagame": [],
+  "tennis_guesses": {
+    "KXATPMATCH": {
+      "n": 2,
+      "sample": {
+        "event": "KXATPMATCH-26JUL08COBFER",
+        "title": "Cobolli vs Fery",
+        "markets": [
+          "KXATPMATCH-26JUL08COBFER-COB",
+          "KXATPMATCH-26JUL08COBFER-FER"
+        ]
+      }
+    },
+    "KXWTAMATCH": {
+      "n": 2,
+      "sample": {
+        "event": "KXWTAMATCH-26JUL08NOSMER",
+        "title": "Noskova vs Mertens",
+        "markets": [
+          "KXWTAMATCH-26JUL08NOSMER-NOS",
+          "KXWTAMATCH-26JUL08NOSMER-MER"
+        ]
+      }
+    },
+    "KXTENNISMATCH": {
+      "n": 0,
+      "sample": null
+    },
+    "KXWIMBLEDON": {
+      "n": 0,
+      "sample": null
+    },
+    "KXATP": {
+      "n": 2,
+      "sample": {
+        "event": "KXATP-26USO",
+        "title": "US Open Men's Singles Winner",
+        "markets": [
+          "KXATP-26USO-JOD",
+          "KXATP-26USO-SIN",
+          "KXATP-26USO-DJO",
+          "KXATP-26USO-ZVE"
+        ]
+      }
+    },
+    "KXWIMBLEDONMENS": {
+      "n": 0,
+      "sample": null
+    },
+    "KXWIMBLEDONWOMENS": {
+      "n": 0,
+      "sample": null
+    }
+  },
+  "tennis_open_events": [
+    {
+      "series": "KXSINNERFINISH",
+      "event": "KXSINNERFINISH-29",
+      "title": "Jannik Sinner to Complete Tennis by 2028"
+    }
+  ],
+  "poly_tennis": []
+}
