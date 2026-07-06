@@ -140,3 +140,49 @@ def test_scoreboard_shows_executed_outcomes(tmp_path, monkeypatch):
     assert "🟢 win (+$0.84)" in text
     assert "🔴 loss (-$1.20)" in text
     assert "⏳ open" in text
+
+
+def test_scoreboard_account_headline(tmp_path, monkeypatch):
+    import json
+    import scoreboard
+    (tmp_path / "account_snapshot.json").write_text(json.dumps(dict(
+        balance_usd=15.36, exposure_usd=0.0, realized_pnl_usd=-24.51,
+        settled_wins=9, settled_losses=17, since="2026-07-01",
+        updated="2026-07-06T21:00:00+00:00")))
+    monkeypatch.setattr(scoreboard, "ROOT", tmp_path)
+    monkeypatch.setattr(scoreboard, "SOURCES", [])
+    out = tmp_path / "SCOREBOARD.md"
+    scoreboard.build(out)
+    text = out.read_text()
+    assert "## 💰 Account" in text
+    assert "Balance $15.36" in text
+    assert "won/lost since 2026-07-01: -$24.51" in text
+    assert "9 wins / 17 losses" in text
+
+
+def test_reconcile_handles_live_api_schema(tmp_path):
+    # exact shapes from the live /portfolio/fills payload (probe-verified):
+    # count_fp fixed-point string, *_price_dollars dollar strings
+    fills = [
+        dict(order_id="live-1", action="buy", side="yes", count_fp="1.00",
+             yes_price_dollars="0.8200", no_price_dollars="0.1800",
+             ticker="KXHIGHNY-26JUL07-T75",
+             created_time="2026-07-06T14:51:21.64925Z"),
+        dict(order_id="live-2", action="buy", side="no", count_fp="2.00",
+             yes_price_dollars="0.2600", no_price_dollars="0.7400",
+             ticker="KXHIGHAUS-26JUL06-B98.5",
+             created_time="2026-07-06T14:52:00Z"),
+        dict(order_id="live-3", action="sell", side="no", count_fp="1.00",
+             yes_price_dollars="0.2600", no_price_dollars="0.7400",
+             ticker="KXHIGHAUS-26JUL06-B98.5",
+             created_time="2026-07-06T17:35:55.615872Z"),
+    ]
+    path = tmp_path / "exec.csv"
+    assert ledger.reconcile_fills(_FakeClient(fills), path=path) == 2
+    rows = path.read_text().strip().splitlines()
+    idx = {h: i for i, h in enumerate(ledger.EXEC_COLUMNS)}
+    r1, r2 = rows[1].split(","), rows[2].split(",")
+    assert r1[idx["ticker"]] == "KXHIGHNY-26JUL07-T75"
+    assert r1[idx["price_cents"]] == "82" and r1[idx["cost_usd"]] == "0.82"
+    assert r2[idx["side"]] == "no" and r2[idx["price_cents"]] == "74"
+    assert r2[idx["cost_usd"]] == "1.48"   # 2 x 74c

@@ -90,7 +90,7 @@ jobs:
           for f in paper_trades.csv paper_trades_crypto.csv \
                    paper_trades_sports.csv paper_trades_commodities.csv \
                    paper_trades_smartmoney.csv paper_trades_macro.csv \
-                   executed_trades.csv sports_line_history.json SCOREBOARD.md; do
+                   executed_trades.csv sports_line_history.json account_snapshot.json SCOREBOARD.md; do
             git add -f "$f" 2>/dev/null || true
           done
           if ! git diff --cached --quiet; then
