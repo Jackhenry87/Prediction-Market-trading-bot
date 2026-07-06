@@ -7,17 +7,28 @@ is — the aggregated smart money that beats the cappers. When Kalshi's
 price for a team differs from that fair value by more than fees, we take
 Kalshi's side of the gap.
 
-Odds come from The Odds API (the-odds-api.com, set ODDS_API_KEY).
-Pinnacle's line is used when present (sharpest book); otherwise the median
-across books. Only pregame moneylines; only leagues currently in season
-(the free /v4/sports listing costs no credits, so we query odds only for
-sports that are actually active). Soccer is deliberately excluded: its
-3-way lines (draw) need different devig math and Kalshi structuring.
+Odds come from The Odds API (the-odds-api.com, set ODDS_API_KEY). Each
+book's two-way price is devigged with Shin's method (which models the
+favorite-longshot bias directly rather than scaling the vig out
+proportionally), then the books are averaged with Pinnacle weighted
+PINNACLE_WEIGHT× the soft books. Only pregame moneylines; only leagues
+currently in season (the free /v4/sports listing costs no credits, so we
+query odds only for sports that are actually active). Soccer is
+deliberately excluded: its 3-way lines (draw) need different devig math
+and Kalshi structuring.
+
+Line-movement (steam) filter: we only take a side when the sharp fair
+probability has moved TOWARD it since the previous run — confirmation that
+smart money agrees. The prior line is remembered in sports_line_history.json
+(committed by the workflow). Toggle with SPORTS_REQUIRE_STEAM / SPORTS_MIN_MOVE.
 
     python strategy_sports.py     # read-only scan, no orders
 """
 
 import csv
+import json
+import math
+import os
 import re
 import sys
 from datetime import datetime, timezone
@@ -50,19 +61,59 @@ MIN_START_H = 0.15    # skip games starting within ~10 min (execution risk)
 MAX_START_H = 36.0    # and beyond 36h (odds too soft that far out)
 MIN_EDGE_CENTS = 5.0
 PAPER_LOG = Path(__file__).resolve().parent / "paper_trades_sports.csv"
+LINE_HISTORY = Path(__file__).resolve().parent / "sports_line_history.json"
+
+# Line-movement (steam) filter. We only take a side when the sharp fair
+# probability has moved TOWARD that side since we last looked — i.e. smart
+# money is agreeing with us, not fading us. A gap that appears while the
+# sharp line is drifting against you is usually the market telling you
+# something you don't know. Requires at least one prior observation of the
+# game (so the very first sighting never trades). Disable with
+# SPORTS_REQUIRE_STEAM=false; SPORTS_MIN_MOVE sets how big the move must be.
+SPORTS_REQUIRE_STEAM = os.getenv(
+    "SPORTS_REQUIRE_STEAM", "true").strip().lower() not in ("false", "0", "no")
+SPORTS_MIN_MOVE = float(os.getenv("SPORTS_MIN_MOVE", "0.0"))   # prob points
 
 
-def devig(odds_a: float, odds_b: float) -> float:
-    """Fair probability of outcome A from two-way decimal odds."""
-    pa, pb = 1.0 / odds_a, 1.0 / odds_b
-    return pa / (pa + pb)
+PINNACLE_WEIGHT = 3.0   # trust the sharpest book ~3x a soft book
+
+
+def shin_devig(odds: list) -> list:
+    """Fair probabilities from decimal odds via Shin's method — it models the
+    favorite-longshot bias (insider fraction z) instead of just proportionally
+    scaling out the vig. Reduces to the additive method for two outcomes.
+    Solves for z by bisection; falls back to proportional if there's no vig."""
+    q = [1.0 / o for o in odds]
+    book = sum(q)
+    if book <= 1:                       # no overround -> nothing to remove
+        return [qi / book for qi in q]
+
+    def p_of_z(qi, z):
+        return (math.sqrt(z * z + 4 * (1 - z) * qi * qi / book) - z) / (2 * (1 - z))
+
+    lo, hi = 0.0, 0.9
+    for _ in range(80):                 # sum(p) decreases as z rises
+        z = (lo + hi) / 2
+        if sum(p_of_z(qi, z) for qi in q) > 1:
+            lo = z
+        else:
+            hi = z
+    z = (lo + hi) / 2
+    return [p_of_z(qi, z) for qi in q]
+
+
+def shin_two_way(odds_home: float, odds_away: float) -> float:
+    """Shin fair probability of the home side from two-way decimal odds."""
+    return shin_devig([odds_home, odds_away])[0]
 
 
 def fair_home_prob(game: dict):
-    """Devigged home-win probability: Pinnacle if quoted, else the median
-    across books. None if no usable two-way quote exists."""
+    """Devigged home-win probability, Pinnacle-weighted across books.
+    Each book's two-way price is devigged with Shin's method, then averaged
+    with Pinnacle weighted PINNACLE_WEIGHT× the soft books. None if no usable
+    two-way quote exists."""
     home, away = game.get("home_team"), game.get("away_team")
-    probs, pinnacle = [], None
+    wsum, wtot = 0.0, 0.0
     for book in game.get("bookmakers", []):
         for market in book.get("markets", []):
             if market.get("key") != "h2h":
@@ -71,17 +122,23 @@ def fair_home_prob(game: dict):
                       for o in market.get("outcomes", [])}
             oh, oa = prices.get(home), prices.get(away)
             if oh and oa and oh > 1 and oa > 1:
-                p = devig(oh, oa)
-                probs.append(p)
-                if book.get("key") == "pinnacle":
-                    pinnacle = p
-    if pinnacle is not None:
-        return pinnacle
-    if not probs:
-        return None
-    probs.sort()
-    mid = len(probs) // 2
-    return probs[mid] if len(probs) % 2 else (probs[mid - 1] + probs[mid]) / 2
+                p = shin_two_way(oh, oa)
+                w = PINNACLE_WEIGHT if book.get("key") == "pinnacle" else 1.0
+                wsum += w * p
+                wtot += w
+    return wsum / wtot if wtot else None
+
+
+def load_line_history() -> dict:
+    """Prior sharp fair-home probability per game id (from the last run)."""
+    try:
+        return json.loads(LINE_HISTORY.read_text())
+    except (FileNotFoundError, ValueError):
+        return {}
+
+
+def save_line_history(hist: dict) -> None:
+    LINE_HISTORY.write_text(json.dumps(hist, indent=0, sort_keys=True))
 
 
 def hours_until(iso_time: str):
@@ -137,7 +194,7 @@ def fetch_games(api_key: str, sport: str) -> list:
     return games
 
 
-def evaluate_market(market: dict, games: list) -> list:
+def evaluate_market(market: dict, games: list, history: dict = None) -> list:
     label = (market.get("yes_sub_title") or market.get("subtitle")
              or market.get("title") or "")
     matched = match_team(label, games)
@@ -149,15 +206,30 @@ def evaluate_market(market: dict, games: list) -> list:
         return None  # game found but no usable odds
     p = p_fair if side == "home" else 1.0 - p_fair
 
+    # Steam gate: has the sharp home probability moved toward the team we'd be
+    # backing since the last run? move_home > 0 means it drifted toward home.
+    prev = (history or {}).get(game.get("id")) if history is not None else None
+    prev_home = prev.get("home_prob") if isinstance(prev, dict) else None
+    move_home = (p_fair - prev_home) if prev_home is not None else None
+    other = "away" if side == "home" else "home"
+
+    def steam_ok(back_side: str) -> bool:
+        if not SPORTS_REQUIRE_STEAM:
+            return True
+        if move_home is None:               # no prior line to confirm a move
+            return False
+        toward = move_home if back_side == "home" else -move_home
+        return toward >= SPORTS_MIN_MOVE
+
     signals = []
     yes_ask = price_cents(market, "yes_ask")
-    if yes_ask and 0 < yes_ask < 100:
+    if yes_ask and 0 < yes_ask < 100 and steam_ok(side):
         ev = 100.0 * p - yes_ask - taker_fee_cents(yes_ask)
         if ev >= MIN_EDGE_CENTS:
             signals.append(dict(side="yes", price_cents=yes_ask,
                                 model_prob=p, ev_cents=ev))
     yes_bid = price_cents(market, "yes_bid")
-    if yes_bid and 0 < yes_bid < 100:
+    if yes_bid and 0 < yes_bid < 100 and steam_ok(other):
         no_price = 100.0 - yes_bid
         ev = 100.0 * (1.0 - p) - no_price - taker_fee_cents(no_price)
         if ev >= MIN_EDGE_CENTS:
@@ -173,6 +245,8 @@ def scan(api_key: str) -> list:
     ticker so one-bet-per-event grouping works."""
     client = KalshiClient(env="prod")
     results = []
+    history = load_line_history()   # sharp lines as of the previous run
+    new_history = {}                # what we'll persist for the next run
     try:
         active = in_season_sports(api_key)
     except Exception as exc:
@@ -192,6 +266,18 @@ def scan(api_key: str) -> list:
         log.info("%s: %d upcoming games with odds", cfg["name"], len(games))
         if not games:
             continue
+
+        # record each game's current sharp home prob so the next run can tell
+        # which way the line moved (the steam filter's memory)
+        now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        for g in games:
+            hp = fair_home_prob(g)
+            if hp is not None and g.get("id"):
+                new_history[g["id"]] = dict(
+                    home_prob=round(hp, 4),
+                    home_team=g.get("home_team"),
+                    away_team=g.get("away_team"),
+                    updated=now_iso)
         try:
             data = client._request(
                 "GET", "/events",
@@ -208,7 +294,7 @@ def scan(api_key: str) -> list:
             for market in event.get("markets") or []:
                 if market.get("status") not in (None, "active", "open"):
                     continue
-                got = evaluate_market(market, games)
+                got = evaluate_market(market, games, history)
                 if got:
                     signals.extend(got)
             if not signals:
@@ -218,6 +304,8 @@ def scan(api_key: str) -> list:
                                 city=cfg["name"],
                                 title=event.get("title", ""),
                                 signals=signals))
+    if new_history:
+        save_line_history(new_history)
     return results
 
 
