@@ -29,9 +29,10 @@ from trade_logger import get_logger, setup_logging
 
 log = get_logger("release_runner")
 
-LEAD_SECONDS = 60        # wake this long before the scheduled time
-WINDOW_SECONDS = 900     # keep polling this long after (the lag window)
-POLL_SECONDS = 10        # how often to re-check within the window
+# overridable via env so a short CI burst can reuse the same runner
+LEAD_SECONDS = int(os.getenv("BURST_LEAD_SECONDS", "60"))
+WINDOW_SECONDS = int(os.getenv("BURST_WINDOW_SECONDS", "900"))
+POLL_SECONDS = int(os.getenv("BURST_POLL_SECONDS", "10"))
 
 
 def _run_pipeline_macro_only() -> int:
