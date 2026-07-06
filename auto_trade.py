@@ -30,6 +30,7 @@ from ledger import apply_price_band, log_execution, log_signals
 from safety import check_order
 import strategy_commodities
 import strategy_crypto
+import strategy_macro
 import strategy_sports
 import strategy_weather
 from strategy_weather import scan, score_pending_paper_trades, SIGMA_F
@@ -188,6 +189,8 @@ def main() -> int:
                         strategy_commodities.PAPER_LOG),
         "sports": (lambda: strategy_sports.scan(settings.odds_api_key)
                    if settings.odds_api_key else [], strategy_sports.PAPER_LOG),
+        "macro": (lambda: strategy_macro.scan(settings.fred_api_key)
+                  if settings.fred_api_key else [], strategy_macro.PAPER_LOG),
     }
 
     for name, (_, path) in model_defs.items():
