@@ -1,6 +1,6 @@
 # 📊 Trading Scoreboard
 
-_Updated 2026-07-06 00:36 UTC — auto-generated every run; do not edit._
+_Updated 2026-07-06 03:44 UTC — auto-generated every run; do not edit._
 
 Signals are scored against official settlement whether or not a real order was placed. P&L shown is per 1-contract stakes.
 
@@ -10,7 +10,16 @@ _No real orders placed yet._
 
 ## 🌡️ Weather model
 
-_No signals recorded yet._
+### 🟢 0 W — 🔴 0 L — ⏳ 6 pending — net **+0¢**
+
+| Scanned (UTC) | Market | Side | Price | Model | Result |
+|---|---|---|---|---|---|
+| 07-06 03:44 | KXHIGHAUS-26JUL06-B94.5 | NO | 74¢ | 92% | ⏳ pending |
+| 07-06 03:44 | KXHIGHLAX-26JUL06-B76.5 | NO | 77¢ | 94% | ⏳ pending |
+| 07-06 03:44 | KXHIGHDEN-26JUL06-B94.5 | NO | 84¢ | 92% | ⏳ pending |
+| 07-06 03:44 | KXHIGHDEN-26JUL06-B98.5 | NO | 76¢ | 92% | ⏳ pending |
+| 07-06 03:44 | KXHIGHMIA-26JUL06-B93.5 | NO | 69¢ | 92% | ⏳ pending |
+| 07-06 03:44 | KXHIGHCHI-26JUL06-B78.5 | NO | 63¢ | 91% | ⏳ pending |
 
 ## ₿ Crypto model
 
