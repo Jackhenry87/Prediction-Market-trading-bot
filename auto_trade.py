@@ -220,8 +220,15 @@ def main() -> int:
              "longshots).", settings.trade_min_price, settings.trade_max_price)
     results = []
     for res, path, name in per_model:
-        banded = apply_price_band(res, settings.trade_min_price,
-                                  settings.trade_max_price)
+        if name == "macro":
+            # Known-outcome (resolution-lag) trades: the correct side is
+            # ~certain to pay 100c, so buying it at 92-98c is exactly the
+            # edge. Do NOT apply the 60-90c band that's meant for uncertain
+            # bets — it would discard the best lag captures.
+            banded = res
+        else:
+            banded = apply_price_band(res, settings.trade_min_price,
+                                      settings.trade_max_price)
         # Record EVERY in-band signal for scoring, traded or not — this is
         # the measurement that was missing.
         try:
