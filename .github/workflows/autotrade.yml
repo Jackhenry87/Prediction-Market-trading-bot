@@ -68,10 +68,11 @@ jobs:
           TAKE_PROFIT_PCT: ${{ vars.TAKE_PROFIT_PCT || '50' }}
           TRADE_MIN_PRICE: ${{ vars.TRADE_MIN_PRICE || '60' }}
           TRADE_MAX_PRICE: ${{ vars.TRADE_MAX_PRICE || '90' }}
-          # crypto and commodities OFF (weakest edge). Re-enable by setting
-          # repo Variable ENABLED_MODELS, e.g. weather,sports,crypto,commodities
-          # smartmoney = Polymarket sharp-wallet consensus executed on Kalshi
-          ENABLED_MODELS: ${{ vars.ENABLED_MODELS || 'weather,sports,smartmoney' }}
+          # crypto and commodities OFF (weakest edge). smartmoney is NOT
+          # here by design — it has its own always-on watcher
+          # (smartmoney-live.yml) per owner spec. Override via repo
+          # Variable ENABLED_MODELS if ever needed.
+          ENABLED_MODELS: ${{ vars.ENABLED_MODELS || 'weather,sports' }}
           # no single theme (weather/crypto/sports/commodities) may exceed
           # this % of bankroll — stops piles of correlated bets from becoming
           # one oversized wager
