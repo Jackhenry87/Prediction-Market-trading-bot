@@ -31,23 +31,32 @@ SERIES_TICKER = "KXHIGHNY"  # kept for log labels / backwards compatibility
 
 # Kalshi settles each city's market on the NWS Daily Climate Report of ONE
 # specific station. Coordinates below are those stations — not "the city".
-# 'sigma' is the MEASURED 1-day-ahead forecast-error std dev for that
-# station (calibrate_weather.py, 366 days of Open-Meteo archived forecasts
-# vs ERA5 actuals, run 2026-07-06), inflated ~10% for station-vs-grid
-# representativeness. Cities without a measurement use SIGMA_F.
+# 'sigma' is the MEASURED 1-day-ahead forecast-error std dev and 'bias' the
+# measured mean error (forecast - actual, deg F) for that station
+# (calibrate_weather.py, 366 days of Open-Meteo archived forecasts vs ERA5
+# actuals, run 2026-07-06; sigma inflated ~10% for station-vs-grid
+# representativeness). Bias is a proxy measurement (Open-Meteo best_match,
+# not NWS) — small, so applied, but revisit once live settle data
+# accumulates. Cities without a measurement use SIGMA_F and bias 0.
 CITIES = [
     dict(series="KXHIGHNY", name="NYC (Central Park)",
-         lat=40.7794, lon=-73.9692, sigma=3.0),
+         lat=40.7794, lon=-73.9692, sigma=3.0, bias=0.7,
+         tz="America/New_York"),
     dict(series="KXHIGHCHI", name="Chicago (Midway)",
-         lat=41.7861, lon=-87.7522, sigma=2.0),
+         lat=41.7861, lon=-87.7522, sigma=2.0, bias=0.4,
+         tz="America/Chicago"),
     dict(series="KXHIGHMIA", name="Miami (Intl Airport)",
-         lat=25.7906, lon=-80.3164, sigma=2.0),
+         lat=25.7906, lon=-80.3164, sigma=2.0, bias=0.7,
+         tz="America/New_York"),
     dict(series="KXHIGHDEN", name="Denver (Intl Airport)",
-         lat=39.8467, lon=-104.6562, sigma=2.5),
+         lat=39.8467, lon=-104.6562, sigma=2.5, bias=-0.5,
+         tz="America/Denver"),
     dict(series="KXHIGHLAX", name="Los Angeles (LAX)",
-         lat=33.9382, lon=-118.3866),   # calibration timed out — remeasure
+         lat=33.9382, lon=-118.3866,    # calibration timed out — remeasure
+         tz="America/Los_Angeles"),
     dict(series="KXHIGHAUS", name="Austin (Camp Mabry)",
-         lat=30.3208, lon=-97.7660),    # calibration timed out — remeasure
+         lat=30.3208, lon=-97.7660,     # calibration timed out — remeasure
+         tz="America/Chicago"),
 ]
 # Fallback forecast-error std dev (deg F) for stations without a measured
 # sigma. History: guessed 3.0 -> widened to 4.5 after the first live week's
@@ -59,6 +68,38 @@ SIGMA_F = 4.5
 # in cents, after fees. Below this, spread/model noise eats the edge.
 MIN_EDGE_CENTS = 5.0
 PAPER_LOG = Path(__file__).resolve().parent / "paper_trades.csv"
+
+
+# A same-day forecast made in the afternoon is far more accurate than one
+# made at dawn — by evening the day's high has essentially happened. Scale
+# sigma down through the LOCAL day for today's market; tomorrow's market
+# always gets the full sigma. Floor keeps us from absurd overconfidence.
+INTRADAY_FACTORS = ((10, 1.0), (13, 0.75), (16, 0.55), (24, 0.4))
+MIN_SIGMA_F = 1.2
+
+
+def intraday_sigma_factor(local_hour: int) -> float:
+    """Sigma multiplier for a market settling TODAY, by local hour."""
+    for cutoff, factor in INTRADAY_FACTORS:
+        if local_hour < cutoff:
+            return factor
+    return INTRADAY_FACTORS[-1][1]
+
+
+def effective_sigma(base_sigma: float, market_date: str, tz: str = None,
+                    now=None) -> float:
+    """base sigma, tightened if the market settles today in the city's
+    timezone. Any parsing problem falls back to the untightened sigma."""
+    try:
+        from zoneinfo import ZoneInfo
+        local = (now or datetime.now(timezone.utc)).astimezone(
+            ZoneInfo(tz)) if tz else (now or datetime.now(timezone.utc))
+        if local.strftime("%Y-%m-%d") == market_date:
+            return max(base_sigma * intraday_sigma_factor(local.hour),
+                       MIN_SIGMA_F)
+    except Exception:
+        pass
+    return base_sigma
 
 
 def normal_cdf(x: float, mu: float, sigma: float) -> float:
@@ -175,13 +216,15 @@ def scan() -> list:
             log.warning("Skipping %s: %s", city["name"], exc)
             continue
 
-        sigma = city.get("sigma") or SIGMA_F
+        base_sigma = city.get("sigma") or SIGMA_F
         for event in data.get("events", []):
             date = date_from_event_ticker(event.get("event_ticker")
                                           or event.get("ticker") or "")
             if not date or date not in forecasts:
                 continue
-            mu = forecasts[date]
+            # measured bias: forecast - actual, so subtract to de-bias
+            mu = forecasts[date] - city.get("bias", 0.0)
+            sigma = effective_sigma(base_sigma, date, city.get("tz"))
             signals = []
             for market in event.get("markets") or []:
                 if market.get("status") not in (None, "active", "open"):

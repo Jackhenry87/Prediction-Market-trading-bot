@@ -6,8 +6,12 @@ thinner books fully reprice. Once the actual value is known, the correct
 side of a threshold market is *determined* (probability ~1), so if it's
 still offered below fair value we buy it with a limit order.
 
-Ground truth comes from FRED (free API, FRED_API_KEY). Because a wrong
-metric mapping would produce confident WRONG trades, this model:
+Ground truth: BLS's own API first (publishes AT the 8:30:00 release, free,
+optional BLS_API_KEY for higher limits), FRED as fallback and freshness
+reference (FRED_API_KEY). When BLS shows a newer reference period than
+FRED's mirror, we are inside the post-release lag window by definition.
+Because a wrong metric mapping would produce confident WRONG trades, this
+model:
   - is OFF by default (add 'macro' to ENABLED_MODELS to arm it),
   - only fires when we have a FRESH actual value (released within
     FRESH_HOURS) so we're acting on genuine news, not stale data,
@@ -43,22 +47,34 @@ FRESH_HOURS = 12.0
 # least this much edge after fees.
 MIN_EDGE_CENTS = 3.0
 
-# FRED series -> the Kalshi market series it settles. 'transform' says how
-# to turn the raw FRED observation into the number the market is about.
+# Data series -> the Kalshi market series it settles. 'transform' says how
+# to turn the raw observation into the number the market is about. 'bls'
+# is the BLS API series id: on release mornings BLS publishes AT 8:30:00
+# while FRED's mirror lags ~an hour — exactly the lag window we trade — so
+# BLS is tried first and FRED is both fallback and freshness reference.
+# Claims are DOL (not BLS) and FRED mirrors them within minutes, so the
+# claims row has no 'bls'.
 # VERIFY every row against a real settled Kalshi market before arming.
 MACRO_SERIES = [
     # jobless claims: weekly (Thu), the frequent testbed. ICSA is the raw
     # claim count; Kalshi thresholds are raw counts too -> 'level'.
     dict(fred="ICSA", kalshi="KXJOBLESSCLAIMS", transform="level",
          name="Initial jobless claims (count)"),
-    dict(fred="UNRATE", kalshi="KXU3", transform="level",
+    dict(fred="UNRATE", bls="LNS14000000", kalshi="KXU3", transform="level",
          name="US unemployment rate (%)"),
-    dict(fred="CPIAUCSL", kalshi="KXCPIYOY", transform="yoy_pct",
-         name="CPI year-over-year (%)"),
-    # PAYEMS is in THOUSANDS; Kalshi payroll strikes are raw jobs -> x1000
-    dict(fred="PAYEMS", kalshi="KXPAYROLLS", transform="mom_change_jobs",
+    # headline "CPI rose X% over 12 months" is the NOT-seasonally-adjusted
+    # series (BLS CUUR0000SA0 / FRED CPIAUCNS) — the SA series we used
+    # before differs by ~0.1pp, enough to flip a threshold market.
+    dict(fred="CPIAUCNS", bls="CUUR0000SA0", kalshi="KXCPIYOY",
+         transform="yoy_pct", name="CPI year-over-year (%)"),
+    # PAYEMS/CES0000000001 are in THOUSANDS; Kalshi strikes are raw jobs
+    dict(fred="PAYEMS", bls="CES0000000001", kalshi="KXPAYROLLS",
+         transform="mom_change_jobs",
          name="Nonfarm payrolls (MoM change, jobs)"),
 ]
+
+BLS_V1_URL = "https://api.bls.gov/publicAPI/v1/timeseries/data/"
+BLS_V2_URL = "https://api.bls.gov/publicAPI/v2/timeseries/data/"
 
 
 def fetch_fred(series_id: str, api_key: str) -> list:
@@ -76,6 +92,42 @@ def fetch_fred(series_id: str, api_key: str) -> list:
             obs.append((o["date"], float(o["value"])))
     obs.reverse()   # newest last, matching everything downstream
     return obs
+
+
+def fetch_bls(series_id: str, api_key: str = "") -> list:
+    """Monthly observations (date, value) straight from the BLS API, newest
+    last — same shape as fetch_fred. BLS publishes at the release moment
+    (8:30:00 ET) while FRED mirrors ~an hour later. v2 with a free
+    registration key (BLS_API_KEY) or v1 keyless (25 requests/day, plenty
+    for release bursts)."""
+    now = datetime.now(timezone.utc)
+    payload = {"seriesid": [series_id],
+               "startyear": str(now.year - 2), "endyear": str(now.year)}
+    url = BLS_V1_URL
+    if api_key:
+        payload["registrationkey"] = api_key
+        url = BLS_V2_URL
+    resp = requests.post(url, json=payload, timeout=20)
+    resp.raise_for_status()
+    data = resp.json()
+    if data.get("status") != "REQUEST_SUCCEEDED":
+        raise RuntimeError(f"BLS: {data.get('message') or data.get('status')}")
+    obs = []
+    for o in data["Results"]["series"][0].get("data", []):
+        period = o.get("period", "")
+        if not period.startswith("M") or period == "M13":  # M13 = annual avg
+            continue
+        obs.append((f"{o['year']}-{int(period[1:]):02d}-01",
+                    float(o["value"])))
+    obs.sort()   # ISO dates: lexicographic == chronological, newest last
+    return obs
+
+
+def bls_is_ahead(fred_obs: list, bls_obs: list) -> bool:
+    """True when BLS has a NEWER reference period than FRED's mirror —
+    which happens precisely during the post-release lag window we trade.
+    That gap IS the freshness signal for the BLS path."""
+    return bool(bls_obs) and (not fred_obs or bls_obs[-1][0] > fred_obs[-1][0])
 
 
 def latest_actual(obs: list, transform: str):
@@ -193,20 +245,32 @@ def scan(fred_key: str) -> list:
     for cfg in MACRO_SERIES:
         try:
             obs = fetch_fred(cfg["fred"], fred_key)
-            actual = latest_actual(obs, cfg["transform"])
             updated = series_last_updated(cfg["fred"], fred_key)
         except Exception as exc:
             log.warning("Skipping %s (FRED failed: %s)", cfg["name"], exc)
             continue
+        fresh, source = is_fresh(updated), f"FRED updated {updated}"
+        if cfg.get("bls"):
+            try:
+                bls_obs = fetch_bls(cfg["bls"],
+                                    os.getenv("BLS_API_KEY", "").strip())
+                if bls_is_ahead(obs, bls_obs):
+                    # BLS has the print, mirrors don't yet: THE lag window
+                    obs, fresh = bls_obs, True
+                    source = f"BLS {cfg['bls']} ahead of FRED (release window)"
+            except Exception as exc:
+                log.warning("BLS fetch failed for %s (%s); using FRED",
+                            cfg["name"], exc)
+        actual = latest_actual(obs, cfg["transform"])
         if not actual:
             continue
         release_date, value = actual
-        if not is_fresh(updated):
-            log.info("%s: latest %s=%.2f (updated %s) not fresh — no lag to "
-                     "capture", cfg["name"], cfg["fred"], value, updated)
+        if not fresh:
+            log.info("%s: latest %s=%.2f (%s) not fresh — no lag to "
+                     "capture", cfg["name"], cfg["fred"], value, source)
             continue
-        log.info("%s: FRESH actual %.2f (FRED updated %s) — checking %s markets",
-                 cfg["name"], value, updated, cfg["kalshi"])
+        log.info("%s: FRESH actual %.2f (%s) — checking %s markets",
+                 cfg["name"], value, source, cfg["kalshi"])
         try:
             data = client._request(
                 "GET", "/events",

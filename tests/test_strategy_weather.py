@@ -236,3 +236,40 @@ def test_evaluate_market_sigma_changes_verdict():
     assert sw.evaluate_market(market, mu=88.0) == []
     signals = sw.evaluate_market(market, mu=88.0, sigma=2.0)
     assert signals and signals[0]["side"] == "yes"
+
+
+def test_intraday_sigma_tightens_through_the_day():
+    assert sw.intraday_sigma_factor(7) == 1.0     # dawn: full uncertainty
+    assert sw.intraday_sigma_factor(11) == 0.75
+    assert sw.intraday_sigma_factor(14) == 0.55
+    assert sw.intraday_sigma_factor(19) == 0.4    # evening: high is ~locked
+    # monotonically non-increasing
+    factors = [sw.intraday_sigma_factor(h) for h in range(24)]
+    assert all(a >= b for a, b in zip(factors, factors[1:]))
+
+
+def test_effective_sigma_today_vs_tomorrow():
+    from datetime import datetime, timezone
+    # 20:00 UTC = 15:00 in Chicago (CDT) -> same-day sigma tightened
+    now = datetime(2026, 7, 6, 20, 0, tzinfo=timezone.utc)
+    today = sw.effective_sigma(2.0, "2026-07-06", "America/Chicago", now=now)
+    assert abs(today - max(2.0 * 0.55, sw.MIN_SIGMA_F)) < 1e-9
+    # tomorrow's market keeps the full sigma
+    assert sw.effective_sigma(2.0, "2026-07-07", "America/Chicago",
+                              now=now) == 2.0
+    # floor: even late evening never goes absurdly overconfident
+    late = datetime(2026, 7, 7, 4, 0, tzinfo=timezone.utc)  # 23:00 Chicago 7/6
+    assert sw.effective_sigma(2.0, "2026-07-06", "America/Chicago",
+                              now=late) >= sw.MIN_SIGMA_F
+    # bad tz falls back to the untightened sigma rather than crashing
+    assert sw.effective_sigma(2.0, "2026-07-06", "Not/AZone", now=now) == 2.0
+
+
+def test_city_bias_fields():
+    by_series = {c["series"]: c for c in sw.CITIES}
+    assert by_series["KXHIGHNY"]["bias"] == 0.7    # forecasts ran warm
+    assert by_series["KXHIGHDEN"]["bias"] == -0.5  # Denver ran cool
+    assert "bias" not in by_series["KXHIGHLAX"]    # unmeasured -> no shift
+    for c in sw.CITIES:
+        assert abs(c.get("bias", 0.0)) < 1.5       # bias is a small nudge
+        assert c["tz"].startswith("America/")

@@ -103,3 +103,61 @@ def test_tail_market_open_bounds():
     m = {"ticker": "T", "floor_strike": 3.5, "cap_strike": None,
          "yes_ask": 80, "yes_bid": 76}
     assert sm.known_outcome_signal(m, 4.0)["side"] == "yes"
+
+
+def test_fetch_bls_parses_and_orders(monkeypatch):
+    class R:
+        def raise_for_status(self): pass
+        def json(self):
+            return {"status": "REQUEST_SUCCEEDED", "Results": {"series": [
+                {"seriesID": "LNS14000000", "data": [
+                    {"year": "2026", "period": "M06", "value": "4.1"},
+                    {"year": "2026", "period": "M05", "value": "4.2"},
+                    {"year": "2025", "period": "M13", "value": "9.9"},  # annual avg
+                    {"year": "2025", "period": "M12", "value": "4.0"},
+                ]}]}}
+    captured = {}
+
+    def fake_post(url, json=None, timeout=None):
+        captured["url"] = url
+        captured["payload"] = json
+        return R()
+
+    monkeypatch.setattr(sm.requests, "post", fake_post)
+    obs = sm.fetch_bls("LNS14000000")
+    assert captured["url"] == sm.BLS_V1_URL          # keyless -> v1
+    assert obs == [("2025-12-01", 4.0), ("2026-05-01", 4.2),
+                   ("2026-06-01", 4.1)]              # newest LAST, M13 dropped
+
+    obs = sm.fetch_bls("LNS14000000", api_key="k")
+    assert captured["url"] == sm.BLS_V2_URL          # key -> v2
+    assert captured["payload"]["registrationkey"] == "k"
+
+
+def test_fetch_bls_error_status(monkeypatch):
+    class R:
+        def raise_for_status(self): pass
+        def json(self): return {"status": "REQUEST_NOT_PROCESSED",
+                                "message": ["bad series"]}
+    monkeypatch.setattr(sm.requests, "post", lambda *a, **k: R())
+    import pytest
+    with pytest.raises(RuntimeError):
+        sm.fetch_bls("X")
+
+
+def test_bls_is_ahead_is_the_lag_window():
+    fred = [("2026-05-01", 4.2)]
+    bls_new = [("2026-05-01", 4.2), ("2026-06-01", 4.1)]
+    assert sm.bls_is_ahead(fred, bls_new)        # BLS has June, FRED doesn't
+    assert not sm.bls_is_ahead(bls_new, bls_new)  # mirrors caught up
+    assert not sm.bls_is_ahead(fred, [])          # no BLS data -> no signal
+    assert sm.bls_is_ahead([], bls_new)           # FRED empty, BLS has data
+
+
+def test_cpi_uses_headline_nsa_series():
+    cpi = next(c for c in sm.MACRO_SERIES if c["kalshi"] == "KXCPIYOY")
+    assert cpi["fred"] == "CPIAUCNS"      # headline YoY convention is NSA
+    assert cpi["bls"] == "CUUR0000SA0"
+    claims = next(c for c in sm.MACRO_SERIES
+                  if c["kalshi"] == "KXJOBLESSCLAIMS")
+    assert "bls" not in claims            # DOL series; FRED mirrors in minutes
