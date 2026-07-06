@@ -1,30 +1,43 @@
 # 📊 Trading Scoreboard
 
-_Updated 2026-07-06 05:32 UTC — auto-generated every run; do not edit._
+_Updated 2026-07-06 14:51 UTC — auto-generated every run; do not edit._
 
 Signals are scored against official settlement whether or not a real order was placed. P&L shown is per 1-contract stakes.
 
 ## 💵 Real orders placed
 
-**4 orders, $2.91 deployed.**
+**10 orders, $7.57 deployed.**
 
 | Placed (UTC) | Model | Market | Side | Qty | Price | Cost |
 |---|---|---|---|---|---|---|
-| 07-06 05:32 | weather | KXHIGHLAX-26JUL06-B76.5 | NO | 1 | 78¢ | $0.78 |
-| 07-06 05:32 | weather | KXHIGHDEN-26JUL06-B98.5 | NO | 1 | 73¢ | $0.73 |
-| 07-06 05:32 | weather | KXHIGHMIA-26JUL06-B93.5 | NO | 1 | 75¢ | $0.75 |
-| 07-06 05:32 | weather | KXHIGHCHI-26JUL06-B78.5 | NO | 1 | 65¢ | $0.65 |
+| 07-06 14:51 | weather | KXHIGHAUS-26JUL06-B98.5 | NO | 1 | 65¢ | $0.65 |
+| 07-06 14:51 | weather | KXHIGHAUS-26JUL07-B98.5 | NO | 1 | 77¢ | $0.77 |
+| 07-06 14:51 | weather | KXHIGHLAX-26JUL06-B76.5 | NO | 1 | 73¢ | $0.73 |
+| 07-06 14:51 | weather | KXHIGHDEN-26JUL06-B94.5 | NO | 1 | 78¢ | $0.78 |
+| 07-06 14:51 | weather | KXHIGHDEN-26JUL07-B93.5 | NO | 1 | 67¢ | $0.67 |
+| 07-06 14:51 | weather | KXHIGHMIA-26JUL06-B93.5 | NO | 1 | 88¢ | $0.88 |
+| 07-06 14:51 | weather | KXHIGHMIA-26JUL07-B90.5 | NO | 1 | 73¢ | $0.73 |
+| 07-06 14:51 | weather | KXHIGHCHI-26JUL06-B80.5 | NO | 1 | 75¢ | $0.75 |
+| 07-06 14:51 | weather | KXHIGHCHI-26JUL07-B85.5 | NO | 1 | 79¢ | $0.79 |
+| 07-06 14:51 | weather | KXHIGHNY-26JUL07-T75 | YES | 1 | 82¢ | $0.82 |
 
 ## 🌡️ Weather model
 
-### 🟢 0 W — 🔴 0 L — ⏳ 4 pending — net **+0¢**
+### 🟢 0 W — 🔴 0 L — ⏳ 11 pending — net **+0¢**
 
 | Scanned (UTC) | Market | Side | Price | Model | Result |
 |---|---|---|---|---|---|
-| 07-06 05:32 | KXHIGHLAX-26JUL06-B76.5 | NO | 78¢ | 95% | ⏳ pending |
-| 07-06 05:32 | KXHIGHDEN-26JUL06-B98.5 | NO | 73¢ | 88% | ⏳ pending |
-| 07-06 05:32 | KXHIGHMIA-26JUL06-B93.5 | NO | 75¢ | 94% | ⏳ pending |
-| 07-06 05:32 | KXHIGHCHI-26JUL06-B78.5 | NO | 65¢ | 82% | ⏳ pending |
+| 07-06 14:51 | KXHIGHAUS-26JUL06-B98.5 | NO | 65¢ | 94% | ⏳ pending |
+| 07-06 14:51 | KXHIGHAUS-26JUL07-B98.5 | NO | 77¢ | 97% | ⏳ pending |
+| 07-06 14:51 | KXHIGHLAX-26JUL06-B76.5 | NO | 73¢ | 95% | ⏳ pending |
+| 07-06 14:51 | KXHIGHDEN-26JUL06-B94.5 | NO | 78¢ | 88% | ⏳ pending |
+| 07-06 14:51 | KXHIGHDEN-26JUL07-B93.5 | NO | 67¢ | 85% | ⏳ pending |
+| 07-06 14:51 | KXHIGHMIA-26JUL06-B93.5 | NO | 88¢ | 97% | ⏳ pending |
+| 07-06 14:51 | KXHIGHMIA-26JUL07-B90.5 | NO | 73¢ | 82% | ⏳ pending |
+| 07-06 14:51 | KXHIGHCHI-26JUL06-B80.5 | NO | 75¢ | 99% | ⏳ pending |
+| 07-06 14:51 | KXHIGHCHI-26JUL07-B81.5 | NO | 76¢ | 83% | ⏳ pending |
+| 07-06 14:51 | KXHIGHCHI-26JUL07-B85.5 | NO | 79¢ | 93% | ⏳ pending |
+| 07-06 14:51 | KXHIGHNY-26JUL07-T75 | YES | 82¢ | 89% | ⏳ pending |
 
 ## ₿ Crypto model
 
