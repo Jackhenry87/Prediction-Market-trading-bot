@@ -20,6 +20,7 @@ means KALSHI_ENV=prod with a funded account.
 """
 
 import math
+import os
 import sys
 
 from config import ConfigError, load_kalshi_settings
@@ -31,6 +32,7 @@ from safety import check_order
 import strategy_commodities
 import strategy_crypto
 import strategy_macro
+import strategy_nowcast
 import strategy_smartmoney
 import strategy_sports
 import strategy_weather
@@ -101,6 +103,53 @@ def theme_exposure(positions: dict) -> dict:
         out[theme_of(p.get("ticker"))] = out.get(
             theme_of(p.get("ticker")), 0.0) + cents / 100.0
     return out
+
+
+# Taker executions pay Kalshi's 7·p·(1-p)¢ fee AND cross the spread —
+# together they eat roughly half of a typical 3-5¢ model edge (verified on
+# our own fills: the 82¢ taker buy paid exactly 1.04¢). Maker fills pay no
+# trading fee, so by default we rest one cent inside the crossing price and
+# let the market come to us. Only time-critical known-outcome captures
+# (macro prints, weather nowcast certainties) still cross — their edge
+# decays in minutes and is worth the fee.
+MAKER_MODE = os.getenv("MAKER_MODE", "true").strip().lower() \
+    not in ("false", "0", "no")
+TAKER_MODELS = {"macro", "nowcast"}
+RESTING_TTL_H = float(os.getenv("RESTING_TTL_H", "6"))
+
+
+def maker_price(price_cents: float, model: str = "") -> int:
+    """The price to actually place: one cent inside the signal's crossing
+    price (maker), unless maker mode is off or the model is time-critical."""
+    p = int(round(price_cents))
+    if MAKER_MODE and model not in TAKER_MODELS:
+        p -= 1
+    return max(1, min(99, p))
+
+
+def refresh_resting(client, resting) -> None:
+    """Cancel resting BUY orders older than RESTING_TTL_H. Maker bids the
+    market walked away from get re-priced by later scans instead of
+    sitting stale forever (the ticker frees up once the cancel lands)."""
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    for o in resting or []:
+        if (o.get("action") or "").lower() != "buy":
+            continue
+        try:
+            created = datetime.fromisoformat(
+                str(o.get("created_time") or "").replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        age_h = (now - created).total_seconds() / 3600.0
+        if age_h >= RESTING_TTL_H:
+            try:
+                client.cancel_order(str(o.get("order_id")))
+                log.info("Cancelled stale resting buy on %s (%.1fh old)",
+                         o.get("ticker"), age_h)
+            except Exception as exc:
+                log.warning("Cancel failed for %s: %s",
+                            o.get("ticker"), exc)
 
 
 def dynamic_order_caps(balance_cents: float, exposure_usd: float, settings):
@@ -196,6 +245,8 @@ def main() -> int:
         # geoblocks US orders). Public APIs — no key needed.
         "smartmoney": (strategy_smartmoney.scan,
                        strategy_smartmoney.PAPER_LOG),
+        # intraday known outcomes from live station observations
+        "nowcast": (strategy_nowcast.scan, strategy_nowcast.PAPER_LOG),
     }
 
     for name, (_, path) in model_defs.items():
@@ -225,7 +276,7 @@ def main() -> int:
              "longshots).", settings.trade_min_price, settings.trade_max_price)
     results = []
     for res, path, name in per_model:
-        if name == "macro":
+        if name in ("macro", "nowcast"):
             # Known-outcome (resolution-lag) trades: the correct side is
             # ~certain to pay 100c, so buying it at 92-98c is exactly the
             # edge. Do NOT apply the 60-90c band that's meant for uncertain
@@ -275,6 +326,7 @@ def main() -> int:
         return 1
 
     manage_exits(client, settings, positions, resting)
+    refresh_resting(client, resting)
 
     bankroll = balance / 100 + exposure
     # hard caps grow with the account (owner spec): static env values are
@@ -345,9 +397,13 @@ def main() -> int:
             log.info("DRY_RUN: order not sent.")
             continue
 
+        placed = maker_price(price, signal.get("model", ""))
+        if placed != int(round(price)):
+            log.info("MAKER: resting at %d¢ instead of crossing at %.0f¢",
+                     placed, price)
         try:
             resp = client.create_limit_order(
-                signal["ticker"], signal["side"], "buy", count, price
+                signal["ticker"], signal["side"], "buy", count, placed
             )
         except Exception as exc:
             log.error("ORDER FAILED for %s: %s — continuing", signal["ticker"], exc)
@@ -357,7 +413,7 @@ def main() -> int:
         # Guaranteed audit trail: record every real fill immediately.
         try:
             log_execution(signal.get("model", ""), signal["ticker"],
-                          signal["side"], count, price,
+                          signal["side"], count, placed,
                           str(order.get("order_id", "")))
         except Exception as exc:
             log.warning("Execution-log write failed: %s", exc)
