@@ -1,0 +1,35 @@
+{
+  "since": "2026-07-01",
+  "cities": {
+    "Miami": {
+      "net": -1.36,
+      "wins": 3,
+      "losses": 4
+    },
+    "Austin": {
+      "net": -0.43,
+      "wins": 2,
+      "losses": 5
+    },
+    "Chicago": {
+      "net": -2.36,
+      "wins": 3,
+      "losses": 6
+    },
+    "Los Angeles": {
+      "net": -0.33,
+      "wins": 2,
+      "losses": 4
+    },
+    "Denver": {
+      "net": 2.25,
+      "wins": 5,
+      "losses": 3
+    },
+    "New York": {
+      "net": -27.98,
+      "wins": 0,
+      "losses": 5
+    }
+  }
+}

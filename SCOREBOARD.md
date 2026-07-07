@@ -1,12 +1,12 @@
 # 📊 Trading Scoreboard
 
-_Updated 2026-07-07 19:30 UTC — auto-generated every run; do not edit._
+_Updated 2026-07-07 21:12 UTC — auto-generated every run; do not edit._
 
 Signals are scored against official settlement whether or not a real order was placed. P&L shown is per 1-contract stakes.
 
 ## 💰 Account
 
-**Balance $17.80** · open exposure $0.00 · 🔴 **won/lost since 2026-07-01: -$41.39** (17 wins / 64 losses on settled markets)
+**Balance $15.28** · open exposure $0.00 · 🔴 **won/lost since 2026-07-01: -$41.74** (17 wins / 65 losses on settled markets)
 
 
 ## 💵 Real orders placed
@@ -36,14 +36,26 @@ Signals are scored against official settlement whether or not a real order was p
 | 07-07 14:01 | weather | KXHIGHAUS-26JUL07-B96.5 | NO | 1 | 61¢ | $0.61 | ⏳ open |
 | 07-07 14:01 | weather | KXHIGHLAX-26JUL08-B75.5 | NO | 1 | 62¢ | $0.62 | ⏳ open |
 
+## 🌡️ Weather by city (real settled P&L since 2026-07-01)
+
+| City | Net | W–L |
+|---|---|---|
+| Denver | 🟢 +$2.25 | 5–3 |
+| Los Angeles | 🔴 -$0.33 | 2–4 |
+| Austin | 🔴 -$0.43 | 2–5 |
+| Miami | 🔴 -$1.36 | 3–4 |
+| Chicago | 🔴 -$2.36 | 3–6 |
+| New York | 🔴 -$27.98 | 0–5 |
+
 ## 🌡️ Weather model
 
-### 🟢 0 W — 🔴 1 L — ⏳ 23 pending — net **-90¢**
+### 🟢 0 W — 🔴 1 L — ⏳ 24 pending — net **-90¢**
 
-_Brier **0.974** (coin flip 0.25) · avg CLV **-89.0¢** over 1 settled_
+_Brier **0.974** (coin flip 0.25) over 1 settled · avg CLV **-89.0¢** over 1 sampled_
 
 | Scanned (UTC) | Market | Side | Price | Model | Result |
 |---|---|---|---|---|---|
+| 07-07 21:12 | KXHIGHDEN-26JUL08-B90.5 | NO | 84¢ | 93% | ⏳ pending |
 | 07-07 19:29 | KXHIGHLAX-26JUL07-B73.5 | NO | 71¢ | 88% | ⏳ pending |
 | 07-07 19:29 | KXHIGHLAX-26JUL08-B77.5 | NO | 60¢ | 85% | ⏳ pending |
 | 07-07 19:29 | KXHIGHDEN-26JUL08-B92.5 | NO | 63¢ | 84% | ⏳ pending |
@@ -63,8 +75,7 @@ _Brier **0.974** (coin flip 0.25) · avg CLV **-89.0¢** over 1 settled_
 | 07-06 23:55 | KXHIGHCHI-26JUL07-B83.5 | NO | 64¢ | 80% | ⏳ pending |
 | 07-06 20:56 | KXHIGHMIA-26JUL07-B90.5 | NO | 74¢ | 80% | ⏳ pending |
 | 07-06 20:45 | KXHIGHAUS-26JUL06-B98.5 | NO | 90¢ | 99% | 🔴 loss (-90c) |
-| 07-06 20:45 | KXHIGHAUS-26JUL07-B98.5 | NO | 83¢ | 94% | ⏳ pending |
-| … | _4 older rows in the CSV_ | | | | |
+| … | _5 older rows in the CSV_ | | | | |
 
 ## ₿ Crypto model
 
