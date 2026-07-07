@@ -24,3 +24,4 @@ placed_at_utc,model,ticker,side,count,price_cents,cost_usd,order_id,outcome
 2026-07-05T20:06:21.807134Z,untracked,KXMLBGAME-26JUL051300PITWSH-WSH,yes,4,3,0.12,ca1c9285-658f-4f6c-9b90-f0c45cae411d,loss (-3c)
 2026-07-05T22:46:25.831068Z,untracked,KXMLBGAME-26JUL051700TORSEA-TOR,yes,1,5,0.05,658a4d0c-d700-4554-9d97-1afc5d797dd3,loss (-5c)
 2026-07-06T14:51:21.64925Z,untracked,KXHIGHNY-26JUL07-T75,yes,1,82,0.82,913ae48b-66e3-4756-8c7f-04cebbb1ffe9,
+2026-07-07T03:35:56+00:00,weather,KXHIGHDEN-26JUL07-B95.5,no,1,60,0.60,568b043c-d86a-4fc9-b21d-d7c9f1592f67,

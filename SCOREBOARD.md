@@ -1,20 +1,21 @@
 # 📊 Trading Scoreboard
 
-_Updated 2026-07-06 23:55 UTC — auto-generated every run; do not edit._
+_Updated 2026-07-07 03:35 UTC — auto-generated every run; do not edit._
 
 Signals are scored against official settlement whether or not a real order was placed. P&L shown is per 1-contract stakes.
 
 ## 💰 Account
 
-**Balance $15.36** · open exposure $0.00 · 🔴 **won/lost since 2026-07-01: -$41.15** (11 wins / 58 losses on settled markets)
+**Balance $14.74** · open exposure $0.00 · 🔴 **won/lost since 2026-07-01: -$41.15** (11 wins / 58 losses on settled markets)
 
 
 ## 💵 Real orders placed
 
-**25 orders, $21.20 deployed.** Settled: **1 W — 17 L, realized +$0.44**; 7 open.
+**26 orders, $21.80 deployed.** Settled: **1 W — 17 L, realized +$0.44**; 8 open.
 
 | Placed (UTC) | Model | Market | Side | Qty | Price | Cost | Result |
 |---|---|---|---|---|---|---|---|
+| 07-07 03:35 | weather | KXHIGHDEN-26JUL07-B95.5 | NO | 1 | 60¢ | $0.60 | ⏳ open |
 | 07-06 14:51 | untracked | KXHIGHNY-26JUL07-T75 | YES | 1 | 82¢ | $0.82 | ⏳ open |
 | 07-05 22:46 | untracked | KXMLBGAME-26JUL051700TORSEA-TOR | YES | 1 | 5¢ | $0.05 | 🔴 loss (-$0.05) |
 | 07-05 20:06 | untracked | KXMLBGAME-26JUL051300PITWSH-WSH | YES | 4 | 3¢ | $0.12 | 🔴 loss (-$0.12) |
@@ -34,14 +35,14 @@ Signals are scored against official settlement whether or not a real order was p
 | 07-04 14:22 | untracked | KXBTCD-26JUL0411-T62799.99 | YES | 15 | 4¢ | $0.60 | 🔴 loss (-$0.60) |
 | 07-03 17:09 | untracked | KXHIGHCHI-26JUL03-T89 | YES | 7 | 1¢ | $0.07 | 🔴 loss (-$0.07) |
 | 07-02 19:06 | untracked | KXETHD-26JUL0216-T1709.99 | YES | 2 | 8¢ | $0.16 | 🔴 loss (-$0.16) |
-| 07-02 19:05 | untracked | KXBTCD-26JUL0216-T61899.99 | YES | 2 | 8¢ | $0.16 | 🔴 loss (-$0.16) |
 
 ## 🌡️ Weather model
 
-### 🟢 0 W — 🔴 0 L — ⏳ 8 pending — net **+0¢**
+### 🟢 0 W — 🔴 0 L — ⏳ 9 pending — net **+0¢**
 
 | Scanned (UTC) | Market | Side | Price | Model | Result |
 |---|---|---|---|---|---|
+| 07-07 03:35 | KXHIGHDEN-26JUL07-B95.5 | NO | 60¢ | 84% | ⏳ pending |
 | 07-06 23:55 | KXHIGHCHI-26JUL07-B83.5 | NO | 64¢ | 80% | ⏳ pending |
 | 07-06 20:56 | KXHIGHMIA-26JUL07-B90.5 | NO | 74¢ | 80% | ⏳ pending |
 | 07-06 20:45 | KXHIGHAUS-26JUL06-B98.5 | NO | 90¢ | 99% | ⏳ pending |
