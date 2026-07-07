@@ -72,7 +72,7 @@ jobs:
           # here by design — it has its own always-on watcher
           # (smartmoney-live.yml) per owner spec. Override via repo
           # Variable ENABLED_MODELS if ever needed.
-          ENABLED_MODELS: ${{ vars.ENABLED_MODELS || 'weather,sports' }}
+          ENABLED_MODELS: ${{ vars.ENABLED_MODELS || 'weather,sports,nowcast' }}
           # no single theme (weather/crypto/sports/commodities) may exceed
           # this % of bankroll — stops piles of correlated bets from becoming
           # one oversized wager
@@ -91,6 +91,7 @@ jobs:
           for f in paper_trades.csv paper_trades_crypto.csv \
                    paper_trades_sports.csv paper_trades_commodities.csv \
                    paper_trades_smartmoney.csv paper_trades_macro.csv \
+                   paper_trades_nowcast.csv \
                    executed_trades.csv sports_line_history.json account_snapshot.json SCOREBOARD.md; do
             git add -f "$f" 2>/dev/null || true
           done

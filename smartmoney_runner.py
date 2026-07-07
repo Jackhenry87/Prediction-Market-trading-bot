@@ -123,14 +123,16 @@ def copy_pass(client, settings, session_seen: set) -> int:
             log.info("DRY_RUN: copy not sent.")
             session_seen.add(ticker)
             continue
+        from auto_trade import maker_price
+        placed = maker_price(price, "smartmoney")
         try:
             order = client.create_limit_order(ticker, s["side"], "buy",
-                                              count, int(price))
+                                              count, placed)
         except Exception as exc:
             log.error("Copy order failed for %s: %s", ticker, exc)
             continue
         try:
-            log_execution("smartmoney", ticker, s["side"], count, int(price),
+            log_execution("smartmoney", ticker, s["side"], count, placed,
                           str(order.get("order_id", "")))
         except Exception as exc:
             log.warning("Execution-log write failed: %s", exc)
