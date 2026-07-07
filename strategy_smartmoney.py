@@ -60,6 +60,20 @@ CAT_BLACKLIST_MIN = int(os.getenv("SM_CAT_BLACKLIST_MIN", "4"))
 # hours after entry before we sample the market price to score CLV — long
 # enough for the line to react, short enough to read before settlement
 CLV_LAG_H = float(os.getenv("SM_CLV_LAG_H", "3"))
+# FLYWHEEL: don't just cut losers — size UP behind wallets that have made
+# US money and DOWN behind those that lost, but only once a wallet has a
+# real settled sample, and only within a bounded band (the hard order/
+# exposure caps are always the final backstop).
+PROVEN_MIN = int(os.getenv("SM_PROVEN_MIN", "5"))          # settled copies
+QUALITY_SCALE = float(os.getenv("SM_QUALITY_SCALE", "30"))  # ¢/copy = full tilt
+QUALITY_BAND = float(os.getenv("SM_QUALITY_BAND", "0.30"))  # +/-30% sizing swing
+# FOLLOW THE EXIT: mirror the round trip, not just the entry. When the
+# sharps who drove a copy have SOLD out of it, the edge is gone — cash out.
+# Detection always runs and logs; the live SELL only fires when the owner
+# arms SM_FOLLOW_EXITS (default off — it's a real sell surface).
+OPEN_COPIES_PATH = Path(__file__).resolve().parent / "smartmoney_open_copies.json"
+FOLLOW_EXITS = os.getenv("SM_FOLLOW_EXITS", "false").lower() == "true"
+EXIT_FRAC = float(os.getenv("SM_EXIT_FRAC", "0.5"))       # backers-out to exit
 
 
 def category_of(ticker: str) -> str:
@@ -86,6 +100,155 @@ def load_category_bars() -> set:
 def category_allowed(wallet: str, category: str, bars: set = None) -> bool:
     bars = load_category_bars() if bars is None else bars
     return f"{wallet}|{category}" not in bars
+
+
+def wallet_scores(path: Path = WALLET_LOG) -> dict:
+    """wallet -> {'n': settled copies, 'net': net cents} from graded copies —
+    each backing wallet's realized contribution to OUR record."""
+    import csv
+    scores = {}
+    if not path.exists():
+        return scores
+    with open(path, newline="") as fh:
+        rows = list(csv.reader(fh))
+    if len(rows) < 2:
+        return scores
+    header, body = rows[0], rows[1:]
+    idx = {h: i for i, h in enumerate(header)}
+    for row in body:
+        if len(row) <= idx["outcome"]:
+            continue
+        out = row[idx["outcome"]]
+        if not out or "(" not in out:
+            continue
+        s = scores.setdefault(row[idx["wallet"]], dict(n=0, net=0.0))
+        s["n"] += 1
+        s["net"] += float(out.split("(")[1].rstrip("c)"))
+    return scores
+
+
+def backers_multiplier(wallet_ids: list, scores: dict = None) -> float:
+    """Bounded sizing/conviction multiplier from the backers' PROVEN records:
+    neutral 1.0 until a wallet has >= PROVEN_MIN settled copies, then tilts
+    up to +/-QUALITY_BAND by their average ¢/copy. Clamped by construction;
+    the hard order/exposure caps clamp the final order regardless."""
+    scores = wallet_scores() if scores is None else scores
+    quals = [scores[w]["net"] / scores[w]["n"]
+             for w in wallet_ids or []
+             if w in scores and scores[w]["n"] >= PROVEN_MIN]
+    if not quals:
+        return 1.0
+    avg = sum(quals) / len(quals)
+    tilt = max(-1.0, min(1.0, avg / QUALITY_SCALE)) * QUALITY_BAND
+    return 1.0 + tilt
+
+
+def load_open_copies() -> list:
+    try:
+        import json
+        return json.loads(OPEN_COPIES_PATH.read_text())
+    except (FileNotFoundError, ValueError):
+        return []
+
+
+def save_open_copies(copies: list) -> None:
+    import json
+    OPEN_COPIES_PATH.write_text(json.dumps(copies))
+
+
+def record_open_copy(ticker: str, slug: str, outcome: str, backers: list,
+                     side: str, count: int, ts: float = None) -> None:
+    """Remember which Polymarket market+outcome (and which backers) a copy
+    came from, so we can later tell if those sharps have exited."""
+    ts = ts or datetime.now(timezone.utc).timestamp()
+    copies = [c for c in load_open_copies() if c.get("ticker") != ticker]
+    copies.append(dict(ticker=ticker, slug=slug, outcome=outcome,
+                       backers=list(backers or []), side=side,
+                       count=count, ts=ts))
+    save_open_copies(copies)
+
+
+def sharp_exit_fraction(slug: str, outcome: str, backers: list,
+                        since_ts: float, now: float = None) -> float:
+    """Fraction of the original backers who have SOLD this Polymarket
+    market+outcome since we copied it — our read on whether the sharps
+    have abandoned the position."""
+    if not backers:
+        return 0.0
+    exited = 0
+    for w in backers:
+        for tr in fetch_wallet_recent(w):
+            if tr.get("side") != "SELL":
+                continue
+            if float(tr.get("timestamp", 0)) < since_ts:
+                continue
+            tr_slug = tr.get("slug") or tr.get("conditionId") or ""
+            tr_out = tr.get("outcome") or str(tr.get("outcomeIndex"))
+            if tr_slug == slug and tr_out == outcome:
+                exited += 1
+                break
+    return exited / len(backers)
+
+
+def check_exits(client, settings) -> int:
+    """Cash out copies the sharps have abandoned. Detection + logging always
+    run; the actual SELL fires only when SM_FOLLOW_EXITS is armed and we're
+    live. Prunes copies no longer held (settled / already exited)."""
+    copies = load_open_copies()
+    if not copies:
+        return 0
+    try:
+        positions = client.get_positions()
+    except Exception as exc:
+        log.warning("Exit check skipped (positions unavailable): %s", exc)
+        return 0
+    held = {p.get("ticker"): float(p.get("position", 0) or 0)
+            for p in positions.get("market_positions", [])}
+    now = datetime.now(timezone.utc).timestamp()
+    still_open, sold = [], 0
+    for c in copies:
+        pos = held.get(c.get("ticker"), 0)
+        if pos == 0:                     # settled or already exited -> forget
+            continue
+        frac = sharp_exit_fraction(c["slug"], c["outcome"],
+                                   c.get("backers", []), c.get("ts", 0), now)
+        if frac < EXIT_FRAC:
+            still_open.append(c)
+            continue
+        log.info("SHARP EXIT: %.0f%% of backers sold %s/%s -> %s",
+                 100 * frac, c["slug"], c["outcome"], c["ticker"])
+        if not FOLLOW_EXITS or settings.dry_run:
+            still_open.append(c)         # detection only; keep watching
+            continue
+        from safety import check_order
+        try:
+            market = client.get_market(c["ticker"])
+        except Exception:
+            still_open.append(c)
+            continue
+        side = "yes" if pos > 0 else "no"
+        bid = price_cents(market, f"{side}_bid")
+        count = int(abs(pos))
+        if not bid or count < 1:
+            still_open.append(c)
+            continue
+        problems = check_order(settings, "SELL", bid / 100.0, count, 0.0)
+        if problems:
+            for p in problems:
+                log.warning("EXIT BLOCKED %s: %s", c["ticker"], p)
+            still_open.append(c)
+            continue
+        try:
+            client.create_limit_order(c["ticker"], side, "sell", count,
+                                      int(bid))
+            log.info("EXIT SELL: %d x %s @ %dc (following sharp exit)",
+                     count, c["ticker"], int(bid))
+            sold += 1
+        except Exception as exc:
+            log.error("Exit sell failed for %s: %s", c["ticker"], exc)
+            still_open.append(c)
+    save_open_copies(still_open)
+    return sold
 
 # --- sharp-wallet discovery ---
 TAPE_MIN_USDC = float(os.getenv("SM_TAPE_MIN_USDC", "250"))   # big trades only
@@ -515,6 +678,7 @@ def build_consensus(sharp_wallets: dict, now_ts: float = None) -> list:
     recently. Ranked by CONVICTION (per-wallet-normalised size), with
     market-maker/wash wallets dropped. Pricing stays raw stake-weighted."""
     now = now_ts or datetime.now(timezone.utc).timestamp()
+    scores = wallet_scores()             # our realized record per backer
     groups = {}
     for w in sharp_wallets:
         recent = fetch_wallet_recent(w)
@@ -538,10 +702,12 @@ def build_consensus(sharp_wallets: dict, now_ts: float = None) -> list:
     out = []
     for (slug, outcome), g in groups.items():
         if len(g["wallets"]) >= MIN_WALLETS and g["stake"] > 0:
+            ids = sorted(g["wallets"])
+            mult = backers_multiplier(ids, scores)    # flywheel tilt
             out.append(dict(slug=slug, outcome=outcome, title=g["title"],
                             wallets=len(g["wallets"]), stake=g["stake"],
-                            conviction=g["conviction"],
-                            wallet_ids=sorted(g["wallets"]),
+                            conviction=g["conviction"] * mult,
+                            quality_mult=mult, wallet_ids=ids,
                             avg_price=g["weighted"] / g["stake"]))
     out.sort(key=lambda c: -c["conviction"])
     return out
@@ -574,6 +740,9 @@ def _priced_signal(cons: dict, market: dict, event: dict) -> dict:
                 ev_cents=ev, ticker=market.get("ticker"),
                 wallets=cons["wallets"], stake=cons["stake"],
                 conviction=cons.get("conviction", cons["stake"]),
+                quality_mult=cons.get("quality_mult", 1.0),
+                poly_slug=cons.get("slug", ""),
+                poly_outcome=cons.get("outcome", ""),
                 wallet_ids=cons.get("wallet_ids", []),
                 subtitle=f"{label} ({cons['wallets']} sharps, "
                          f"${cons['stake']:.0f})",
