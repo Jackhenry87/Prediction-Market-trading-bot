@@ -88,6 +88,10 @@ def test_never_both_sides_across_passes(monkeypatch):
     monkeypatch.setattr(smr, "log_signals", lambda *a, **k: None)
     monkeypatch.setattr(smr, "log_execution", lambda *a, **k: None)
     monkeypatch.setattr(sm, "log_copy_wallets", lambda *a, **k: None)
+    monkeypatch.setattr(sm, "record_open_copy", lambda *a, **k: None)
+    monkeypatch.setattr(sm, "check_exits", lambda *a, **k: 0)
+    import ledger
+    monkeypatch.setattr(ledger, "log_copy_execution", lambda *a, **k: None)
     import kalshi_exposure
     monkeypatch.setattr(kalshi_exposure, "current_exposure_usd",
                         lambda c: 0.0)
@@ -111,6 +115,10 @@ def test_never_both_sides_within_one_pass(monkeypatch):
     monkeypatch.setattr(smr, "log_signals", lambda *a, **k: None)
     monkeypatch.setattr(smr, "log_execution", lambda *a, **k: None)
     monkeypatch.setattr(sm, "log_copy_wallets", lambda *a, **k: None)
+    monkeypatch.setattr(sm, "record_open_copy", lambda *a, **k: None)
+    monkeypatch.setattr(sm, "check_exits", lambda *a, **k: 0)
+    import ledger
+    monkeypatch.setattr(ledger, "log_copy_execution", lambda *a, **k: None)
     import kalshi_exposure
     monkeypatch.setattr(kalshi_exposure, "current_exposure_usd",
                         lambda c: 0.0)

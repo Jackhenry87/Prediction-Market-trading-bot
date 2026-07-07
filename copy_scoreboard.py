@@ -66,9 +66,21 @@ def build(out: Path = OUT, path: Path = COPY_LOG) -> None:
         f"${spent_settled:.2f} spent → "
         f"**{sign}${abs(realized):.2f}** {'🟢' if realized >= 0 else '🔴'}",
         "",
-        "| Placed (UTC) | Market | Side | Qty | Price | Cost | Result |",
-        "|---|---|---|---|---|---|---|",
+        "| Placed (UTC) | Market | Side | Qty | Price | Confidence "
+        "| Cost | Result |",
+        "|---|---|---|---|---|---|---|---|",
     ]
+
+    def confidence(r):
+        prob = r[idx["model_prob"]] if "model_prob" in idx \
+            and len(r) > idx["model_prob"] else ""
+        if not prob:
+            return "—"
+        conf = f"{float(prob) * 100:.0f}%"
+        w = r[idx["wallets"]] if "wallets" in idx and len(r) > idx["wallets"] \
+            else ""
+        return f"{conf} · {w} sharps" if w else conf
+
     for r in reversed(body[-MAX_ROWS:]):
         when = r[idx["placed_at_utc"]][5:16].replace("T", " ")
         out_txt = r[idx["outcome"]] if len(r) > idx["outcome"] else ""
@@ -82,7 +94,7 @@ def build(out: Path = OUT, path: Path = COPY_LOG) -> None:
         lines.append(
             f"| {when} | {r[idx['ticker']]} | {r[idx['side']].upper()} "
             f"| {r[idx['count']]} | {r[idx['price_cents']]}¢ "
-            f"| ${r[idx['cost_usd']]} | {res} |")
+            f"| {confidence(r)} | ${r[idx['cost_usd']]} | {res} |")
     lines.append("")
     out.write_text("\n".join(lines) + "\n")
 

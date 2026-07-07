@@ -14,6 +14,24 @@ def test_new_york_cut_but_cities_reversible(monkeypatch):
     assert sw.city_enabled(by_series["KXHIGHNY"])
 
 
+def test_confidence_floor_cuts_marginal_picks(monkeypatch):
+    # a market the model rates a near coin-flip (model_prob ~0.55) with a
+    # juicy price should still be REFUSED under the confidence floor, while
+    # a high-conviction one clears it
+    monkeypatch.setattr(sw, "MIN_CONFIDENCE", 0.75)
+    monkeypatch.setattr(sw, "MIN_EDGE_CENTS", 1.0)
+    monkeypatch.setattr(sw, "bucket_probability", lambda *a, **k: 0.55)
+    coinflip = {"ticker": "T", "yes_ask": 30, "yes_bid": 28,
+                "floor_strike": 1, "cap_strike": 2}
+    # p=0.55 -> YES conf 0.55 (<0.75 cut); NO conf 0.45 (<0.75 cut) -> none
+    assert sw.evaluate_market(coinflip, mu=0.0, sigma=1.0) == []
+    monkeypatch.setattr(sw, "bucket_probability", lambda *a, **k: 0.90)
+    confident = {"ticker": "T", "yes_ask": 70, "yes_bid": 66,
+                 "floor_strike": 1, "cap_strike": 2}
+    sig = sw.evaluate_market(confident, mu=0.0, sigma=1.0)
+    assert sig and sig[0]["side"] == "yes" and sig[0]["model_prob"] == 0.90
+
+
 def test_station_cal_prefers_measured_and_benches(monkeypatch):
     city = {"series": "KXHIGHDEN", "bias": -0.5, "sigma": 2.5}
     # no calibration file -> static constants, trades
@@ -64,13 +82,14 @@ def test_price_cents_handles_both_formats():
 
 
 def test_evaluate_market_finds_underpriced_yes():
-    # forecast 88 with sigma 3: bucket 85-91 holds ~68% prob; ask 20c -> big edge
+    # forecast 88 dead-center in an 85-91 bucket at sigma 2 -> ~87% prob:
+    # confident AND underpriced at 20c, so it clears the confidence floor
     market = {"ticker": "T-1", "subtitle": "85 to 91",
               "floor_strike": 85, "cap_strike": 91,
               "yes_ask": 20, "yes_bid": 15}
-    signals = sw.evaluate_market(market, mu=88.0)
+    signals = sw.evaluate_market(market, mu=88.0, sigma=2.0)
     yes = [s for s in signals if s["side"] == "yes"]
-    assert yes and yes[0]["ev_cents"] > 20
+    assert yes and yes[0]["ev_cents"] > 20 and yes[0]["model_prob"] >= 0.75
 
 
 def test_evaluate_market_finds_overpriced_yes():

@@ -1,3 +1,3 @@
-placed_at_utc,model,ticker,side,count,price_cents,cost_usd,order_id,outcome
-2026-07-07T17:06:09Z,smartmoney,KXATPMATCH-26JUL07AUGDJO-AUG,yes,1,44,0.44,bd03f595-9803-4362-aeed-bb0e58e89f6c,
-2026-07-07T18:54:19Z,smartmoney,KXATPMATCH-26JUL07AUGDJO-DJO,yes,1,40,0.40,b84cf8bf-c34c-463a-b889-8fdbaafd5372,
+placed_at_utc,model,ticker,side,count,price_cents,cost_usd,order_id,model_prob,wallets,conviction,outcome
+2026-07-07T17:06:09Z,smartmoney,KXATPMATCH-26JUL07AUGDJO-AUG,yes,1,44,0.44,bd03f595-9803-4362-aeed-bb0e58e89f6c,,,,
+2026-07-07T18:54:19Z,smartmoney,KXATPMATCH-26JUL07AUGDJO-DJO,yes,1,40,0.40,b84cf8bf-c34c-463a-b889-8fdbaafd5372,,,,

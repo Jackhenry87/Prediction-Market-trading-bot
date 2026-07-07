@@ -114,6 +114,11 @@ SIGMA_F = 4.5
 # Only report trades with at least this much expected value per contract,
 # in cents, after fees. Below this, spread/model noise eats the edge.
 MIN_EDGE_CENTS = 5.0
+# Confidence floor (owner call): only take picks the model is genuinely sure
+# of — the chosen side must win with at least this probability. Cuts the
+# marginal coin-flip bets and keeps the sharp, high-conviction ones. Raise
+# it via WEATHER_MIN_CONFIDENCE to be even choosier.
+MIN_CONFIDENCE = float(os.getenv("WEATHER_MIN_CONFIDENCE", "0.75"))
 PAPER_LOG = Path(__file__).resolve().parent / "paper_trades.csv"
 
 
@@ -261,7 +266,7 @@ def evaluate_market(market: dict, mu: float, sigma: float = None) -> list:
     yes_ask = price_cents(market, "yes_ask")
     if yes_ask and 0 < yes_ask < 100:
         ev = 100.0 * p - yes_ask - taker_fee_cents(yes_ask)
-        if ev >= MIN_EDGE_CENTS:
+        if ev >= MIN_EDGE_CENTS and p >= MIN_CONFIDENCE:
             signals.append(dict(side="yes", price_cents=yes_ask,
                                 model_prob=p, ev_cents=ev))
 
@@ -269,7 +274,7 @@ def evaluate_market(market: dict, mu: float, sigma: float = None) -> list:
     if yes_bid and 0 < yes_bid < 100:
         no_price = 100.0 - yes_bid  # buying NO takes the YES bid
         ev = 100.0 * (1.0 - p) - no_price - taker_fee_cents(no_price)
-        if ev >= MIN_EDGE_CENTS:
+        if ev >= MIN_EDGE_CENTS and (1.0 - p) >= MIN_CONFIDENCE:
             signals.append(dict(side="no", price_cents=no_price,
                                 model_prob=1.0 - p, ev_cents=ev))
 

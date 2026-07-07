@@ -3,13 +3,13 @@
 import csv
 
 import copy_scoreboard
-from ledger import EXEC_COLUMNS
+from ledger import COPY_COLUMNS
 
 
 def _write(path, rows):
     with open(path, "w", newline="") as fh:
         w = csv.writer(fh)
-        w.writerow(EXEC_COLUMNS)
+        w.writerow(COPY_COLUMNS)
         w.writerows(rows)
 
 
@@ -19,11 +19,11 @@ def test_copy_scoreboard_totals(tmp_path):
     _write(log, [
         # a 4-lot winner, a 1-lot loser, and one still open
         ["2026-07-07T13:32:00Z", "smartmoney", "K-GAU", "yes", "4", "26",
-         "1.04", "o1", "win (+74c)"],
+         "1.04", "o1", "0.80", "5", "900", "win (+74c)"],
         ["2026-07-07T13:20:00Z", "smartmoney", "K-PEG", "yes", "1", "78",
-         "0.78", "o2", "loss (-78c)"],
+         "0.78", "o2", "0.86", "3", "300", "loss (-78c)"],
         ["2026-07-07T17:06:00Z", "smartmoney", "K-AUG", "yes", "1", "44",
-         "0.44", "o3", ""],
+         "0.44", "o3", "0.52", "4", "500", ""],
     ])
     copy_scoreboard.build(out=out, path=log)
     md = out.read_text()
@@ -32,6 +32,8 @@ def test_copy_scoreboard_totals(tmp_path):
     assert "1 W — 1 L" in md and "$1.82 spent" in md and "+$2.18" in md
     assert "🟢 win (+$2.96)" in md and "🔴 loss (-$0.78)" in md
     assert "⏳ open" in md
+    # confidence column: win prob % and # sharps
+    assert "80% · 5 sharps" in md and "86% · 3 sharps" in md
 
 
 def test_copy_scoreboard_empty(tmp_path):

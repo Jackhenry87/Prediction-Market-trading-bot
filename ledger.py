@@ -17,8 +17,32 @@ EXEC_COLUMNS = ["placed_at_utc", "model", "ticker", "side", "count",
                 "price_cents", "cost_usd", "order_id", "outcome"]
 EXEC_LOG = Path(__file__).resolve().parent / "executed_trades.csv"
 # a copy-only executed ledger — the smart-money copier writes here too, so a
-# dedicated scoreboard can track ONLY the copy trades (nothing else)
+# dedicated scoreboard can track ONLY the copy trades (nothing else). It
+# carries the confidence behind each copy: the model's win probability, how
+# many sharps backed it, and the conviction weight.
 COPY_LOG = Path(__file__).resolve().parent / "copy_trades.csv"
+COPY_COLUMNS = ["placed_at_utc", "model", "ticker", "side", "count",
+                "price_cents", "cost_usd", "order_id", "model_prob",
+                "wallets", "conviction", "outcome"]
+
+
+def log_copy_execution(ticker: str, side: str, count: int, price_cents: int,
+                       order_id: str, model_prob: float, wallets: int,
+                       conviction: float, path: Path = COPY_LOG) -> None:
+    """Like log_execution but for the copy ledger, recording the CONFIDENCE
+    behind the pick (win prob, # sharps, conviction) so the copy scoreboard
+    can show a rating next to every trade."""
+    new_file = not path.exists()
+    with open(path, "a", newline="") as fh:
+        writer = csv.writer(fh)
+        if new_file:
+            writer.writerow(COPY_COLUMNS)
+        writer.writerow([
+            datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "smartmoney", ticker, side, count, price_cents,
+            f"{price_cents * count / 100:.2f}", order_id,
+            f"{model_prob:.3f}", wallets, f"{conviction:.0f}", "",
+        ])
 
 
 def log_execution(model: str, ticker: str, side: str, count: int,
