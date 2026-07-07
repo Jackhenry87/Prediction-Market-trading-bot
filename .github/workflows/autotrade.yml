@@ -68,17 +68,19 @@ jobs:
           TAKE_PROFIT_PCT: ${{ vars.TAKE_PROFIT_PCT || '50' }}
           TRADE_MIN_PRICE: ${{ vars.TRADE_MIN_PRICE || '60' }}
           TRADE_MAX_PRICE: ${{ vars.TRADE_MAX_PRICE || '90' }}
-          # crypto and commodities OFF (weakest edge). smartmoney is NOT
-          # here by design — it has its own always-on watcher
-          # (smartmoney-live.yml) per owner spec. Override via repo
+          # Hourly is weather-only (owner call): weather = the forecast
+          # model, nowcast = the intraday half of the same weather markets
+          # (locks in temps already observed). Sports/crypto/commodities
+          # OFF. smartmoney is NOT here by design — it has its own
+          # always-on watcher (smartmoney-live.yml). Override via repo
           # Variable ENABLED_MODELS if ever needed.
-          ENABLED_MODELS: ${{ vars.ENABLED_MODELS || 'weather,sports,nowcast' }}
+          ENABLED_MODELS: ${{ vars.ENABLED_MODELS || 'weather,nowcast' }}
           # no single theme (weather/crypto/sports/commodities) may exceed
           # this % of bankroll — stops piles of correlated bets from becoming
           # one oversized wager
           MAX_THEME_PCT: ${{ vars.MAX_THEME_PCT || '40' }}
-          # MLB cut from the hourly devig model (owner call) — the copy
-          # runner still places MLB when profitable sharps are on it
+          # only used if 'sports' is ever re-added to ENABLED_MODELS
+          # (MLB stays cut from it either way — owner call)
           SPORTS_LEAGUES: ${{ vars.SPORTS_LEAGUES || 'nba,nfl,nhl,wnba' }}
         run: python auto_trade.py
 

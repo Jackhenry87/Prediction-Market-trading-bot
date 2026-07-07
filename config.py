@@ -107,7 +107,7 @@ def load_kalshi_settings(require_market: bool = True) -> Settings:
         enabled_models=tuple(
             m.strip().lower()
             for m in os.getenv(
-                "ENABLED_MODELS", "weather,sports,crypto,commodities").split(",")
+                "ENABLED_MODELS", "weather,nowcast").split(",")
             if m.strip()
         ),
         max_theme_pct=float(os.getenv("MAX_THEME_PCT", "40")),
