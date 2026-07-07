@@ -19,6 +19,8 @@ def test_normalize_pem_repairs_mangled_newlines():
     assert config._normalize_pem(flattened) == good
     assert config._normalize_pem(good) == good
     assert config._normalize_pem('"' + flattened + '"') == good  # quoted paste
+    literal = good.replace("\n", "\\n")  # JSON/shell-style escaped newlines
+    assert config._normalize_pem(literal) == good
     assert config._normalize_pem("not a pem") == "not a pem"
 
 

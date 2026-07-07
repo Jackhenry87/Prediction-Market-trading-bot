@@ -56,9 +56,18 @@ async def lifespan(app: FastAPI):
                                   private_key_pem=(
                                       settings.kalshi_private_key_pem or None))
         except Exception as exc:  # bad key must not take the site down
-            state["live_error"] = (
-                f"private key rejected ({type(exc).__name__}: {exc}) — "
-                f"re-paste the full .pem into KALSHI_PRIVATE_KEY_PEM")
+            pem = settings.kalshi_private_key_pem
+            if pem and "-----BEGIN" not in pem:
+                why = ("the pasted value has no '-----BEGIN ... KEY-----' "
+                       "first line — copy the WHOLE .pem file, not just the "
+                       "middle part")
+            elif pem and "-----END" not in pem:
+                why = ("the pasted value is cut off (no '-----END ... "
+                       "KEY-----' last line) — re-copy the WHOLE .pem file")
+            else:
+                why = (f"{type(exc).__name__}: {exc} — re-paste the full "
+                       f".pem into KALSHI_PRIVATE_KEY_PEM")
+            state["live_error"] = f"private key rejected: {why}"
     elif settings.kalshi_api_key_id:
         state["live_error"] = ("KALSHI_API_KEY_ID is set but no private key "
                                "found — set KALSHI_PRIVATE_KEY_PEM")

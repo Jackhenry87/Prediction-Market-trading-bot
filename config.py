@@ -93,6 +93,9 @@ def _normalize_pem(pem: str) -> str:
     header / 64-char body lines / footer when the newlines were flattened.
     Already-valid PEM passes through intact."""
     pem = pem.strip().strip("\"'")
+    # Pastes that passed through JSON/shell carry literal backslash-n pairs
+    # instead of newlines; base64 never contains backslashes, so this is safe.
+    pem = pem.replace("\\r", "").replace("\\n", "\n").replace("\r", "")
     m = re.match(r"\s*-----BEGIN ([A-Z0-9 ]+)-----(.+)-----END \1-----\s*$",
                  pem, re.S)
     if not m:
