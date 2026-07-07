@@ -119,21 +119,26 @@ def copy_pass(client, settings, session_seen: set) -> int:
         log.info("COPY: buy %s %d x %s @ %.0fc ($%.2f, %.0f%% conviction) "
                  "| %s", s["side"], count, ticker, price, notional, pct,
                  s["subtitle"])
+        try:
+            strategy_smartmoney.log_copy_wallets(
+                ticker, s["side"], price, s.get("wallet_ids", []))
+        except Exception as exc:
+            log.warning("Wallet attribution log failed: %s", exc)
         if settings.dry_run:
             log.info("DRY_RUN: copy not sent.")
             session_seen.add(ticker)
             continue
         from auto_trade import maker_price
-        placed = maker_price(price, "smartmoney")
+        placed_price = maker_price(price, "smartmoney")
         try:
             order = client.create_limit_order(ticker, s["side"], "buy",
-                                              count, placed)
+                                              count, placed_price)
         except Exception as exc:
             log.error("Copy order failed for %s: %s", ticker, exc)
             continue
         try:
-            log_execution("smartmoney", ticker, s["side"], count, placed,
-                          str(order.get("order_id", "")))
+            log_execution("smartmoney", ticker, s["side"], count,
+                          placed_price, str(order.get("order_id", "")))
         except Exception as exc:
             log.warning("Execution-log write failed: %s", exc)
         session_seen.add(ticker)

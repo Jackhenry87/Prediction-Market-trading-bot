@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 LEDGER_COLUMNS = ["scanned_at_utc", "event", "ticker", "side", "price_cents",
-                  "model_prob", "ev_cents", "outcome"]
+                  "model_prob", "ev_cents", "outcome", "clv_cents"]
 EXEC_COLUMNS = ["placed_at_utc", "model", "ticker", "side", "count",
                 "price_cents", "cost_usd", "order_id", "outcome"]
 EXEC_LOG = Path(__file__).resolve().parent / "executed_trades.csv"
@@ -177,6 +177,6 @@ def log_signals(results: list, path: Path) -> int:
                 writer.writerow([now, r.get("date", ""), s["ticker"],
                                  s["side"], f"{s['price_cents']:.0f}",
                                  f"{s['model_prob']:.3f}",
-                                 f"{s['ev_cents']:.1f}", ""])
+                                 f"{s['ev_cents']:.1f}", "", ""])
                 written += 1
     return written

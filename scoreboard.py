@@ -154,6 +154,40 @@ def build(out: Path = OUT) -> None:
             f"### 🟢 {wins} W — 🔴 {losses} L — ⏳ {pending} pending "
             f"— net **{pnl:+.0f}¢**",
             "",
+        ]
+        # calibration + closing-line value: the early-warning metrics.
+        # Brier 0.25 = coin flip (lower is better); positive CLV means we
+        # beat the closing price — the classic predictor of profitability.
+        settled = [r for r in body
+                   if r[idx["outcome"]].startswith(("win", "loss"))]
+        if settled and "model_prob" in idx:
+            briers = []
+            for r in settled:
+                try:
+                    p = float(r[idx["model_prob"]])
+                except ValueError:
+                    continue
+                won = 1.0 if r[idx["outcome"]].startswith("win") else 0.0
+                briers.append((p - won) ** 2)
+            clvs = []
+            if "clv_cents" in idx:
+                for r in settled:
+                    if len(r) > idx["clv_cents"] and r[idx["clv_cents"]]:
+                        try:
+                            clvs.append(float(r[idx["clv_cents"]]))
+                        except ValueError:
+                            pass
+            stats = []
+            if briers:
+                stats.append(f"Brier **{sum(briers) / len(briers):.3f}** "
+                             f"(coin flip 0.25)")
+            if clvs:
+                avg = sum(clvs) / len(clvs)
+                stats.append(f"avg CLV **{avg:+.1f}¢**")
+            if stats:
+                lines += ["_" + " · ".join(stats)
+                          + f" over {len(settled)} settled_", ""]
+        lines += [
             "| Scanned (UTC) | Market | Side | Price | Model | Result |",
             "|---|---|---|---|---|---|",
         ]
