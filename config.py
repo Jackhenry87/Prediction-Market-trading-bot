@@ -5,6 +5,7 @@ The private key is deliberately kept out of __repr__/logs.
 """
 
 import os
+import re
 from dataclasses import dataclass
 
 from dotenv import load_dotenv
@@ -86,6 +87,20 @@ class DashboardSettings:
     poll_seconds: int = 20      # live-mode poll cadence
 
 
+def _normalize_pem(pem: str) -> str:
+    """Repair PEM text whose newlines got mangled by an env-var editor
+    (a very common hosted-deploy failure): rebuild the standard header /
+    64-char body lines / footer. Already-valid PEM passes through intact."""
+    m = re.match(r"\s*-----BEGIN ([A-Z0-9 ]+)-----(.+)-----END \1-----\s*$",
+                 pem, re.S)
+    if not m:
+        return pem
+    label, body = m.group(1), re.sub(r"\s+", "", m.group(2))
+    lines = [body[i:i + 64] for i in range(0, len(body), 64)]
+    return (f"-----BEGIN {label}-----\n" + "\n".join(lines)
+            + f"\n-----END {label}-----\n")
+
+
 def load_dashboard_settings() -> DashboardSettings:
     env = os.getenv("KALSHI_ENV", "demo").strip().lower()
     if env not in ("demo", "prod"):
@@ -95,7 +110,7 @@ def load_dashboard_settings() -> DashboardSettings:
     key_path = os.getenv("KALSHI_PRIVATE_KEY_PATH", "").strip()
     # Hosts like Render/Actions store the key as secret TEXT, not a file —
     # accept either. PEM text wins when both are set.
-    key_pem = os.getenv("KALSHI_PRIVATE_KEY_PEM", "").strip()
+    key_pem = _normalize_pem(os.getenv("KALSHI_PRIVATE_KEY_PEM", "").strip())
     if key_path and not key_pem and not os.path.isfile(key_path):
         raise ConfigError(
             f"KALSHI_PRIVATE_KEY_PATH points to {key_path!r} but no such "

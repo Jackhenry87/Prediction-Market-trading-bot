@@ -4,7 +4,21 @@ so they run with only the root requirements installed."""
 from pathlib import Path
 
 import auto_trade
+import config
 from dashboard import data
+
+
+def test_normalize_pem_repairs_mangled_newlines():
+    """Env-var editors often flatten a pasted .pem to one line; the
+    dashboard must still load it. Valid PEM passes through unchanged."""
+    body = "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7" * 8
+    good = ("-----BEGIN PRIVATE KEY-----\n"
+            + "\n".join(body[i:i + 64] for i in range(0, len(body), 64))
+            + "\n-----END PRIVATE KEY-----\n")
+    flattened = good.replace("\n", " ")
+    assert config._normalize_pem(flattened) == good
+    assert config._normalize_pem(good) == good
+    assert config._normalize_pem("not a pem") == "not a pem"
 
 
 def test_theme_prefixes_stay_in_sync_with_auto_trade():

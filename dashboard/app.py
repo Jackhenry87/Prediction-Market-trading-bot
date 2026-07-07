@@ -45,21 +45,29 @@ async def lifespan(app: FastAPI):
     setup_logging()  # mirror to stdout so hosted logs show mode & poll errors
     state["trades"] = data.load_history()
     state["updated_at"] = data.now_iso()
+    client = None
     if settings.kalshi_api_key_id and (settings.kalshi_private_key_pem
                                        or settings.kalshi_private_key_path):
+        try:
+            client = KalshiClient(settings.kalshi_api_key_id,
+                                  settings.kalshi_private_key_path or None,
+                                  settings.kalshi_env,
+                                  private_key_pem=(
+                                      settings.kalshi_private_key_pem or None))
+        except Exception as exc:  # bad key must not take the site down
+            log.error("Kalshi credentials rejected (%s: %s) — check "
+                      "KALSHI_PRIVATE_KEY_PEM is the full unmodified .pem; "
+                      "starting in REPLAY mode instead",
+                      type(exc).__name__, exc)
+    if client:
         state["mode"] = "live"
-        client = KalshiClient(settings.kalshi_api_key_id,
-                              settings.kalshi_private_key_path or None,
-                              settings.kalshi_env,
-                              private_key_pem=settings.kalshi_private_key_pem
-                              or None)
         task = asyncio.create_task(live_poller(client))
         log.info("dashboard LIVE (%s), polling every %ss",
                  settings.kalshi_env, settings.poll_seconds)
     else:
         state["mode"] = "replay"
         task = asyncio.create_task(replayer())
-        log.info("dashboard REPLAY mode (no Kalshi credentials)")
+        log.info("dashboard REPLAY mode (no usable Kalshi credentials)")
     yield
     task.cancel()
 
