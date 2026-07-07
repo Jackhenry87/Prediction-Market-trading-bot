@@ -347,6 +347,12 @@ MIN_EDGE_CENTS = float(os.getenv("SM_MIN_EDGE_CENTS", "3"))
 # the calibration is the sharps' own track record). Its own floor still
 # refuses longshot lottery tickets.
 SM_MIN_PRICE_CENTS = float(os.getenv("SM_MIN_PRICE", "25"))
+# HARD lockup guard: never buy a market that resolves more than this many
+# days out — capital shouldn't sit frozen in a far-dated bet (a 2028
+# nomination market ties up money for years). Protects the WHOLE copier,
+# not just politics. 0 disables. Unknown resolution date -> not blocked
+# (fail open; virtually every Kalshi market carries close_time).
+SM_MAX_DAYS_OUT = float(os.getenv("SM_MAX_DAYS_OUT", "60"))
 
 MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN",
           "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
@@ -787,12 +793,44 @@ def kalshi_date_token(y: str, m: str, d: str) -> str:
     return f"{y[2:]}{MONTHS[int(m) - 1]}{d}"
 
 
+def _parse_ts(v):
+    """Unix seconds from a Kalshi time field (ISO string or epoch), or None."""
+    if v in (None, "", 0):
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    try:
+        return datetime.fromisoformat(str(v).replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+def _too_far_out(market: dict, event: dict, now_ts: float = None) -> bool:
+    """True if this market resolves more than SM_MAX_DAYS_OUT days out, so we
+    skip it (no frozen capital in far-dated bets). Unknown date -> not
+    blocked (fail open)."""
+    if SM_MAX_DAYS_OUT <= 0:
+        return False
+    now = now_ts or datetime.now(timezone.utc).timestamp()
+    for src in (market, event):
+        for field in ("close_time", "expiration_time",
+                      "expected_expiration_time", "latest_expiration_time"):
+            ts = _parse_ts(src.get(field))
+            if ts is not None:
+                return (ts - now) > SM_MAX_DAYS_OUT * 86400
+    return False
+
+
 def _priced_signal(cons: dict, market: dict, event: dict) -> dict:
     """YES signal on this Kalshi market at the sharps' price + premium, or
     None when the ask already ran past their entry (no chasing)."""
     p = min(cons["avg_price"] + PREMIUM_PTS / 100.0, MAX_PROB)
     label = (market.get("yes_sub_title") or market.get("subtitle")
              or market.get("title") or "")
+    if _too_far_out(market, event):
+        log.info("Skip (resolves > %.0fd out — no frozen capital): %s",
+                 SM_MAX_DAYS_OUT, market.get("ticker"))
+        return None
     yes_ask = price_cents(market, "yes_ask")
     if not yes_ask or not 0 < yes_ask < 100:
         return None

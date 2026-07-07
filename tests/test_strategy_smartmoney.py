@@ -167,6 +167,26 @@ def test_score_copier_clv_samples_early(tmp_path, monkeypatch):
     assert by["T-settled"]["clv_cents"] == ""      # settled before sampling
 
 
+def test_skips_far_dated_markets(monkeypatch):
+    from datetime import datetime, timedelta, timezone
+    monkeypatch.setattr(sm, "SM_MAX_DAYS_OUT", 60)
+
+    def _iso(days):
+        return (datetime.now(timezone.utc)
+                + timedelta(days=days)).isoformat().replace("+00:00", "Z")
+
+    cons = dict(avg_price=0.5, wallets=4, stake=500.0,
+                wallet_ids=["w1", "w2", "w3", "w4"], outcome="Yes")
+    event = {"event_ticker": "E", "title": "e"}
+    near = {"ticker": "T-NEAR", "yes_ask": 50, "close_time": _iso(30)}
+    far = {"ticker": "T-FAR", "yes_ask": 50, "close_time": _iso(400)}
+    assert sm._priced_signal(cons, near, event) is not None   # 30d out: OK
+    assert sm._priced_signal(cons, far, event) is None        # 400d: refused
+    # unknown resolution date -> not blocked (fail open)
+    nodate = {"ticker": "T-?", "yes_ask": 50}
+    assert sm._priced_signal(cons, nodate, event) is not None
+
+
 def test_pinned_specialist_always_in_pool(monkeypatch):
     # a discovered sharp AND a pinned wallet that discovery would miss
     tape = [_trade("0xDISCOVERED", "x", "Yes", 0.5, 2000)]

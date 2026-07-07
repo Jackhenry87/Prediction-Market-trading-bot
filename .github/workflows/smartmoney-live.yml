@@ -61,6 +61,9 @@ jobs:
           # auto-sell each copy at entry +this% so winners recycle instead of
           # locking until resolution (esp. long-dated politics). 0 disables.
           SM_TAKE_PROFIT_PCT: ${{ vars.SM_TAKE_PROFIT_PCT || '50' }}
+          # HARD lockup guard: never buy a market resolving more than this
+          # many days out, so capital can't freeze in a far-dated bet. 0 off.
+          SM_MAX_DAYS_OUT: ${{ vars.SM_MAX_DAYS_OUT || '60' }}
         run: python smartmoney_runner.py
 
       - name: Persist copy state + copy scoreboard across sessions
