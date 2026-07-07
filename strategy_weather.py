@@ -361,7 +361,10 @@ def score_pending_paper_trades(log_path: Path = None) -> None:
         pnl = (100.0 - price) if won else -price
         row[idx["outcome"]] = f"{'win' if won else 'loss'} ({pnl:+.0f}c)"
         close = _close_cents(market)
-        if "clv_cents" in idx and close is not None:
+        # only if not already sampled earlier (e.g. the copier's mid-life
+        # CLV read) — the first, pre-settlement reading is the honest one
+        if "clv_cents" in idx and close is not None \
+                and not row[idx["clv_cents"]]:
             clv = (close - price) if row[idx["side"]] == "yes" \
                 else ((100.0 - close) - price)
             row[idx["clv_cents"]] = f"{clv:+.0f}"

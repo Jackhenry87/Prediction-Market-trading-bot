@@ -505,6 +505,10 @@ def refresh_records(settings, client=None) -> None:
             strategy_smartmoney.grade_wallets(client)
         except Exception as exc:
             log.warning("Wallet grading failed: %s", exc)
+        try:
+            strategy_smartmoney.score_copier_clv()
+        except Exception as exc:
+            log.warning("Copier CLV scoring failed: %s", exc)
     try:
         import scoreboard
         scoreboard.build()

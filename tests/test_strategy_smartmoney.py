@@ -1,8 +1,12 @@
 """Tests for the smart-money (Polymarket sharp-wallet consensus) model."""
 
+import csv
+from datetime import datetime, timezone
+
 import strategy_smartmoney as sm
 
 NOW = 1_783_360_000.0
+DAY = 86400
 
 
 def _trade(wallet, slug, outcome, price, size, ts=NOW - 3600, side="BUY"):
@@ -43,6 +47,124 @@ def test_select_sharp_wallets_filters(monkeypatch):
     monkeypatch.setattr(sm, "SHARP_MIN_PNL_2W", 500.0)
     sharps = sm.select_sharp_wallets()
     assert list(sharps) == ["0xup"]
+
+
+def _daily_curve(values, end=NOW):
+    """cumulative-PnL curve, one point per day ending today."""
+    n = len(values)
+    return [(end - (n - 1 - i) * DAY, v) for i, v in enumerate(values)]
+
+
+def test_curve_quality_flags_one_lucky_day():
+    # steady daily gains: healthy shape
+    steady = sm.curve_quality(_daily_curve([0, 100, 200, 300, 400, 500, 600]),
+                              now_ts=NOW)
+    assert steady["up_frac"] == 1.0 and steady["max_share"] < 0.3
+    # flat for a week then one huge day: concentrated, low quality
+    spike = sm.curve_quality(_daily_curve([0, 10, 20, 30, 40, 1000, 1010]),
+                             now_ts=NOW)
+    assert spike["max_share"] > 0.8
+    # a steadier earner has the higher risk-adjusted (Sharpe) score even
+    # with a much smaller headline number
+    vol = sm.curve_quality(_daily_curve([0, 500, 200, 700, 400, 900, 1200]),
+                           now_ts=NOW)
+    assert steady["sharpe"] > vol["sharpe"]
+
+
+def test_select_ranks_by_risk_adjusted_not_size(monkeypatch):
+    tape = [_trade("0xsteady", "x", "Yes", 0.5, 2000),
+            _trade("0xvol", "x", "Yes", 0.5, 2000),
+            _trade("0xspike", "x", "Yes", 0.5, 2000)]
+    curves = {
+        # steady +100/day: modest total, top risk-adjusted return
+        "0xsteady": _daily_curve([0, 100, 200, 300, 400, 500, 600]),
+        # bigger headline PnL but jumpy: lower Sharpe -> ranks below steady
+        "0xvol": _daily_curve([0, 500, 200, 700, 400, 900, 1200]),
+        # all profit from a single day: rejected outright by the spike gate
+        "0xspike": _daily_curve([0, 10, 20, 30, 40, 1000, 1010]),
+    }
+    monkeypatch.setattr(sm, "fetch_big_trades", lambda: tape)
+    monkeypatch.setattr(sm, "fetch_pnl_curve", lambda w: curves[w])
+    monkeypatch.setattr(sm, "SHARP_MIN_PNL_2W", 500.0)
+    monkeypatch.setattr(sm, "load_blacklist", lambda: set())
+    sharps = sm.select_sharp_wallets()
+    assert "0xspike" not in sharps                 # one-day spike filtered
+    assert list(sharps)[0] == "0xsteady"           # risk-adjusted beats size
+
+
+def test_category_of_buckets():
+    assert sm.category_of("KXWTAMATCH-26JUL07PEGGAU-PEG") == "tennis"
+    assert sm.category_of("KXMLBGAME-26JUL09COLSF-COL") == "usleague"
+    assert sm.category_of("KXMENWORLDCUP-26-ES") == "soccer"
+    assert sm.category_of("KXSENATE-26-XYZ") == "other"
+
+
+def test_grade_wallets_bars_by_category(tmp_path, monkeypatch):
+    # 0xmix is NET POSITIVE overall (not globally blacklisted) but loses in
+    # tennis specifically -> barred from tennis only, still allowed in soccer
+    log = tmp_path / "wlog.csv"
+    rows = [sm.WALLET_LOG_COLUMNS]
+    for i in range(4):
+        rows.append(["t", f"KXWTAMATCH-x-{i}", "yes", "40", "0xmix",
+                     "loss (-30c)"])
+    for i in range(4):
+        rows.append(["t", f"KXMENWORLDCUP-26-{i}", "yes", "20", "0xmix",
+                     "win (+80c)"])
+    with open(log, "w", newline="") as fh:
+        csv.writer(fh).writerows(rows)
+    monkeypatch.setattr(sm, "CAT_BARS_PATH", tmp_path / "cats.json")
+    monkeypatch.setattr(sm, "BLACKLIST_PATH", tmp_path / "bl.json")
+    bl = sm.grade_wallets(client=None, path=log, bl_path=tmp_path / "bl.json")
+    assert "0xmix" not in bl                        # net +200 overall
+    assert sm.category_allowed("0xmix", "soccer") is True
+    assert sm.category_allowed("0xmix", "tennis") is False
+
+
+def test_score_copier_clv_samples_early(tmp_path, monkeypatch):
+    import kalshi_client
+    from ledger import LEDGER_COLUMNS
+
+    def _iso(ts):
+        return datetime.fromtimestamp(ts, timezone.utc).isoformat()
+
+    log = tmp_path / "paper_trades_smartmoney.csv"
+    base = {c: "" for c in LEDGER_COLUMNS}
+    rows = [LEDGER_COLUMNS]
+
+    def _row(ticker, side, price, scanned_ts):
+        r = dict(base, scanned_at_utc=_iso(scanned_ts), event="E",
+                 ticker=ticker, side=side, price_cents=str(price),
+                 model_prob="0.6", ev_cents="5")
+        return [r[c] for c in LEDGER_COLUMNS]
+
+    rows.append(_row("T-fresh", "yes", 60, NOW - 4 * 3600))    # old enough
+    rows.append(_row("T-recent", "yes", 60, NOW - 1 * 3600))   # too recent
+    rows.append(_row("T-settled", "yes", 60, NOW - 4 * 3600))  # already settled
+    with open(log, "w", newline="") as fh:
+        csv.writer(fh).writerows(rows)
+
+    markets = {
+        "T-fresh": {"last_price": 70},                 # line moved our way
+        "T-recent": {"last_price": 70},
+        "T-settled": {"result": "yes", "last_price": 100},
+    }
+
+    class _Fake:
+        def __init__(self, *a, **k):
+            pass
+
+        def get_market(self, t):
+            return markets[t]
+    monkeypatch.setattr(kalshi_client, "KalshiClient", _Fake)
+
+    sm.score_copier_clv(path=log, now_ts=NOW)
+
+    with open(log, newline="") as fh:
+        out = list(csv.DictReader(fh))
+    by = {r["ticker"]: r for r in out}
+    assert by["T-fresh"]["clv_cents"] == "+10"     # 70 - 60, sampled early
+    assert by["T-recent"]["clv_cents"] == ""       # lag not elapsed
+    assert by["T-settled"]["clv_cents"] == ""      # settled before sampling
 
 
 def test_consensus_needs_distinct_wallets(monkeypatch):
