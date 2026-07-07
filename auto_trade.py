@@ -471,6 +471,7 @@ def positions_market_value(client) -> float:
     we can't price, so equity is never wildly off. This is the number that
     was missing: cash alone ignores money still tied up in positions."""
     from kalshi_exposure import _position_exposure_cents
+    from strategy_weather import _close_cents, price_cents
     total = 0.0
     for p in client.get_positions().get("market_positions", []):
         pos = float(p.get("position", 0) or 0)
@@ -483,10 +484,17 @@ def positions_market_value(client) -> float:
                 won = (result == "yes") if pos > 0 else (result == "no")
                 mark = 100.0 if won else 0.0
             else:                       # open: mid of the side we hold
-                ya = price_cents(m, "yes_ask") or 0
-                yb = price_cents(m, "yes_bid") or 0
-                yes_mid = (ya + yb) / 2 if (ya and yb) else (ya or yb)
-                mark = yes_mid if pos > 0 else (100 - yes_mid)
+                ya = price_cents(m, "yes_ask")
+                yb = price_cents(m, "yes_bid")
+                if ya and yb:
+                    yes_mid = (ya + yb) / 2.0
+                elif ya or yb:
+                    yes_mid = ya or yb
+                else:                   # no quotes -> last traded price
+                    yes_mid = _close_cents(m)
+                if not yes_mid:         # truly unpriceable -> cost basis
+                    raise ValueError("no live price")
+                mark = yes_mid if pos > 0 else (100.0 - yes_mid)
             total += abs(pos) * mark / 100.0
         except Exception:               # can't price -> cost basis fallback
             cents = _position_exposure_cents(p)

@@ -58,10 +58,11 @@ def _account_section(lines: list) -> None:
     equity = snap.get("equity_usd", cash + (pv or 0.0))
     deposits = snap.get("deposits_usd")
     pv_s = "n/a" if pv is None else f"${pv:.2f}"
-    head = (f"## 💰 Account", "",
-            f"**Equity ${equity:.2f}** = cash ${cash:.2f} + open positions "
-            f"{pv_s}", "")
-    lines += list(head)
+    lines += [
+        "## 💰 Account", "",
+        f"**Equity ${equity:.2f}** = cash ${cash:.2f} + open positions "
+        f"{pv_s}", "",
+    ]
     if deposits is not None:
         lines += [f"{dot} **Net P&L: {sign}${abs(pnl):.2f}** "
                   f"(${deposits:.2f} deposited → ${equity:.2f} now) · "
