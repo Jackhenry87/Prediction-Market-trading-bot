@@ -167,6 +167,30 @@ def test_score_copier_clv_samples_early(tmp_path, monkeypatch):
     assert by["T-settled"]["clv_cents"] == ""      # settled before sampling
 
 
+def test_pinned_specialist_always_in_pool(monkeypatch):
+    # a discovered sharp AND a pinned wallet that discovery would miss
+    tape = [_trade("0xDISCOVERED", "x", "Yes", 0.5, 2000)]
+    curves = {"0xdiscovered": _daily_curve([0, 100, 200, 300, 400, 500, 600]),
+              "0xpinned": _daily_curve([0, 20, 40, 60, 80, 100, 120])}
+    monkeypatch.setattr(sm, "fetch_big_trades", lambda: tape)
+    monkeypatch.setattr(sm, "fetch_pnl_curve", lambda w: curves[w])
+    monkeypatch.setattr(sm, "SHARP_MIN_PNL_2W", 500.0)
+    monkeypatch.setattr(sm, "load_blacklist", lambda: set())
+    monkeypatch.setattr(sm, "PINNED_WALLETS", {"0xpinned"})
+    sharps = sm.select_sharp_wallets()
+    # discovered wallet keyed lowercase (no double-count), pin guaranteed in
+    assert "0xdiscovered" in sharps and "0xpinned" in sharps
+
+
+def test_pinned_specialist_still_respects_blacklist(monkeypatch):
+    # a pin we've graded out (lost our money) is NOT force-included
+    monkeypatch.setattr(sm, "fetch_big_trades", lambda: [])
+    monkeypatch.setattr(sm, "load_blacklist", lambda: {"0xpinned"})
+    monkeypatch.setattr(sm, "PINNED_WALLETS", {"0xpinned"})
+    monkeypatch.setattr(sm, "fetch_pnl_curve", lambda w: [])
+    assert "0xpinned" not in sm.select_sharp_wallets()
+
+
 def test_backers_multiplier_tilts_within_band(monkeypatch):
     scores = {"good": {"n": 6, "net": 180.0},   # +30c/copy -> full up-tilt
               "bad": {"n": 6, "net": -180.0},    # -30c/copy -> full down-tilt

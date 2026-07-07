@@ -57,6 +57,15 @@ WALLET_LOG_COLUMNS = ["ts", "ticker", "side", "price_cents", "wallet",
                       "outcome"]
 BLACKLIST_MIN_SETTLED = int(os.getenv("SM_BLACKLIST_MIN", "4"))
 CAT_BLACKLIST_MIN = int(os.getenv("SM_CAT_BLACKLIST_MIN", "4"))
+# PINNED specialists: named wallets ALWAYS kept in the sharp pool even when
+# auto-discovery (2-week PnL of recent big flow) would miss them — important
+# for politics, where the edge lives in long-horizon markets that don't
+# throw off fresh big trades every fortnight. They still only trigger a copy
+# via normal consensus (>= MIN_WALLETS agreeing), and the flywheel still
+# sizes them by their proven record for US — no solo-tailing, no blank check.
+# A blacklisted pinned wallet is still dropped (our own loss data wins).
+PINNED_WALLETS = {w.strip().lower() for w in
+                  os.getenv("SM_PINNED_WALLETS", "").split(",") if w.strip()}
 # hours after entry before we sample the market price to score CLV — long
 # enough for the line to react, short enough to read before settlement
 CLV_LAG_H = float(os.getenv("SM_CLV_LAG_H", "3"))
@@ -424,11 +433,11 @@ def select_sharp_wallets() -> dict:
     month, steady rather than one lucky day)."""
     stake = {}
     for tr in fetch_big_trades():
-        w = tr.get("proxyWallet")
+        w = (tr.get("proxyWallet") or "").lower()   # normalise so a pinned
         usdc = float(tr.get("size", 0)) * float(tr.get("price", 0))
-        if w:
+        if w:                                        # wallet can't count twice
             stake[w] = stake.get(w, 0.0) + usdc
-    blacklist = load_blacklist()
+    blacklist = {b.lower() for b in load_blacklist()}
     candidates = [w for w in sorted(stake, key=stake.get, reverse=True)
                   if w not in blacklist][:CANDIDATES_MAX]
     if blacklist:
@@ -463,6 +472,16 @@ def select_sharp_wallets() -> dict:
     log.info("Sharp wallets: %d of %d candidates (ranked by risk-adjusted "
              "return; 2w PnL $%.0f..$%.0f)", len(top), len(candidates),
              min(top.values(), default=0), max(top.values(), default=0))
+    # pinned specialists are ALWAYS in the pool (unless we've graded them out),
+    # even if discovery missed them this run — they still need consensus
+    for w in PINNED_WALLETS:
+        if w in blacklist or w in top:
+            continue
+        try:
+            top[w] = pnl_change(fetch_pnl_curve(w), 14)
+        except Exception:
+            top[w] = 0.0
+        log.info("Pinned specialist kept in sharp pool: %s…", w[:12])
     return top
 
 

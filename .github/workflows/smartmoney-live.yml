@@ -53,6 +53,11 @@ jobs:
           SM_RUN_MINUTES: '110'
           # follow-the-exit is a live SELL surface: OFF unless armed
           SM_FOLLOW_EXITS: ${{ vars.SM_FOLLOW_EXITS || 'false' }}
+          # pinned specialists always kept in the sharp pool (comma-separated
+          # Polymarket wallets). Seeded with holymoses7 (elections sharp,
+          # $1->~$87k). Add more via the repo Variable. Consensus + flywheel
+          # still apply — a pin is "always considered", not "always copied".
+          SM_PINNED_WALLETS: ${{ vars.SM_PINNED_WALLETS || '0xa4b366ad22fc0d06f1e934ff468e8922431a87b8' }}
         run: python smartmoney_runner.py
 
       - name: Persist copy state + copy scoreboard across sessions
