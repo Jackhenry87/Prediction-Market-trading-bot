@@ -121,6 +121,50 @@
   .px.bump{color:var(--warn)}
   .empty{color:var(--muted);font-size:13px;padding:12px 0}
 
+  /* ---------- tabs ---------- */
+  .tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--grid)}
+  .tab{all:unset;cursor:pointer;padding:9px 16px;font-size:13.5px;color:var(--muted);
+       letter-spacing:.3px;border-bottom:2px solid transparent;margin-bottom:-1px}
+  .tab:hover{color:var(--ink-2)}
+  .tab[aria-selected="true"]{color:var(--ink);font-weight:600;border-bottom-color:var(--chart)}
+  .tab:focus-visible{outline:2px solid var(--chart);border-radius:6px}
+  .view{display:none}.view.active{display:block}
+
+  /* ---------- history tab ---------- */
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .chip{all:unset;cursor:pointer;border:1px solid var(--border);border-radius:999px;
+        padding:5px 12px;font-size:12px;color:var(--ink-2);display:inline-flex;
+        align-items:center;gap:7px;background:var(--surface)}
+  .chip[aria-pressed="true"]{background:var(--surface-2);color:var(--ink);
+        border-color:var(--baseline);font-weight:600}
+  .chip:focus-visible{outline:2px solid var(--chart)}
+  .dayhead{display:flex;justify-content:space-between;align-items:baseline;
+        padding:16px 2px 8px;font-size:13px;color:var(--ink-2);font-weight:600}
+  .dayhead .daypnl{font-size:12px;font-weight:600}
+  .htable{width:100%;border-collapse:collapse;font-size:13px}
+  .htable td{padding:7px 8px;border-top:1px solid var(--grid);vertical-align:middle}
+  .htable td.num{text-align:right;font-variant-numeric:tabular-nums}
+  .htable .tick{font-weight:600;max-width:320px;overflow:hidden;text-overflow:ellipsis;
+        white-space:nowrap}
+  .htable .sub2{color:var(--muted);font-size:12px}
+  .hwrap{overflow-x:auto}
+
+  /* ---------- models tab ---------- */
+  .mgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px}
+  .mcard{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px}
+  .mcard h3{margin:0;font-size:16px;display:flex;align-items:center;gap:10px;text-transform:capitalize}
+  .mcard .status{margin-left:auto;font-size:10.5px;font-weight:700;letter-spacing:.6px;
+        padding:3px 9px;border-radius:6px}
+  .status.on{background:rgba(12,163,12,.16);color:var(--good)}
+  .status.off{background:rgba(137,135,129,.16);color:var(--muted)}
+  .mcard p{color:var(--ink-2);font-size:13.5px;line-height:1.55;margin:10px 0 14px;max-width:62ch}
+  .mstats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;border-top:1px solid var(--grid);padding-top:12px}
+  .mstats .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+  .mstats .v2{font-size:16px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums}
+  .v2.pos{color:var(--good)} .v2.neg{color:var(--bad)}
+  .mextreme{margin-top:12px;font-size:12.5px;color:var(--ink-2);display:flex;flex-direction:column;gap:4px}
+  .mextreme b{font-variant-numeric:tabular-nums}
+
   footer{margin-top:26px;font-size:12px;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap}
   @media (prefers-reduced-motion: reduce){
     .tape-inner,.dot.live,.dot.replay{animation:none}
@@ -152,6 +196,13 @@
     <div class="tile"><div class="k">Fills</div><div class="v" id="t-n">—</div><div class="s" id="t-n-s">— pending</div></div>
   </div>
 
+  <nav class="tabs" role="tablist" aria-label="Dashboard sections">
+    <button class="tab" id="tab-desk" role="tab" aria-selected="true">Desk</button>
+    <button class="tab" id="tab-history" role="tab" aria-selected="false">History</button>
+    <button class="tab" id="tab-models" role="tab" aria-selected="false">Models</button>
+  </nav>
+
+  <div class="view active" id="view-desk">
   <div class="grid">
     <div class="stack">
       <div class="card">
@@ -177,6 +228,24 @@
         <div id="positions"><div class="empty">—</div></div>
       </div>
     </div>
+  </div>
+  </div><!-- /view-desk -->
+
+  <div class="view" id="view-history">
+    <div class="card">
+      <h2>Trade history</h2>
+      <div class="sub">every fill on the account, newest day first — result shown is the market's settlement</div>
+      <div class="chips" id="histchips"></div>
+      <div id="histbody"><div class="empty">loading…</div></div>
+    </div>
+  </div>
+
+  <div class="view" id="view-models">
+    <div class="card" style="margin-bottom:14px">
+      <h2>The models</h2>
+      <div class="sub">what each strategy actually does, and its live record — two minutes, all five. ENABLED/OFF reflects the default ENABLED_MODELS config.</div>
+    </div>
+    <div class="mgrid" id="modelcards"><div class="empty">loading…</div></div>
   </div>
 
   <footer>
@@ -389,6 +458,127 @@ function renderHeader(snap){
   $("restpill").textContent = mode==="live" ? (snap.resting_orders??0)+" resting orders" : "";
 }
 
+/* ---------- tabs ---------- */
+const VIEWS={"tab-desk":"view-desk","tab-history":"view-history","tab-models":"view-models"};
+let histCache=null, histFilter="all";
+for(const tid of Object.keys(VIEWS)){
+  $(tid).onclick=async ()=>{
+    for(const [t,v] of Object.entries(VIEWS)){
+      $(t).setAttribute("aria-selected",String(t===tid));
+      $(v).classList.toggle("active",t===tid);
+    }
+    if(tid!=="tab-desk"){
+      await loadHistory();
+      if(tid==="tab-history") renderHistory(); else renderModelCards();
+    }
+  };
+}
+async function loadHistory(){
+  if(histCache) return histCache;
+  try{
+    const r=await fetch("/api/history");
+    histCache=(await r.json()).trades||[];
+  }catch(e){ histCache=null; }
+  return histCache||[];
+}
+
+/* ---------- history tab ---------- */
+function resultCell(t){
+  if(!t.settlement) return `<span class="res pend">open</span>`;
+  const win=(t.pnl_usd??0)>=0;
+  return `<span class="res ${win?"win":"loss"}">${win?"WIN":"LOSS"} ${fmt$(t.pnl_usd,true)}</span>`;
+}
+function renderHistory(){
+  const all=histCache||[];
+  const themes=["all",...new Set(all.map(t=>t.theme))];
+  $("histchips").innerHTML=themes.map(th=>{
+    const dot=th==="all"?"":`<span class="tdot" style="background:${THEME_COLORS[th]||THEME_COLORS.other}"></span>`;
+    return `<button class="chip" data-th="${th}" aria-pressed="${histFilter===th}">${dot}${th==="all"?"All markets":th}</button>`;
+  }).join("");
+  document.querySelectorAll("#histchips .chip").forEach(c=>c.onclick=()=>{histFilter=c.dataset.th;renderHistory();});
+
+  const trades=all.filter(t=>histFilter==="all"||t.theme===histFilter).slice().reverse();
+  if(!trades.length){ $("histbody").innerHTML=`<div class="empty">no fills recorded yet</div>`; return; }
+  const days=new Map();
+  for(const t of trades){
+    const d=(t.datetime_utc||"").slice(0,10)||"unknown";
+    if(!days.has(d)) days.set(d,[]);
+    days.get(d).push(t);
+  }
+  let html="";
+  for(const [day,list] of days){
+    const deployed=list.reduce((s,t)=>s+t.cost_usd,0);
+    html+=`<div class="dayhead"><span>${day}</span><span class="daypnl" style="color:var(--muted)">${list.length} fills · ${fmt$(deployed)} deployed</span></div>`;
+    html+=`<div class="hwrap"><table class="htable">`;
+    for(const t of list){
+      const hhmm=(t.datetime_utc||"").slice(11,16);
+      html+=`<tr>
+        <td class="sub2">${hhmm}</td>
+        <td><div class="tick" title="${t.ticker}"><span class="tdot" style="background:${THEME_COLORS[t.theme]||THEME_COLORS.other}"></span> ${t.ticker}</div>
+            <div class="sub2">${t.action} ${t.side} · ${t.count}× @ ${cents(t.price_cents)}</div></td>
+        <td class="num">${fmt$(t.cost_usd)}</td>
+        <td class="num">${resultCell(t)}</td>
+      </tr>`;
+    }
+    html+=`</table></div>`;
+  }
+  $("histbody").innerHTML=html;
+}
+
+/* ---------- models tab ---------- */
+const MODEL_INFO={
+  weather:{on:true,blurb:"The National Weather Service updates its forecasts faster than Kalshi's daily high-temperature markets reprice. The bot turns the latest forecast for six cities into a probability for each temperature bucket and buys the buckets the market is underpricing. Each city's forecast error was measured against a year of real history to calibrate how confident to be."},
+  sports:{on:true,blurb:"Takes the moneyline consensus from major sportsbooks, mathematically strips out the bookmakers' built-in margin (sharpest book weighted 3×), and compares those true odds to Kalshi's game markets. It only bets sides the sharp line has recently moved toward — following smart money, never fading it."},
+  crypto:{on:false,blurb:"Prices Bitcoin and Ethereum “above X by 5pm” threshold markets with an option-style lognormal model. The measured edge was weak, so this model is OFF by default."},
+  macro:{on:false,blurb:"Right after an economic number is published (CPI, jobless claims, payrolls) the correct side of the market is publicly known for a few minutes before prices finish adjusting. The bot buys the known side if it's still cheap. Currently paper-trading around release windows to prove the lag is real before going live."},
+  commodities:{on:false,blurb:"The same threshold-pricing approach as crypto, applied to oil, natural gas, and gold markets. OFF — no reliable edge measured."},
+};
+function marketOutcomesJS(trades){
+  const m={};
+  for(const t of trades){
+    const o=m[t.ticker] ??= {ticker:t.ticker,theme:t.theme,last_ts:t.ts,pnl:null};
+    o.last_ts=Math.max(o.last_ts,t.ts);
+    if(t.pnl_usd!=null) o.pnl=t.pnl_usd;
+  }
+  return Object.values(m);
+}
+function renderModelCards(){
+  const all=histCache||[];
+  const order=["weather","sports","crypto","macro","commodities"];
+  $("modelcards").innerHTML=order.map(theme=>{
+    const info=MODEL_INFO[theme];
+    const trades=all.filter(t=>t.theme===theme);
+    const outs=marketOutcomesJS(trades), settled=outs.filter(o=>o.pnl!=null);
+    const wins=settled.filter(o=>o.pnl>=0).length, losses=settled.length-wins;
+    const pnl=Math.round(settled.reduce((s,o)=>s+o.pnl,0)*100)/100;
+    const deployed=Math.round(trades.reduce((s,t)=>s+t.cost_usd,0)*100)/100;
+    const wr=settled.length?Math.round(1000*wins/settled.length)/10:null;
+    const best=settled.length?settled.reduce((a,b)=>a.pnl>b.pnl?a:b):null;
+    const worst=settled.length?settled.reduce((a,b)=>a.pnl<b.pnl?a:b):null;
+    const lastTs=trades.length?Math.max(...trades.map(t=>t.ts)):null;
+    const last=lastTs?new Date(lastTs*1000).toISOString().slice(0,10):"never";
+    const pnlCls=pnl>0?"pos":(pnl<0?"neg":"");
+    const extremes=(best&&worst)?`
+      <div class="mextreme">
+        <span>Best market: ${best.ticker} <b style="color:var(--good)">${fmt$(best.pnl,true)}</b></span>
+        <span>Worst market: ${worst.ticker} <b style="color:var(--bad)">${fmt$(worst.pnl,true)}</b></span>
+      </div>`:"";
+    return `<div class="mcard">
+      <h3><span class="tdot" style="background:${THEME_COLORS[theme]}"></span>${theme}
+        <span class="status ${info.on?"on":"off"}">${info.on?"ENABLED":"OFF"}</span></h3>
+      <p>${info.blurb}</p>
+      <div class="mstats">
+        <div><div class="k">Record</div><div class="v2">${wins}W–${losses}L</div></div>
+        <div><div class="k">Win rate</div><div class="v2">${wr==null?"—":wr+"%"}</div></div>
+        <div><div class="k">Net P&L</div><div class="v2 ${pnlCls}">${fmt$(pnl,true)}</div></div>
+        <div><div class="k">Deployed</div><div class="v2">${fmt$(deployed)}</div></div>
+        <div><div class="k">Markets</div><div class="v2">${outs.length}</div></div>
+        <div><div class="k">Last fill</div><div class="v2" style="font-size:13px">${last}</div></div>
+      </div>${extremes}
+    </div>`;
+  }).join("");
+}
+
 /* ---------- websocket ---------- */
 function applySnapshot(s){
   stats=s.stats; balance=s.balance_usd; feedTrades=s.feed||[];
@@ -407,6 +597,11 @@ function connect(){
       if(m.stats) stats=m.stats;
       if(m.balance_usd!=null) balance=m.balance_usd;
       pushTrade(m.trade); renderTiles(); renderChart(); renderModels();
+      if(mode==="live"&&histCache){          // keep the tabs current too
+        histCache.push(m.trade);
+        if($("view-history").classList.contains("active")) renderHistory();
+        if($("view-models").classList.contains("active")) renderModelCards();
+      }
     }
     else if(m.type==="settle"){
       const card=document.querySelector(`.trade[data-ticker="${m.ticker}"]`);

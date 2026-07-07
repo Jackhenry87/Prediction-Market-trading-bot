@@ -27,6 +27,22 @@ def test_snapshot_shape(client, monkeypatch):
     assert body["stats"]["trades"] == 0
 
 
+def test_history_endpoint(client, monkeypatch):
+    monkeypatch.setitem(app_mod.state, "mode", "live")
+    monkeypatch.setitem(app_mod.state, "trades", [
+        {"ts": 1.0, "ticker": "KXHIGHX-A-B", "theme": "weather",
+         "action": "BUY", "side": "NO", "count": 1, "price_cents": 50,
+         "cost_usd": 0.5, "settlement": "", "pnl_usd": None,
+         "datetime_utc": "2026-07-06T12:00:00Z"}])
+    r = client.get("/api/history")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["mode"] == "live" and len(body["trades"]) == 1
+
+    monkeypatch.setattr(app_mod.settings, "password", "pw")
+    assert client.get("/api/history").status_code == 401
+
+
 def test_index_serves_page(client):
     r = client.get("/")
     assert r.status_code == 200

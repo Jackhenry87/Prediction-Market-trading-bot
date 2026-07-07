@@ -338,6 +338,18 @@ async def api_snapshot(request: Request):
     return snapshot()
 
 
+@app.get("/api/history")
+async def api_history(request: Request):
+    """Every fill, oldest first — feeds the History and Models tabs.
+    In live mode that's the CSV seed plus everything seen since; in
+    replay mode the full CSV (not just the part replayed so far)."""
+    if not _authed(request):
+        return JSONResponse({"error": "auth required"}, status_code=401)
+    trades = (state["trades"] if state["mode"] == "live"
+              else data.load_history())
+    return {"mode": state["mode"], "trades": trades}
+
+
 @app.websocket("/ws")
 async def ws_endpoint(ws: WebSocket):
     if settings.password and not hmac.compare_digest(
