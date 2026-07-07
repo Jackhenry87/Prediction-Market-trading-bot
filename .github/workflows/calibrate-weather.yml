@@ -1,14 +1,18 @@
 name: calibrate-weather
 
-# Manual, read-only analysis: measures real 1-day-ahead high-temp forecast
-# error per Kalshi station (Open-Meteo archives) and prints suggested
-# per-city sigmas for strategy_weather. No orders, no secrets needed.
+# Self-calibration: measures each Kalshi station's recent (current-season)
+# 1-day-ahead high-temp forecast error from Open-Meteo archives and writes
+# weather_calibration.json, which the model reads for per-station bias and
+# sigma and to auto-bench stations whose forecasts have broken this season.
+# Runs weekly (and on demand). Read-only vs Kalshi; no secrets needed.
 
 on:
+  schedule:
+    - cron: '30 9 * * 1'      # Mondays 09:30 UTC
   workflow_dispatch: {}
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   calibrate:
@@ -23,3 +27,14 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Measure forecast error per station
         run: python calibrate_weather.py
+      - name: Commit refreshed calibration
+        if: always()
+        run: |
+          git config user.name "calibrate-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f weather_calibration.json 2>/dev/null || true
+          if ! git diff --cached --quiet; then
+            git commit -m "Refresh weather calibration [skip ci]"
+            git pull --rebase
+            git push
+          fi

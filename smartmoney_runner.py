@@ -184,10 +184,12 @@ def copy_pass(client, settings, session_seen: set,
             oid = str(order.get("order_id", ""))
             log_execution("smartmoney", ticker, s["side"], count,
                           placed_price, oid)
-            # copy-only ledger too, for the dedicated copy scoreboard
-            from ledger import COPY_LOG
-            log_execution("smartmoney", ticker, s["side"], count,
-                          placed_price, oid, path=COPY_LOG)
+            # copy-only ledger too, WITH the confidence behind the pick
+            from ledger import log_copy_execution
+            log_copy_execution(ticker, s["side"], count, placed_price, oid,
+                               s.get("model_prob", 0.0),
+                               s.get("wallets", 0),
+                               s.get("conviction", 0.0))
         except Exception as exc:
             log.warning("Execution-log write failed: %s", exc)
         session_seen.add(ticker)

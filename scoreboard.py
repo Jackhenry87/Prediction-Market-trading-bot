@@ -67,9 +67,28 @@ def _account_section(lines: list) -> None:
     ]
 
 
+def _confidence_map() -> dict:
+    """ticker -> model win-probability, harvested from every signal ledger,
+    so a placed order can show the confidence the model had behind it."""
+    out = {}
+    for _, path in SOURCES:
+        header, body = _read(path)
+        if not header or "model_prob" not in header or "ticker" not in header:
+            continue
+        ti, pi = header.index("ticker"), header.index("model_prob")
+        for r in body:
+            if len(r) > pi and r[pi]:
+                try:
+                    out[r[ti]] = float(r[pi])
+                except ValueError:
+                    pass
+    return out
+
+
 def _executed_section(lines: list) -> None:
     """Real orders actually placed (the money audit trail)."""
     path = ROOT / "executed_trades.csv"
+    conf = _confidence_map()
     header, body = _read(path)
     lines += ["## 💵 Real orders placed", ""]
     if not header:
@@ -100,8 +119,9 @@ def _executed_section(lines: list) -> None:
                  f"realized {rsign}${abs(realized):.2f}**; "
                  f"{len(body) - len(settled)} open.")
     lines += [head, "",
-              "| Placed (UTC) | Model | Market | Side | Qty | Price | Cost | Result |",
-              "|---|---|---|---|---|---|---|---|"]
+              "| Placed (UTC) | Model | Market | Side | Qty | Price "
+              "| Confidence | Cost | Result |",
+              "|---|---|---|---|---|---|---|---|---|"]
     for r in reversed(body[-MAX_ROWS:]):
         when = r[idx["placed_at_utc"]][5:16].replace("T", " ")
         out = outcome(r)
@@ -112,10 +132,13 @@ def _executed_section(lines: list) -> None:
             dot = "🟢" if out.startswith("win") else "🔴"
             sign = "+" if (usd or 0) >= 0 else "-"
             res = f"{dot} {out.split(' ')[0]} ({sign}${abs(usd or 0):.2f})"
+        p = conf.get(r[idx["ticker"]])
+        conf_s = f"{p * 100:.0f}%" if p is not None else "—"
         lines.append(
             f"| {when} | {r[idx['model']]} | {r[idx['ticker']]} "
             f"| {r[idx['side']].upper()} | {r[idx['count']]} "
-            f"| {r[idx['price_cents']]}¢ | ${r[idx['cost_usd']]} | {res} |")
+            f"| {r[idx['price_cents']]}¢ | {conf_s} | ${r[idx['cost_usd']]} "
+            f"| {res} |")
     lines.append("")
 
 

@@ -75,6 +75,36 @@ def city_enabled(city: dict) -> bool:
     """A city trades only if its series code is in ENABLED_CITIES."""
     code = city["series"].replace("KXHIGH", "").replace("KXLOW", "")
     return code.upper() in ENABLED_CITIES
+
+
+# SELF-CALIBRATION: calibrate_weather.py writes a RECENT-window measurement
+# of each station's forecast error here; the model prefers it over the
+# static constants above, so bias/sigma track the current SEASON and a
+# station whose forecasts have broken is auto-benched. Missing file -> fall
+# back to the hardcoded constants (nothing breaks).
+CALIBRATION_PATH = Path(__file__).resolve().parent / "weather_calibration.json"
+
+
+def load_calibration() -> dict:
+    try:
+        import json
+        return json.loads(CALIBRATION_PATH.read_text())
+    except (FileNotFoundError, ValueError):
+        return {}
+
+
+def station_cal(city: dict, cal: dict = None) -> dict:
+    """Effective {bias, sigma, trade} for a station: the freshly MEASURED
+    recent-window values when available, else the static constants. `trade`
+    is False when calibration has benched the station (forecasts too broken
+    to have an edge this season)."""
+    cal = load_calibration() if cal is None else cal
+    c = cal.get(city["series"]) or {}
+    return dict(
+        bias=c.get("bias", city.get("bias", 0.0)),
+        sigma=c.get("sigma") or city.get("sigma") or SIGMA_F,
+        trade=c.get("trade", True),
+    )
 # Fallback forecast-error std dev (deg F) for stations without a measured
 # sigma. History: guessed 3.0 -> widened to 4.5 after the first live week's
 # losses -> measurement showed the real error is ~1.5-2.3F and the losses
@@ -84,6 +114,11 @@ SIGMA_F = 4.5
 # Only report trades with at least this much expected value per contract,
 # in cents, after fees. Below this, spread/model noise eats the edge.
 MIN_EDGE_CENTS = 5.0
+# Confidence floor (owner call): only take picks the model is genuinely sure
+# of — the chosen side must win with at least this probability. Cuts the
+# marginal coin-flip bets and keeps the sharp, high-conviction ones. Raise
+# it via WEATHER_MIN_CONFIDENCE to be even choosier.
+MIN_CONFIDENCE = float(os.getenv("WEATHER_MIN_CONFIDENCE", "0.75"))
 PAPER_LOG = Path(__file__).resolve().parent / "paper_trades.csv"
 
 
@@ -231,7 +266,7 @@ def evaluate_market(market: dict, mu: float, sigma: float = None) -> list:
     yes_ask = price_cents(market, "yes_ask")
     if yes_ask and 0 < yes_ask < 100:
         ev = 100.0 * p - yes_ask - taker_fee_cents(yes_ask)
-        if ev >= MIN_EDGE_CENTS:
+        if ev >= MIN_EDGE_CENTS and p >= MIN_CONFIDENCE:
             signals.append(dict(side="yes", price_cents=yes_ask,
                                 model_prob=p, ev_cents=ev))
 
@@ -239,7 +274,7 @@ def evaluate_market(market: dict, mu: float, sigma: float = None) -> list:
     if yes_bid and 0 < yes_bid < 100:
         no_price = 100.0 - yes_bid  # buying NO takes the YES bid
         ev = 100.0 * (1.0 - p) - no_price - taker_fee_cents(no_price)
-        if ev >= MIN_EDGE_CENTS:
+        if ev >= MIN_EDGE_CENTS and (1.0 - p) >= MIN_CONFIDENCE:
             signals.append(dict(side="no", price_cents=no_price,
                                 model_prob=1.0 - p, ev_cents=ev))
 
@@ -282,6 +317,11 @@ def scan() -> list:
             log.info("%s cut from the weather model (owner call — lost "
                      "money at this station)", city["name"])
             continue
+        cal = station_cal(city)
+        if not cal["trade"]:
+            log.info("%s auto-benched: recent forecast error too high to "
+                     "trade this season (self-calibration)", city["name"])
+            continue
         try:
             forecasts = get_daily_high_forecasts(
                 city["lat"], city["lon"], city["name"]
@@ -295,7 +335,7 @@ def scan() -> list:
             log.warning("Skipping %s: %s", city["name"], exc)
             continue
 
-        base_sigma = city.get("sigma") or SIGMA_F
+        base_sigma = cal["sigma"]           # measured recent-season sigma
         spread_by_date = {}
         if ENSEMBLE_SIGMA:
             try:
@@ -310,7 +350,7 @@ def scan() -> list:
             if not date or date not in forecasts:
                 continue
             # measured bias: forecast - actual, so subtract to de-bias
-            mu = forecasts[date] - city.get("bias", 0.0)
+            mu = forecasts[date] - cal["bias"]
             day_sigma = blended_sigma(base_sigma, spread_by_date.get(date))
             if abs(day_sigma - base_sigma) > 0.05:
                 log.info("%s %s: ensemble spread sets sigma %.1fF "
