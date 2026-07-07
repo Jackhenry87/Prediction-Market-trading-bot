@@ -3,6 +3,17 @@
 import strategy_weather as sw
 
 
+def test_new_york_cut_but_cities_reversible(monkeypatch):
+    by_series = {c["series"]: c for c in sw.CITIES}
+    monkeypatch.setattr(sw, "ENABLED_CITIES",
+                        {"CHI", "MIA", "DEN", "LAX", "AUS"})
+    assert not sw.city_enabled(by_series["KXHIGHNY"])   # owner call: NY out
+    assert sw.city_enabled(by_series["KXHIGHDEN"])       # Denver stays (best)
+    assert sw.city_enabled(by_series["KXHIGHAUS"])
+    monkeypatch.setattr(sw, "ENABLED_CITIES", {"NY"})    # one Variable revives
+    assert sw.city_enabled(by_series["KXHIGHNY"])
+
+
 def test_normal_cdf_basics():
     assert abs(sw.normal_cdf(0, 0, 1) - 0.5) < 1e-9
     assert sw.normal_cdf(10, 0, 1) > 0.999

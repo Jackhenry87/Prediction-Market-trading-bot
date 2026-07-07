@@ -38,3 +38,24 @@ def test_copy_scoreboard_empty(tmp_path):
     out = tmp_path / "COPY_SCOREBOARD.md"
     copy_scoreboard.build(out=out, path=tmp_path / "missing.csv")
     assert "No copy trades recorded yet" in out.read_text()
+
+
+def test_weather_by_city_from_settlements(tmp_path, monkeypatch):
+    import json
+
+    import scoreboard
+    monkeypatch.setattr(scoreboard, "ROOT", tmp_path)
+    # no snapshot yet -> section is silently absent (never a wrong number)
+    lines = []
+    scoreboard._weather_by_city(lines)
+    assert lines == []
+    # with the settlements snapshot -> ranked, losers in red
+    (tmp_path / "weather_city_pnl.json").write_text(json.dumps(
+        {"since": "2026-07-01", "cities": {
+            "New York": {"net": -6.31, "wins": 1, "losses": 4},
+            "Denver": {"net": 1.52, "wins": 3, "losses": 3}}}))
+    lines = []
+    scoreboard._weather_by_city(lines)
+    md = "\n".join(lines)
+    assert md.index("Denver") < md.index("New York")      # ranked by net
+    assert "🔴 -$6.31" in md and "🟢 +$1.52" in md

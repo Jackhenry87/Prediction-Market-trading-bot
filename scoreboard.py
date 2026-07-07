@@ -119,6 +119,31 @@ def _executed_section(lines: list) -> None:
     lines.append("")
 
 
+def _weather_by_city(lines: list) -> None:
+    """Per-city weather P&L, read from weather_city_pnl.json — which the
+    hourly builds from Kalshi SETTLEMENTS (the authoritative record), never
+    from the local ledger. Shows nothing until that snapshot exists."""
+    import json
+    path = ROOT / "weather_city_pnl.json"
+    try:
+        data = json.loads(path.read_text())
+    except (FileNotFoundError, ValueError):
+        return
+    cities = data.get("cities") or {}
+    if not cities:
+        return
+    lines += [f"## 🌡️ Weather by city (real settled P&L since "
+              f"{data.get('since', '')})", "",
+              "| City | Net | W–L |", "|---|---|---|"]
+    for name, a in sorted(cities.items(), key=lambda kv: -kv[1]["net"]):
+        net = a["net"]
+        s = "+" if net >= 0 else "-"
+        dot = "🟢" if net >= 0 else "🔴"
+        lines.append(f"| {name} | {dot} {s}${abs(net):.2f} "
+                     f"| {a.get('wins', 0)}–{a.get('losses', 0)} |")
+    lines += [""]
+
+
 def _wallet_leaderboard(lines: list) -> None:
     """Which sharp wallets have actually made us money — the flywheel's
     feedback. Sizing tilts toward the top and away from the bottom once a
@@ -166,6 +191,7 @@ def build(out: Path = OUT) -> None:
         "",
     ]
     _executed_section(lines)
+    _weather_by_city(lines)
     _wallet_leaderboard(lines)
 
     for name, path in SOURCES:

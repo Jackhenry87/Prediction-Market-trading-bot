@@ -82,6 +82,10 @@ jobs:
           # only used if 'sports' is ever re-added to ENABLED_MODELS
           # (MLB stays cut from it either way — owner call)
           SPORTS_LEAGUES: ${{ vars.SPORTS_LEAGUES || 'nba,nfl,nhl,wnba' }}
+          # New York cut from weather (real settlements: -$6.31, the model's
+          # whole loss — oversized + under-forecast four days running). Add
+          # NY back via this Variable if it earns its place later.
+          WEATHER_CITIES: ${{ vars.WEATHER_CITIES || 'CHI,MIA,DEN,LAX,AUS' }}
         run: python auto_trade.py
 
       - name: Commit updated scoreboards back to the repo
@@ -99,7 +103,8 @@ jobs:
                    paper_trades_nowcast.csv \
                    smartmoney_wallets_log.csv smartmoney_blacklist.json \
                    smartmoney_category_bars.json smartmoney_open_copies.json \
-                   executed_trades.csv sports_line_history.json account_snapshot.json SCOREBOARD.md; do
+                   executed_trades.csv sports_line_history.json account_snapshot.json \
+                   weather_city_pnl.json SCOREBOARD.md; do
             git add -f "$f" 2>/dev/null || true
           done
           if ! git diff --cached --quiet; then

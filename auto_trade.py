@@ -428,6 +428,42 @@ def main() -> int:
     return 0
 
 
+def write_weather_city_pnl(client) -> None:
+    """Per-city weather P&L from Kalshi SETTLEMENTS — the authoritative,
+    fee-inclusive realized record, not our (historically incomplete) local
+    ledger. Written to weather_city_pnl.json for the scoreboard so per-city
+    profitability is always scored against Kalshi's own books."""
+    import json
+    import os
+    from datetime import datetime, timezone
+    from pathlib import Path
+
+    from backfill_history import settlement_pnl
+
+    since = os.getenv("RECORD_SINCE", "2026-07-01")
+    min_ts = int(datetime.strptime(since, "%Y-%m-%d")
+                 .replace(tzinfo=timezone.utc).timestamp())
+    names = {"NY": "New York", "CHI": "Chicago", "MIA": "Miami",
+             "DEN": "Denver", "LAX": "Los Angeles", "AUS": "Austin"}
+    agg = {}
+    for s in client.get_settlements(min_ts):
+        ticker = s.get("ticker", "")
+        if not ticker.startswith(("KXHIGH", "KXLOW")):
+            continue
+        code = ticker.replace("KXHIGH", "").replace("KXLOW", "").split("-")[0]
+        _, pnl = settlement_pnl(s)
+        if pnl is None:
+            continue
+        a = agg.setdefault(names.get(code, code),
+                           {"net": 0.0, "wins": 0, "losses": 0})
+        a["net"] = round(a["net"] + pnl, 2)
+        a["wins" if pnl > 0 else "losses"] += 1
+    path = Path(__file__).resolve().parent / "weather_city_pnl.json"
+    path.write_text(json.dumps(dict(since=since, cities=agg), indent=2))
+    log.info("Weather-by-city P&L (settlements): %s",
+             {c: a["net"] for c, a in agg.items()})
+
+
 def write_account_snapshot(client) -> None:
     """The money truth, from Kalshi's own books: current balance, open
     exposure, and realized P&L summed over every settlement since
@@ -501,6 +537,10 @@ def refresh_records(settings, client=None) -> None:
             write_account_snapshot(client)
         except Exception as exc:
             log.warning("Account snapshot failed: %s", exc)
+        try:
+            write_weather_city_pnl(client)
+        except Exception as exc:
+            log.warning("Weather-by-city P&L failed: %s", exc)
         try:
             strategy_smartmoney.grade_wallets(client)
         except Exception as exc:
