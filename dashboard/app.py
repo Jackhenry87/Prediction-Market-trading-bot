@@ -28,7 +28,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from config import load_dashboard_settings
 from dashboard import data
 from kalshi_client import KalshiClient, KalshiError
-from trade_logger import get_logger
+from trade_logger import get_logger, setup_logging
 
 log = get_logger("dashboard")
 
@@ -42,6 +42,7 @@ settings = load_dashboard_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    setup_logging()  # mirror to stdout so hosted logs show mode & poll errors
     state["trades"] = data.load_history()
     state["updated_at"] = data.now_iso()
     if settings.kalshi_api_key_id and (settings.kalshi_private_key_pem
