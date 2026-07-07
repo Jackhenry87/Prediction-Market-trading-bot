@@ -58,6 +58,9 @@ jobs:
           # $1->~$87k). Add more via the repo Variable. Consensus + flywheel
           # still apply — a pin is "always considered", not "always copied".
           SM_PINNED_WALLETS: ${{ vars.SM_PINNED_WALLETS || '0xa4b366ad22fc0d06f1e934ff468e8922431a87b8' }}
+          # auto-sell each copy at entry +this% so winners recycle instead of
+          # locking until resolution (esp. long-dated politics). 0 disables.
+          SM_TAKE_PROFIT_PCT: ${{ vars.SM_TAKE_PROFIT_PCT || '50' }}
         run: python smartmoney_runner.py
 
       - name: Persist copy state + copy scoreboard across sessions

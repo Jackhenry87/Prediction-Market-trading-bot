@@ -83,6 +83,11 @@ QUALITY_BAND = float(os.getenv("SM_QUALITY_BAND", "0.30"))  # +/-30% sizing swin
 OPEN_COPIES_PATH = Path(__file__).resolve().parent / "smartmoney_open_copies.json"
 FOLLOW_EXITS = os.getenv("SM_FOLLOW_EXITS", "false").lower() == "true"
 EXIT_FRAC = float(os.getenv("SM_EXIT_FRAC", "0.5"))       # backers-out to exit
+# TAKE-PROFIT: rest an auto-sell on every copy we hold at entry + this %, so
+# a winner cashes out and the capital RECYCLES instead of sitting locked
+# until a far-off resolution (the point on long-dated politics picks). 24/7
+# via the copier; the hourly manages the rest. Set 0 to disable.
+SM_TAKE_PROFIT_PCT = float(os.getenv("SM_TAKE_PROFIT_PCT", "50"))
 
 
 def category_of(ticker: str) -> str:
@@ -258,6 +263,51 @@ def check_exits(client, settings) -> int:
             still_open.append(c)
     save_open_copies(still_open)
     return sold
+
+
+def place_copy_take_profits(client, settings) -> int:
+    """Rest a take-profit SELL on every copy we still hold, at entry +
+    SM_TAKE_PROFIT_PCT%, so winners auto-cash-out and the capital recycles
+    rather than locking until resolution. Idempotent (skips a position that
+    already has a resting order); like the hourly take-profit, closing sells
+    bypass the order-size cap. Off under DRY_RUN / KILL_SWITCH / pct<=0."""
+    if settings.dry_run or settings.kill_switch or SM_TAKE_PROFIT_PCT <= 0:
+        return 0
+    copies = {c.get("ticker") for c in load_open_copies()}
+    if not copies:
+        return 0
+    try:
+        positions = client.get_positions()
+        resting = {o.get("ticker") for o in client.get_resting_orders() or []}
+    except Exception as exc:
+        log.warning("Take-profit skipped (positions/orders unavailable): %s",
+                    exc)
+        return 0
+    from kalshi_exposure import _position_exposure_cents
+    placed = 0
+    for p in positions.get("market_positions", []):
+        ticker = p.get("ticker")
+        pos = float(p.get("position", 0) or 0)
+        if pos == 0 or ticker not in copies or ticker in resting:
+            continue
+        cost = _position_exposure_cents(p)
+        count = int(abs(pos))
+        if not cost or count < 1:
+            continue
+        avg = cost / count
+        target = min(int(round(avg * (1 + SM_TAKE_PROFIT_PCT / 100.0))), 99)
+        if target <= avg:
+            continue
+        side = "yes" if pos > 0 else "no"
+        try:
+            client.create_limit_order(ticker, side, "sell", count, target)
+            log.info("COPY TAKE-PROFIT: rest sell %d x %s @ %dc "
+                     "(entry %.0fc, +%.0f%%)", count, ticker, target, avg,
+                     SM_TAKE_PROFIT_PCT)
+            placed += 1
+        except Exception as exc:
+            log.error("Take-profit sell failed for %s: %s", ticker, exc)
+    return placed
 
 # --- sharp-wallet discovery ---
 TAPE_MIN_USDC = float(os.getenv("SM_TAPE_MIN_USDC", "250"))   # big trades only

@@ -34,6 +34,42 @@ def test_sm_price_floor_blocks_lottery_tickets():
     assert sig["wallets"] == 4 and sig["stake"] == 100.0
 
 
+def test_copy_take_profit_rests_sell_on_winners(monkeypatch):
+    monkeypatch.setattr(sm, "SM_TAKE_PROFIT_PCT", 50.0)
+    monkeypatch.setattr(sm, "load_open_copies",
+                        lambda: [{"ticker": "K-A"}, {"ticker": "K-B"}])
+
+    class _C:
+        def __init__(self):
+            self.orders = []
+
+        def get_positions(self):
+            return {"market_positions": [
+                {"ticker": "K-A", "position": 2, "market_exposure": 80},
+                {"ticker": "K-B", "position": 1, "market_exposure": 50},
+                {"ticker": "K-X", "position": 3, "market_exposure": 90}]}
+
+        def get_resting_orders(self):
+            return [{"ticker": "K-B"}]            # already has a resting order
+
+        def create_limit_order(self, t, side, action, count, price):
+            self.orders.append((t, side, action, count, price))
+            return {}
+
+    from config import Settings
+    c = _C()
+    n = sm.place_copy_take_profits(c, Settings(dry_run=False))
+    # K-A: entry 40c -> +50% -> sell 2 @ 60c. K-B skipped (resting).
+    # K-X skipped (not a copy).
+    assert n == 1 and c.orders == [("K-A", "yes", "sell", 2, 60)]
+
+
+def test_copy_take_profit_off_when_dry_run(monkeypatch):
+    monkeypatch.setattr(sm, "load_open_copies", lambda: [{"ticker": "K-A"}])
+    from config import Settings
+    assert sm.place_copy_take_profits(None, Settings(dry_run=True)) == 0
+
+
 def test_signal_event_prefers_authoritative_ticker():
     # the mapper-carried event_ticker wins; ticker prefix is the fallback
     assert smr.signal_event(
