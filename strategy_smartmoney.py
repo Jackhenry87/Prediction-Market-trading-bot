@@ -87,7 +87,7 @@ EXIT_FRAC = float(os.getenv("SM_EXIT_FRAC", "0.5"))       # backers-out to exit
 # a winner cashes out and the capital RECYCLES instead of sitting locked
 # until a far-off resolution (the point on long-dated politics picks). 24/7
 # via the copier; the hourly manages the rest. Set 0 to disable.
-SM_TAKE_PROFIT_PCT = float(os.getenv("SM_TAKE_PROFIT_PCT", "50"))
+SM_TAKE_PROFIT_PCT = float(os.getenv("SM_TAKE_PROFIT_PCT", "75"))
 
 
 def category_of(ticker: str) -> str:
