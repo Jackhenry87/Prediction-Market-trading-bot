@@ -181,8 +181,13 @@ def copy_pass(client, settings, session_seen: set,
             log.error("Copy order failed for %s: %s", ticker, exc)
             continue
         try:
+            oid = str(order.get("order_id", ""))
             log_execution("smartmoney", ticker, s["side"], count,
-                          placed_price, str(order.get("order_id", "")))
+                          placed_price, oid)
+            # copy-only ledger too, for the dedicated copy scoreboard
+            from ledger import COPY_LOG
+            log_execution("smartmoney", ticker, s["side"], count,
+                          placed_price, oid, path=COPY_LOG)
         except Exception as exc:
             log.warning("Execution-log write failed: %s", exc)
         session_seen.add(ticker)
@@ -233,6 +238,17 @@ def main() -> int:
         time.sleep(POLL_SECONDS)
     log.info("Session done: %d cop%s placed.", total,
              "y" if total == 1 else "ies")
+    # the copier owns the copy scoreboard end-to-end: score settled copies
+    # and rebuild COPY_SCOREBOARD.md (single writer -> no workflow conflict)
+    try:
+        from ledger import COPY_LOG
+        from strategy_weather import score_pending_paper_trades
+        score_pending_paper_trades(COPY_LOG)
+        import copy_scoreboard
+        copy_scoreboard.build()
+        log.info("COPY_SCOREBOARD.md refreshed.")
+    except Exception as exc:
+        log.warning("Copy scoreboard refresh failed: %s", exc)
     return 0
 
 

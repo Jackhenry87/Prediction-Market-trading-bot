@@ -16,6 +16,9 @@ LEDGER_COLUMNS = ["scanned_at_utc", "event", "ticker", "side", "price_cents",
 EXEC_COLUMNS = ["placed_at_utc", "model", "ticker", "side", "count",
                 "price_cents", "cost_usd", "order_id", "outcome"]
 EXEC_LOG = Path(__file__).resolve().parent / "executed_trades.csv"
+# a copy-only executed ledger — the smart-money copier writes here too, so a
+# dedicated scoreboard can track ONLY the copy trades (nothing else)
+COPY_LOG = Path(__file__).resolve().parent / "copy_trades.csv"
 
 
 def log_execution(model: str, ticker: str, side: str, count: int,
