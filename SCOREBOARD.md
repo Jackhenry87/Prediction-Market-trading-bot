@@ -1,26 +1,32 @@
 # 📊 Trading Scoreboard
 
-_Updated 2026-07-07 03:35 UTC — auto-generated every run; do not edit._
+_Updated 2026-07-07 14:01 UTC — auto-generated every run; do not edit._
 
 Signals are scored against official settlement whether or not a real order was placed. P&L shown is per 1-contract stakes.
 
 ## 💰 Account
 
-**Balance $14.74** · open exposure $0.00 · 🔴 **won/lost since 2026-07-01: -$41.15** (11 wins / 58 losses on settled markets)
+**Balance $22.36** · open exposure $0.00 · 🔴 **won/lost since 2026-07-01: -$42.96** (16 wins / 62 losses on settled markets)
 
 
 ## 💵 Real orders placed
 
-**26 orders, $21.80 deployed.** Settled: **1 W — 17 L, realized +$0.44**; 8 open.
+**32 orders, $26.08 deployed.** Settled: **1 W — 18 L, realized +$0.15**; 13 open.
 
 | Placed (UTC) | Model | Market | Side | Qty | Price | Cost | Result |
 |---|---|---|---|---|---|---|---|
+| 07-07 13:32 | untracked | KXWTAMATCH-26JUL07PEGGAU-GAU | YES | 4 | 26¢ | $1.04 | ⏳ open |
+| 07-07 13:20 | untracked | KXWTAMATCH-26JUL07PEGGAU-PEG | YES | 1 | 78¢ | $0.78 | ⏳ open |
+| 07-07 14:01 | sports | KXMLBGAME-26JUL092145COLSF-COL | NO | 1 | 59¢ | $0.59 | ⏳ open |
+| 07-07 14:01 | weather | KXHIGHAUS-26JUL07-B96.5 | NO | 1 | 61¢ | $0.61 | ⏳ open |
+| 07-07 14:01 | weather | KXHIGHLAX-26JUL08-B75.5 | NO | 1 | 62¢ | $0.62 | ⏳ open |
+| 07-07 14:01 | weather | KXHIGHMIA-26JUL08-B93.5 | NO | 1 | 64¢ | $0.64 | ⏳ open |
 | 07-07 03:35 | weather | KXHIGHDEN-26JUL07-B95.5 | NO | 1 | 60¢ | $0.60 | ⏳ open |
 | 07-06 14:51 | untracked | KXHIGHNY-26JUL07-T75 | YES | 1 | 82¢ | $0.82 | ⏳ open |
 | 07-05 22:46 | untracked | KXMLBGAME-26JUL051700TORSEA-TOR | YES | 1 | 5¢ | $0.05 | 🔴 loss (-$0.05) |
 | 07-05 20:06 | untracked | KXMLBGAME-26JUL051300PITWSH-WSH | YES | 4 | 3¢ | $0.12 | 🔴 loss (-$0.12) |
 | 07-05 20:06 | untracked | KXETHD-26JUL0517-T1789.99 | YES | 2 | 6¢ | $0.12 | 🔴 loss (-$0.12) |
-| 07-05 13:02 | untracked | KXMLBGAME-26JUL062210COLLAD-COL | YES | 1 | 29¢ | $0.29 | ⏳ open |
+| 07-05 13:02 | untracked | KXMLBGAME-26JUL062210COLLAD-COL | YES | 1 | 29¢ | $0.29 | 🔴 loss (-$0.29) |
 | 07-05 13:02 | untracked | KXMLBGAME-26JUL071910PHICIN-CIN | YES | 1 | 43¢ | $0.43 | ⏳ open |
 | 07-05 13:02 | untracked | KXMLBGAME-26JUL071940BOSCWS-BOS | YES | 1 | 52¢ | $0.52 | ⏳ open |
 | 07-05 13:02 | untracked | KXMLBGAME-26JUL072210COLLAD-COL | YES | 1 | 35¢ | $0.35 | ⏳ open |
@@ -29,23 +35,22 @@ Signals are scored against official settlement whether or not a real order was p
 | 07-04 20:03 | untracked | KXMLBGAME-26JUL041335MINNYY-NYY | YES | 1 | 18¢ | $0.18 | 🔴 loss (-$0.18) |
 | 07-04 18:51 | untracked | KXMLBGAME-26JUL041335MINNYY-NYY | YES | 2 | 10¢ | $0.20 | 🔴 loss (-$0.20) |
 | 07-04 17:53 | untracked | KXBTCD-26JUL0417-T63749.99 | YES | 3 | 9¢ | $0.27 | 🔴 loss (-$0.27) |
-| 07-04 16:49 | untracked | KXETHD-26JUL0417-T1819.99 | YES | 4 | 7¢ | $0.28 | 🔴 loss (-$0.28) |
-| 07-04 16:00 | untracked | KXETHD-26JUL0417-T1819.99 | YES | 4 | 8¢ | $0.32 | 🔴 loss (-$0.32) |
-| 07-04 14:22 | untracked | KXETHD-26JUL0411-T1779.99 | YES | 12 | 5¢ | $0.60 | 🔴 loss (-$0.60) |
-| 07-04 14:22 | untracked | KXBTCD-26JUL0411-T62799.99 | YES | 15 | 4¢ | $0.60 | 🔴 loss (-$0.60) |
-| 07-03 17:09 | untracked | KXHIGHCHI-26JUL03-T89 | YES | 7 | 1¢ | $0.07 | 🔴 loss (-$0.07) |
-| 07-02 19:06 | untracked | KXETHD-26JUL0216-T1709.99 | YES | 2 | 8¢ | $0.16 | 🔴 loss (-$0.16) |
 
 ## 🌡️ Weather model
 
-### 🟢 0 W — 🔴 0 L — ⏳ 9 pending — net **+0¢**
+### 🟢 0 W — 🔴 1 L — ⏳ 11 pending — net **-90¢**
+
+_Brier **0.974** (coin flip 0.25) · avg CLV **-89.0¢** over 1 settled_
 
 | Scanned (UTC) | Market | Side | Price | Model | Result |
 |---|---|---|---|---|---|
+| 07-07 14:01 | KXHIGHAUS-26JUL07-B96.5 | NO | 62¢ | 88% | ⏳ pending |
+| 07-07 14:01 | KXHIGHLAX-26JUL08-B75.5 | NO | 63¢ | 80% | ⏳ pending |
+| 07-07 14:01 | KXHIGHMIA-26JUL08-B93.5 | NO | 65¢ | 80% | ⏳ pending |
 | 07-07 03:35 | KXHIGHDEN-26JUL07-B95.5 | NO | 60¢ | 84% | ⏳ pending |
 | 07-06 23:55 | KXHIGHCHI-26JUL07-B83.5 | NO | 64¢ | 80% | ⏳ pending |
 | 07-06 20:56 | KXHIGHMIA-26JUL07-B90.5 | NO | 74¢ | 80% | ⏳ pending |
-| 07-06 20:45 | KXHIGHAUS-26JUL06-B98.5 | NO | 90¢ | 99% | ⏳ pending |
+| 07-06 20:45 | KXHIGHAUS-26JUL06-B98.5 | NO | 90¢ | 99% | 🔴 loss (-90c) |
 | 07-06 20:45 | KXHIGHAUS-26JUL07-B98.5 | NO | 83¢ | 94% | ⏳ pending |
 | 07-06 20:45 | KXHIGHDEN-26JUL07-B93.5 | NO | 79¢ | 88% | ⏳ pending |
 | 07-06 20:45 | KXHIGHMIA-26JUL07-B94.5 | NO | 87¢ | 98% | ⏳ pending |
@@ -58,7 +63,11 @@ _No signals recorded yet._
 
 ## ⚾ Sports model
 
-_No signals recorded yet._
+### 🟢 0 W — 🔴 0 L — ⏳ 1 pending — net **+0¢**
+
+| Scanned (UTC) | Market | Side | Price | Model | Result |
+|---|---|---|---|---|---|
+| 07-07 14:01 | KXMLBGAME-26JUL092145COLSF-COL | NO | 60¢ | 71% | ⏳ pending |
 
 ## 🛢️ Commodities model
 
@@ -69,6 +78,10 @@ _No signals recorded yet._
 _No signals recorded yet._
 
 ## 🦈 Smart money (Polymarket sharps)
+
+_No signals recorded yet._
+
+## ⏱️ Nowcast (intraday known outcomes)
 
 _No signals recorded yet._
 
