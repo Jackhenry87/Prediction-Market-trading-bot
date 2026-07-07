@@ -178,16 +178,59 @@ def test_consensus_needs_distinct_wallets(monkeypatch):
     }
     monkeypatch.setattr(sm, "fetch_wallet_buys",
                         lambda w, h, now_ts=None: trades[w])
+    monkeypatch.setattr(sm, "fetch_wallet_recent", lambda w: [])   # offline
     monkeypatch.setattr(sm, "MIN_WALLETS", 3)
     cons = sm.build_consensus({"w1": 1, "w2": 1, "w3": 1}, now_ts=NOW)
     assert len(cons) == 1                      # Lakers had only 1 sharp
     c = cons[0]
     assert c["slug"] == "mlb-phi-kc-2026-07-06" and c["wallets"] == 3
-    # stake-weighted average entry
+    # pricing stays RAW stake-weighted (conviction only affects ranking)
     total = 0.60 * 200 * 0.60 + 0.62 * 300 * 0.62 + 0.58 * 150 * 0.58 \
         + 0.61 * 500 * 0.61
     stake = 0.60 * 200 + 0.62 * 300 + 0.58 * 150 + 0.61 * 500
     assert abs(c["avg_price"] - total / stake) < 1e-9
+
+
+def test_wash_wallet_dropped_from_consensus(monkeypatch):
+    # a wallet that bought BOTH outcomes of one market is an MM/wash trader
+    # and must not vote; a clean wallet on the same pick still counts
+    recent = {
+        "wash": [_trade("wash", "mlb-x-2026-07-06", "A", 0.5, 200),
+                 _trade("wash", "mlb-x-2026-07-06", "B", 0.5, 200)],
+        "w2": [_trade("w2", "mlb-x-2026-07-06", "A", 0.5, 200)],
+        "w3": [_trade("w3", "mlb-x-2026-07-06", "A", 0.5, 200)],
+    }
+    monkeypatch.setattr(sm, "fetch_wallet_recent", lambda w: recent[w])
+    monkeypatch.setattr(sm, "fetch_wallet_buys",
+                        lambda w, h, now_ts=None:
+                        [t for t in recent[w] if t["outcome"] == "A"])
+    monkeypatch.setattr(sm, "MIN_WALLETS", 3)
+    # wash dropped -> only 2 clean sharps -> below MIN_WALLETS -> no consensus
+    assert sm.build_consensus({"wash": 1, "w2": 1, "w3": 1}, now_ts=NOW) == []
+    # without the wash wallet's noise, lowering the bar shows the clean pick
+    monkeypatch.setattr(sm, "MIN_WALLETS", 2)
+    cons = sm.build_consensus({"wash": 1, "w2": 1, "w3": 1}, now_ts=NOW)
+    assert len(cons) == 1 and cons[0]["wallets"] == 2
+
+
+def test_conviction_ranks_above_raw_size(monkeypatch):
+    # 'big' bets its usual size; 'sharp' bets 10x its usual — even though
+    # 'big' has more raw dollars, the high-conviction pick ranks first
+    recent = {
+        "big": [_trade("big", "m", "A", 0.5, 400) for _ in range(6)],   # normal ~200
+        "sharp": [_trade("sharp", "m", "A", 0.5, 20)] * 5,              # normal ~10
+    }
+    buys = {
+        "big": [_trade("big", "mlb-big-2026-07-06", "A", 0.5, 400)],    # $200
+        "sharp": [_trade("sharp", "mlb-shp-2026-07-06", "A", 0.5, 200)],  # $100
+    }
+    monkeypatch.setattr(sm, "fetch_wallet_recent", lambda w: recent[w])
+    monkeypatch.setattr(sm, "fetch_wallet_buys",
+                        lambda w, h, now_ts=None: buys[w])
+    monkeypatch.setattr(sm, "MIN_WALLETS", 1)
+    cons = sm.build_consensus({"big": 1, "sharp": 1}, now_ts=NOW)
+    assert [c["slug"] for c in cons][0] == "mlb-shp-2026-07-06"   # conviction
+    assert cons[0]["stake"] < cons[1]["stake"]                    # despite less $
 
 
 def test_moneyline_slug_regex():
@@ -458,6 +501,7 @@ def test_consensus_and_signal_carry_wallet_ids(monkeypatch):
               for w in ("w1", "w2", "w3")}
     monkeypatch.setattr(sm, "fetch_wallet_buys",
                         lambda w, h, now_ts=None: trades[w])
+    monkeypatch.setattr(sm, "fetch_wallet_recent", lambda w: [])   # offline
     monkeypatch.setattr(sm, "MIN_WALLETS", 3)
     cons = sm.build_consensus({"w1": 1, "w2": 1, "w3": 1}, now_ts=NOW)
     assert cons[0]["wallet_ids"] == ["w1", "w2", "w3"]
