@@ -45,6 +45,13 @@ log = get_logger("strategy_smartmoney")
 TAPE_URL = "https://data-api.polymarket.com/trades"
 PNL_URL = "https://user-pnl-api.polymarket.com/user-pnl"
 PAPER_LOG = Path(__file__).resolve().parent / "paper_trades_smartmoney.csv"
+# who drove each copy + how their picks settled -> wallets whose copied
+# picks LOSE get blacklisted from the sharp set (follow winners only)
+WALLET_LOG = Path(__file__).resolve().parent / "smartmoney_wallets_log.csv"
+BLACKLIST_PATH = Path(__file__).resolve().parent / "smartmoney_blacklist.json"
+WALLET_LOG_COLUMNS = ["ts", "ticker", "side", "price_cents", "wallet",
+                      "outcome"]
+BLACKLIST_MIN_SETTLED = int(os.getenv("SM_BLACKLIST_MIN", "4"))
 
 # --- sharp-wallet discovery ---
 TAPE_MIN_USDC = float(os.getenv("SM_TAPE_MIN_USDC", "250"))   # big trades only
@@ -174,7 +181,12 @@ def select_sharp_wallets() -> dict:
         usdc = float(tr.get("size", 0)) * float(tr.get("price", 0))
         if w:
             stake[w] = stake.get(w, 0.0) + usdc
-    candidates = sorted(stake, key=stake.get, reverse=True)[:CANDIDATES_MAX]
+    blacklist = load_blacklist()
+    candidates = [w for w in sorted(stake, key=stake.get, reverse=True)
+                  if w not in blacklist][:CANDIDATES_MAX]
+    if blacklist:
+        log.info("Sharp selection excludes %d graded-out wallet(s)",
+                 len(blacklist))
 
     sharp = {}
     for w in candidates:
@@ -194,6 +206,86 @@ def select_sharp_wallets() -> dict:
              len(top), len(candidates),
              min(top.values(), default=0), max(top.values(), default=0))
     return top
+
+
+def load_blacklist() -> set:
+    try:
+        import json
+        return set(json.loads(BLACKLIST_PATH.read_text()))
+    except (FileNotFoundError, ValueError):
+        return set()
+
+
+def log_copy_wallets(ticker: str, side: str, price_cents: float,
+                     wallet_ids: list, path: Path = WALLET_LOG) -> None:
+    """One row per backing wallet per copy — the attribution that makes
+    per-wallet grading possible."""
+    import csv
+    from datetime import datetime, timezone
+    new_file = not path.exists()
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    with open(path, "a", newline="") as fh:
+        writer = csv.writer(fh)
+        if new_file:
+            writer.writerow(WALLET_LOG_COLUMNS)
+        for w in wallet_ids or []:
+            writer.writerow([now, ticker, side, f"{price_cents:.0f}", w, ""])
+
+
+def grade_wallets(client, path: Path = WALLET_LOG,
+                  bl_path: Path = BLACKLIST_PATH) -> set:
+    """Score each backing wallet by how its copied picks settled; wallets
+    with >= BLACKLIST_MIN_SETTLED settled copies and NEGATIVE net P&L get
+    blacklisted from future sharp selection. Returns the blacklist."""
+    import csv
+    import json
+    if not path.exists():
+        return load_blacklist()
+    with open(path, newline="") as fh:
+        rows = list(csv.reader(fh))
+    if len(rows) < 2:
+        return load_blacklist()
+    header, body = rows[0], rows[1:]
+    idx = {h: i for i, h in enumerate(header)}
+    market_cache, changed = {}, False
+    for row in body:
+        if row[idx["outcome"]]:
+            continue
+        ticker = row[idx["ticker"]]
+        if ticker not in market_cache:
+            try:
+                market_cache[ticker] = client.get_market(ticker)
+            except Exception:
+                market_cache[ticker] = {}
+        result = market_cache[ticker].get("result")
+        if result not in ("yes", "no"):
+            continue
+        won = result == row[idx["side"]]
+        price = float(row[idx["price_cents"]])
+        pnl = (100.0 - price) if won else -price
+        row[idx["outcome"]] = f"{'win' if won else 'loss'} ({pnl:+.0f}c)"
+        changed = True
+    if changed:
+        with open(path, "w", newline="") as fh:
+            csv.writer(fh).writerows([header] + body)
+
+    stats = {}
+    for row in body:
+        out = row[idx["outcome"]]
+        if not out or "(" not in out:
+            continue
+        w = row[idx["wallet"]]
+        s = stats.setdefault(w, dict(n=0, net=0.0))
+        s["n"] += 1
+        s["net"] += float(out.split("(")[1].rstrip("c)"))
+    blacklist = {w for w, s in stats.items()
+                 if s["n"] >= BLACKLIST_MIN_SETTLED and s["net"] < 0}
+    if blacklist != load_blacklist():
+        bl_path.write_text(json.dumps(sorted(blacklist)))
+        log.info("Wallet grades updated: %d wallet(s) blacklisted (lost "
+                 "money over >=%d settled copies)", len(blacklist),
+                 BLACKLIST_MIN_SETTLED)
+    return blacklist
 
 
 def fetch_wallet_buys(wallet: str, window_h: float,
@@ -235,6 +327,7 @@ def build_consensus(sharp_wallets: dict, now_ts: float = None) -> list:
         if len(g["wallets"]) >= MIN_WALLETS and g["stake"] > 0:
             out.append(dict(slug=slug, outcome=outcome, title=g["title"],
                             wallets=len(g["wallets"]), stake=g["stake"],
+                            wallet_ids=sorted(g["wallets"]),
                             avg_price=g["weighted"] / g["stake"]))
     out.sort(key=lambda c: -c["stake"])
     return out
@@ -266,6 +359,7 @@ def _priced_signal(cons: dict, market: dict, event: dict) -> dict:
     return dict(side="yes", price_cents=yes_ask, model_prob=p,
                 ev_cents=ev, ticker=market.get("ticker"),
                 wallets=cons["wallets"], stake=cons["stake"],
+                wallet_ids=cons.get("wallet_ids", []),
                 subtitle=f"{label} ({cons['wallets']} sharps, "
                          f"${cons['stake']:.0f})",
                 event_ticker=event.get("event_ticker")

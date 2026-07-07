@@ -501,6 +501,10 @@ def refresh_records(settings, client=None) -> None:
             write_account_snapshot(client)
         except Exception as exc:
             log.warning("Account snapshot failed: %s", exc)
+        try:
+            strategy_smartmoney.grade_wallets(client)
+        except Exception as exc:
+            log.warning("Wallet grading failed: %s", exc)
     try:
         import scoreboard
         scoreboard.build()

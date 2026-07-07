@@ -282,3 +282,62 @@ def test_advance_fails_closed_on_ambiguity():
     c = _adv_cons()
     c["title"] = "Team to Advance"
     assert sm.advance_signal(c, ADV_BINARY) is None
+
+
+class _MarketClient:
+    def __init__(self, results):
+        self._r = results
+
+    def get_market(self, ticker):
+        return {"result": self._r.get(ticker, "")}
+
+
+def test_wallet_grading_blacklists_losers(tmp_path, monkeypatch):
+    wl = tmp_path / "wallets.csv"
+    bl = tmp_path / "blacklist.json"
+    monkeypatch.setattr(sm, "BLACKLIST_PATH", bl)
+    monkeypatch.setattr(sm, "BLACKLIST_MIN_SETTLED", 4)
+    # loser backed four settled losers; winner backed four winners;
+    # newbie has only one settled copy (below the minimum: never judged)
+    for i in range(4):
+        sm.log_copy_wallets(f"T{i}", "yes", 60, ["0xloser", "0xwinner"],
+                            path=wl)
+    sm.log_copy_wallets("T9", "yes", 60, ["0xnewbie"], path=wl)
+    results = {f"T{i}": ("no" if True else "yes") for i in range(4)}
+    # winner's markets actually settle yes... give winner separate tickers
+    wl.unlink()
+    for i in range(4):
+        sm.log_copy_wallets(f"L{i}", "yes", 60, ["0xloser"], path=wl)
+        sm.log_copy_wallets(f"W{i}", "yes", 60, ["0xwinner"], path=wl)
+    sm.log_copy_wallets("N0", "yes", 60, ["0xnewbie"], path=wl)
+    results = {f"L{i}": "no" for i in range(4)}
+    results |= {f"W{i}": "yes" for i in range(4)}
+    results["N0"] = "no"
+    got = sm.grade_wallets(_MarketClient(results), path=wl, bl_path=bl)
+    assert got == {"0xloser"}
+    # outcomes persisted; re-grade is stable
+    assert sm.grade_wallets(_MarketClient({}), path=wl, bl_path=bl) == {
+        "0xloser"}
+    # and selection excludes the graded-out wallet
+    monkeypatch.setattr(sm, "fetch_big_trades", lambda: [
+        _trade("0xloser", "x", "Yes", 0.5, 5000),
+        _trade("0xwinner", "x", "Yes", 0.5, 4000)])
+    day = 86400
+    curve = [(NOW - 14 * day, 0.0), (NOW - 7 * day, 400.0),
+             (NOW - day, 900.0)]
+    monkeypatch.setattr(sm, "fetch_pnl_curve", lambda w: curve)
+    monkeypatch.setattr(sm, "SHARP_MIN_PNL_2W", 500.0)
+    sharps = sm.select_sharp_wallets()
+    assert "0xloser" not in sharps and "0xwinner" in sharps
+
+
+def test_consensus_and_signal_carry_wallet_ids(monkeypatch):
+    trades = {w: [_trade(w, "mlb-phi-kc-2026-07-06", "Phillies", 0.6, 200)]
+              for w in ("w1", "w2", "w3")}
+    monkeypatch.setattr(sm, "fetch_wallet_buys",
+                        lambda w, h, now_ts=None: trades[w])
+    monkeypatch.setattr(sm, "MIN_WALLETS", 3)
+    cons = sm.build_consensus({"w1": 1, "w2": 1, "w3": 1}, now_ts=NOW)
+    assert cons[0]["wallet_ids"] == ["w1", "w2", "w3"]
+    sig = sm.consensus_signal(cons[0], EVENTS)
+    assert sig and sig["wallet_ids"] == ["w1", "w2", "w3"]

@@ -18,6 +18,7 @@ What one run does (then exits — no loop):
 
 import csv
 import math
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -79,6 +80,64 @@ PAPER_LOG = Path(__file__).resolve().parent / "paper_trades.csv"
 # always gets the full sigma. Floor keeps us from absurd overconfidence.
 INTRADAY_FACTORS = ((10, 1.0), (13, 0.75), (16, 0.55), (24, 0.4))
 MIN_SIGMA_F = 1.2
+
+# Ensemble spread -> day-specific sigma. The spread-skill relationship
+# (ensemble member disagreement predicts that day's forecast error) is one
+# of the most replicated results in forecast verification: a calm ridge
+# day deserves a tighter sigma than a frontal-passage day. Open-Meteo's
+# free ensemble API gives per-member forecasts; we take the std dev of the
+# members' daily maxes, inflate by SPREAD_K (ensembles run underdispersive),
+# and CLAMP to 0.6-2.0x the station's calibrated sigma so one weird API
+# response can never nuke the model. Any failure -> calibrated fallback.
+ENSEMBLE_URL = "https://ensemble-api.open-meteo.com/v1/ensemble"
+ENSEMBLE_SIGMA = os.getenv("ENSEMBLE_SIGMA", "true").strip().lower() \
+    not in ("false", "0", "no")
+SPREAD_K = float(os.getenv("SPREAD_K", "1.3"))
+MIN_MEMBERS = 8
+
+
+def ensemble_daily_sigma(lat: float, lon: float, tz: str) -> dict:
+    """{'YYYY-MM-DD': sigma_F} from ensemble-member daily-max spread.
+    Empty dict on any failure — callers fall back to calibrated sigma."""
+    import requests as _rq
+    resp = _rq.get(ENSEMBLE_URL, params={
+        "latitude": lat, "longitude": lon, "hourly": "temperature_2m",
+        "temperature_unit": "fahrenheit", "timezone": tz,
+        "forecast_days": 3, "models": "gfs_seamless"}, timeout=25)
+    resp.raise_for_status()
+    hourly = resp.json().get("hourly", {})
+    times = hourly.get("time", [])
+    member_keys = [k for k in hourly
+                   if k.startswith("temperature_2m_member")]
+    if len(member_keys) < MIN_MEMBERS or not times:
+        return {}
+    # per member, per local date: the daily max
+    by_date = {}   # date -> list of per-member maxes
+    for key in member_keys:
+        maxes = {}
+        for t, v in zip(times, hourly[key]):
+            if v is None:
+                continue
+            d = t[:10]
+            if d not in maxes or v > maxes[d]:
+                maxes[d] = v
+        for d, mx in maxes.items():
+            by_date.setdefault(d, []).append(mx)
+    out = {}
+    for d, vals in by_date.items():
+        if len(vals) < MIN_MEMBERS:
+            continue
+        mean = sum(vals) / len(vals)
+        var = sum((v - mean) ** 2 for v in vals) / (len(vals) - 1)
+        out[d] = math.sqrt(var) * SPREAD_K
+    return out
+
+
+def blended_sigma(calibrated: float, spread_sigma) -> float:
+    """Day-specific sigma, clamped to 0.6-2.0x the calibrated value."""
+    if spread_sigma is None:
+        return calibrated
+    return max(0.6 * calibrated, min(2.0 * calibrated, spread_sigma))
 
 
 def intraday_sigma_factor(local_hour: int) -> float:
@@ -220,6 +279,14 @@ def scan() -> list:
             continue
 
         base_sigma = city.get("sigma") or SIGMA_F
+        spread_by_date = {}
+        if ENSEMBLE_SIGMA:
+            try:
+                spread_by_date = ensemble_daily_sigma(
+                    city["lat"], city["lon"], city.get("tz", "auto"))
+            except Exception as exc:
+                log.warning("%s: ensemble sigma unavailable (%s) — using "
+                            "calibrated", city["name"], exc)
         for event in data.get("events", []):
             date = date_from_event_ticker(event.get("event_ticker")
                                           or event.get("ticker") or "")
@@ -227,7 +294,12 @@ def scan() -> list:
                 continue
             # measured bias: forecast - actual, so subtract to de-bias
             mu = forecasts[date] - city.get("bias", 0.0)
-            sigma = effective_sigma(base_sigma, date, city.get("tz"))
+            day_sigma = blended_sigma(base_sigma, spread_by_date.get(date))
+            if abs(day_sigma - base_sigma) > 0.05:
+                log.info("%s %s: ensemble spread sets sigma %.1fF "
+                         "(calibrated %.1fF)", city["name"], date,
+                         day_sigma, base_sigma)
+            sigma = effective_sigma(day_sigma, date, city.get("tz"))
             signals = []
             for market in event.get("markets") or []:
                 if market.get("status") not in (None, "active", "open"):
@@ -241,10 +313,21 @@ def scan() -> list:
     return results
 
 
+def _close_cents(market: dict):
+    """The market's last traded price in cents — our closing-line proxy."""
+    last = market.get("last_price")
+    if last in (None, "", 0):
+        dollars = market.get("last_price_dollars")
+        last = float(dollars) * 100.0 if dollars not in (None, "") else None
+    return float(last) if last else None
+
+
 def score_pending_paper_trades(log_path: Path = None) -> None:
     """Fill in the outcome column for settled markets: win if the
     recommended side matches Kalshi's official result. Works for any
-    signal CSV that has ticker/side/price_cents/outcome columns."""
+    signal CSV that has ticker/side/price_cents/outcome columns. Paper
+    ledgers (model_prob present) also get CLV: entry vs the last traded
+    price — the earliest reliable predictor of long-term profitability."""
     path = log_path or PAPER_LOG
     if not path.exists():
         return
@@ -253,6 +336,13 @@ def score_pending_paper_trades(log_path: Path = None) -> None:
     if len(rows) < 2:
         return
     header, body = rows[0], rows[1:]
+    upgraded = False
+    if "model_prob" in header and "clv_cents" not in header:
+        header.append("clv_cents")
+        upgraded = True
+    for row in body:                     # pad legacy/short rows
+        while len(row) < len(header):
+            row.append("")
     idx = {name: i for i, name in enumerate(header)}
     client = KalshiClient(env="prod")
     scored = 0
@@ -270,10 +360,16 @@ def score_pending_paper_trades(log_path: Path = None) -> None:
         price = float(row[idx["price_cents"]])
         pnl = (100.0 - price) if won else -price
         row[idx["outcome"]] = f"{'win' if won else 'loss'} ({pnl:+.0f}c)"
+        close = _close_cents(market)
+        if "clv_cents" in idx and close is not None:
+            clv = (close - price) if row[idx["side"]] == "yes" \
+                else ((100.0 - close) - price)
+            row[idx["clv_cents"]] = f"{clv:+.0f}"
         scored += 1
-    if scored:
+    if scored or upgraded:
         with open(path, "w", newline="") as fh:
             csv.writer(fh).writerows([header] + body)
+    if scored:
         wins = sum("win" in r[idx["outcome"]] for r in body if r[idx["outcome"]])
         total = sum(1 for r in body if r[idx["outcome"]])
         pnl = sum(float(r[idx["outcome"]].split("(")[1].rstrip("c)"))
