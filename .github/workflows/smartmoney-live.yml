@@ -55,14 +55,17 @@ jobs:
           SM_FOLLOW_EXITS: ${{ vars.SM_FOLLOW_EXITS || 'false' }}
         run: python smartmoney_runner.py
 
-      - name: Persist open-copy exit state across sessions
+      - name: Persist copy state + copy scoreboard across sessions
         if: always()
         run: |
           git config user.name "smartmoney-bot"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f smartmoney_open_copies.json 2>/dev/null || true
+          for f in smartmoney_open_copies.json copy_trades.csv \
+                   COPY_SCOREBOARD.md; do
+            git add -f "$f" 2>/dev/null || true
+          done
           if ! git diff --cached --quiet; then
-            git commit -m "smartmoney open-copy state [skip ci]"
+            git commit -m "copy state + scoreboard [skip ci]"
             git pull --rebase
             git push
           fi
