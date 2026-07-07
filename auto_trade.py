@@ -464,11 +464,42 @@ def write_weather_city_pnl(client) -> None:
              {c: a["net"] for c, a in agg.items()})
 
 
+def positions_market_value(client) -> float:
+    """Current MARKET value of every open position in USD — what you'd get
+    cashing out now, marked at each market's live price (settled -> 0/$1;
+    open -> mid of the held side). Falls back to cost basis for any market
+    we can't price, so equity is never wildly off. This is the number that
+    was missing: cash alone ignores money still tied up in positions."""
+    from kalshi_exposure import _position_exposure_cents
+    total = 0.0
+    for p in client.get_positions().get("market_positions", []):
+        pos = float(p.get("position", 0) or 0)
+        if pos == 0:
+            continue
+        try:
+            m = client.get_market(p.get("ticker"))
+            result = m.get("result")
+            if result in ("yes", "no"):
+                won = (result == "yes") if pos > 0 else (result == "no")
+                mark = 100.0 if won else 0.0
+            else:                       # open: mid of the side we hold
+                ya = price_cents(m, "yes_ask") or 0
+                yb = price_cents(m, "yes_bid") or 0
+                yes_mid = (ya + yb) / 2 if (ya and yb) else (ya or yb)
+                mark = yes_mid if pos > 0 else (100 - yes_mid)
+            total += abs(pos) * mark / 100.0
+        except Exception:               # can't price -> cost basis fallback
+            cents = _position_exposure_cents(p)
+            total += (cents / 100.0) if cents else 0.0
+    return total
+
+
 def write_account_snapshot(client) -> None:
-    """The money truth, from Kalshi's own books: current balance, open
-    exposure, and realized P&L summed over every settlement since
-    RECORD_SINCE (default 2026-07-01, when this account's record starts).
-    Written to account_snapshot.json for the scoreboard's headline."""
+    """The money truth the only way it can't lie: total EQUITY (cash + live
+    value of open positions) minus what you've DEPOSITED. Summing settlement
+    records overstated losses badly (it double-counts recycled stakes); this
+    anchors to real cash in vs real value now. Set KALSHI_DEPOSITS_USD to
+    your total deposits. Written to account_snapshot.json."""
     import json
     import os
     from datetime import datetime, timezone
@@ -477,34 +508,39 @@ def write_account_snapshot(client) -> None:
     from backfill_history import settlement_pnl
 
     since = os.getenv("RECORD_SINCE", "2026-07-01")
+    deposits = float(os.getenv("KALSHI_DEPOSITS_USD", "50"))
     min_ts = int(datetime.strptime(since, "%Y-%m-%d")
                  .replace(tzinfo=timezone.utc).timestamp())
-    balance = client.get_balance_cents() / 100.0
+    cash = client.get_balance_cents() / 100.0
     try:
-        exposure = current_exposure_usd(client)
-    except Exception:
-        exposure = None
-    realized = 0.0
+        positions_val = positions_market_value(client)
+    except Exception as exc:
+        log.warning("Could not value open positions: %s", exc)
+        positions_val = None
+    equity = cash + (positions_val or 0.0)
+    net_pnl = equity - deposits
+    # keep a settled W/L tally for the record line (informational only)
     wins = losses = 0
     for s in client.get_settlements(min_ts):
         _, pnl = settlement_pnl(s)
         if pnl is None:
             continue
-        realized += pnl
-        if pnl > 0:
-            wins += 1
-        elif pnl < 0:
-            losses += 1
-    snap = dict(balance_usd=round(balance, 2),
-                exposure_usd=None if exposure is None else round(exposure, 2),
-                realized_pnl_usd=round(realized, 2),
-                settled_wins=wins, settled_losses=losses, since=since,
-                updated=datetime.now(timezone.utc).isoformat(
-                    timespec="seconds"))
+        wins += 1 if pnl > 0 else 0
+        losses += 1 if pnl < 0 else 0
+    snap = dict(
+        balance_usd=round(cash, 2),
+        positions_value_usd=None if positions_val is None
+        else round(positions_val, 2),
+        equity_usd=round(equity, 2),
+        deposits_usd=round(deposits, 2),
+        net_pnl_usd=round(net_pnl, 2),
+        settled_wins=wins, settled_losses=losses, since=since,
+        updated=datetime.now(timezone.utc).isoformat(timespec="seconds"))
     path = Path(__file__).resolve().parent / "account_snapshot.json"
     path.write_text(json.dumps(snap, indent=2))
-    log.info("Account: balance $%.2f, realized P&L since %s: %+.2f "
-             "(%d W / %d L)", balance, since, realized, wins, losses)
+    log.info("Account: equity $%.2f (cash $%.2f + positions $%.2f) vs "
+             "$%.2f in -> net %+.2f", equity, cash, positions_val or 0.0,
+             deposits, net_pnl)
 
 
 def refresh_records(settings, client=None) -> None:

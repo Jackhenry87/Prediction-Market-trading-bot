@@ -86,6 +86,9 @@ jobs:
           # whole loss — oversized + under-forecast four days running). Add
           # NY back via this Variable if it earns its place later.
           WEATHER_CITIES: ${{ vars.WEATHER_CITIES || 'CHI,MIA,DEN,LAX,AUS' }}
+          # total you've deposited — the scoreboard's Net P&L is equity
+          # (cash + open positions) minus this. Update it when you add funds.
+          KALSHI_DEPOSITS_USD: ${{ vars.KALSHI_DEPOSITS_USD || '50' }}
         run: python auto_trade.py
 
       - name: Commit updated scoreboards back to the repo
