@@ -404,3 +404,65 @@ def test_generic_vs_rejects_props_and_ambiguity():
         {"ticker": "X-TIE", "status": "active", "yes_sub_title": "Tie",
          "yes_ask": 5, "yes_bid": 3}])]
     assert sm.generic_vs_signal(_ufc_cons(), with_tie) is None
+
+
+POL_EVENTS = [
+    {"event_ticker": "KXSENATEAZ-26", "title": "Arizona Senate Race Winner",
+     "sub_title": "2026 general election",
+     "markets": [
+         {"ticker": "KXSENATEAZ-26-GAL", "status": "active",
+          "yes_sub_title": "Ruben Gallego", "yes_ask": 58, "yes_bid": 55},
+         {"ticker": "KXSENATEAZ-26-LAK", "status": "active",
+          "yes_sub_title": "Kari Lake", "yes_ask": 43, "yes_bid": 40}]},
+    {"event_ticker": "KXSENATEAZPRIM-26",
+     "title": "Arizona Senate Primary Winner",
+     "sub_title": "Republican primary",
+     "markets": [
+         {"ticker": "KXSENATEAZPRIM-26-LAK", "status": "active",
+          "yes_sub_title": "Kari Lake", "yes_ask": 67, "yes_bid": 64}]},
+]
+
+
+def _pol_cons(title, outcome="Yes", price=0.55):
+    return dict(slug="x", title=title, outcome=outcome, wallets=4,
+                stake=50000.0, avg_price=price)
+
+
+def test_politics_maps_exact_race():
+    sig = sm.politics_signal(
+        _pol_cons("Will Ruben Gallego win the Arizona Senate race?"),
+        POL_EVENTS)
+    assert sig and sig["ticker"] == "KXSENATEAZ-26-GAL"
+
+
+def test_politics_qualifier_guard_primary_vs_general():
+    # primary consensus must ONLY match the primary event (qualifier sets
+    # must agree exactly), and Lake appears in both -> without the
+    # qualifier guard this would be a classic wrong-market copy
+    sig = sm.politics_signal(
+        _pol_cons("Will Kari Lake win the Arizona Senate primary?",
+                  price=0.65),
+        POL_EVENTS)
+    assert sig and sig["ticker"] == "KXSENATEAZPRIM-26-LAK"
+    # general-election consensus on Lake maps to the GENERAL race market
+    sig = sm.politics_signal(
+        _pol_cons("Will Kari Lake win the Arizona Senate race?",
+                  price=0.41),
+        POL_EVENTS)
+    assert sig and sig["ticker"] == "KXSENATEAZ-26-LAK"
+
+
+def test_politics_fails_closed():
+    # margin/turnout style props are different bets
+    assert sm.politics_signal(
+        _pol_cons("Will Gallego win the Arizona Senate race by 5 points?"),
+        POL_EVENTS) is None
+    # unknown candidate/race -> no event match
+    assert sm.politics_signal(
+        _pol_cons("Will John Smith win the Ohio Senate race?"),
+        POL_EVENTS) is None
+    # ambiguity: same candidate+race matching two events -> refuse
+    dup = POL_EVENTS + [dict(POL_EVENTS[0], event_ticker="KXSENATEAZB-26")]
+    assert sm.politics_signal(
+        _pol_cons("Will Ruben Gallego win the Arizona Senate race?"),
+        dup) is None

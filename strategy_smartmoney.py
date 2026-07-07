@@ -525,6 +525,64 @@ def generic_vs_signal(cons: dict, open_events: list) -> dict:
     return _binary_h2h_signal(cons, open_events, name_a, name_b)
 
 
+# Politics — done THE RIGHT WAY or not at all. Cross-venue election
+# markets are notorious for resolution mismatches: a primary is not the
+# general, "wins the race" is not "wins the popular vote", and margin/
+# turnout props are different bets entirely. So: only clean
+# "Will <candidate> win <race>?" questions; QUALIFIERS (primary/special/
+# runoff/nomination) must agree EXACTLY between the Polymarket title and
+# the Kalshi event; candidate + race words must match exactly ONE open
+# Kalshi event; margin-style props are rejected outright.
+POLITICS_RE = re.compile(
+    r"^will (.+?) win (?:the )?(.*?(?:senate|house|governor|president"
+    r"|congression|district|primary|election|race|seat|nomination|mayor)"
+    r".*?)\??$", re.I)
+_POLITICS_PROPS = re.compile(
+    r"margin|popular vote|turnout|by \d|electoral college|electoral votes"
+    r"|approval|debate|cabinet|running mate|endorse|spread|points", re.I)
+_QUALIFIERS = ("PRIMARY", "SPECIAL", "RUNOFF", "NOMINATION", "NOMINEE",
+               "CAUCUS")
+
+
+def _qualifier_set(text: str) -> set:
+    words = _surname_words(text)
+    quals = {q for q in _QUALIFIERS if q in words}
+    # nominee == nomination for matching purposes
+    if "NOMINEE" in quals:
+        quals.discard("NOMINEE")
+        quals.add("NOMINATION")
+    return quals
+
+
+def politics_signal(cons: dict, open_events: list) -> dict:
+    """Map an election-winner consensus onto the exact Kalshi race."""
+    title = (cons.get("title") or "").strip()
+    if _POLITICS_PROPS.search(title):
+        return None
+    m = POLITICS_RE.match(title)
+    if not m:
+        return None
+    candidate = _surname_words(m.group(1))
+    race = _surname_words(m.group(2)) - {"THE", "WIN", "RACE", "SEAT",
+                                         "ELECTION", "WILL"}
+    quals = _qualifier_set(title)
+    if not candidate or not race:
+        return None
+    hits = []
+    for ev in open_events:
+        blob = f"{ev.get('title', '')} {ev.get('sub_title', '')}"
+        labels = " ".join((mk.get("yes_sub_title") or "")
+                          for mk in ev.get("markets") or [])
+        ew = _surname_words(blob + " " + labels)
+        if candidate <= ew and race <= _surname_words(blob) \
+                and _qualifier_set(blob) == quals:
+            hits.append(ev)
+    if len(hits) != 1:
+        return None
+    market = _match_side_market(hits[0], candidate)
+    return _priced_signal(cons, market, hits[0]) if market else None
+
+
 # Tournament-winner futures: identical semantics on both venues.
 # "Will England win the 2026 FIFA World Cup?" <-> KXMENWORLDCUP-26-EN.
 WC_WINNER_SERIES = "KXMENWORLDCUP"
@@ -620,6 +678,13 @@ def scan() -> list:
                 cons, events_for(TENNIS_SERIES[tennis.group(1).upper()]))
         elif WC_WINNER_RE.match((cons.get("title") or "").strip()):
             sig = wc_winner_signal(cons, events_for(WC_WINNER_SERIES))
+        elif POLITICS_RE.match((cons.get("title") or "").strip()):
+            sig = politics_signal(cons, all_open_events())
+            if sig is None:
+                log.info("Politics consensus not safely mappable "
+                         "(qualifier/uniqueness guard): %s | %s",
+                         cons["title"], cons["outcome"])
+                continue
         else:
             # last resort: generic head-to-head discovery across ALL open
             # Kalshi events (UFC, golf, soccer clubs — whatever is listed)

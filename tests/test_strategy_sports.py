@@ -161,3 +161,15 @@ def test_series_config_sane():
     for c in ss.SERIES:
         assert c["series"].startswith("KX")
         assert "_" in c["sport"]  # odds-api keys look like 'basketball_nba'
+
+
+def test_mlb_cut_from_hourly_but_leagues_reversible(monkeypatch):
+    # owner call: MLB out of the hourly devig model by default
+    by_name = {c["name"]: c for c in ss.SERIES}
+    monkeypatch.setattr(ss, "ENABLED_LEAGUES", {"nba", "nfl", "nhl", "wnba"})
+    assert not ss.league_enabled(by_name["MLB"])
+    assert ss.league_enabled(by_name["NBA"])
+    assert ss.league_enabled(by_name["WNBA"])
+    # one repo Variable brings it back
+    monkeypatch.setattr(ss, "ENABLED_LEAGUES", {"mlb"})
+    assert ss.league_enabled(by_name["MLB"])

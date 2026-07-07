@@ -54,6 +54,16 @@ SERIES = [
     dict(series="KXNHLGAME", sport="icehockey_nhl", name="NHL"),
     dict(series="KXWNBA", sport="basketball_wnba", name="WNBA"),
 ]
+# Owner call (2026-07-07): MLB is cut from the hourly devig model — its
+# record didn't earn the slot. MLB bets now happen ONLY when profitable
+# smart-money cappers are on them (the copy runner keeps its MLB mapping).
+# Re-enable anytime with repo Variable SPORTS_LEAGUES=mlb,nba,nfl,nhl,wnba.
+ENABLED_LEAGUES = {s.strip().lower() for s in os.getenv(
+    "SPORTS_LEAGUES", "nba,nfl,nhl,wnba").split(",") if s.strip()}
+
+
+def league_enabled(cfg: dict) -> bool:
+    return cfg["sport"].split("_")[-1] in ENABLED_LEAGUES
 SPORTS_LIST_URL = "https://api.the-odds-api.com/v4/sports/"
 ODDS_URL = "https://api.the-odds-api.com/v4/sports/{sport}/odds/"
 ODDS_REGIONS = "us"
@@ -254,6 +264,11 @@ def scan(api_key: str) -> list:
         active = {c["sport"] for c in SERIES}
 
     for cfg in SERIES:
+        if not league_enabled(cfg):
+            log.info("%s: cut from the hourly model (owner call) — copy "
+                     "runner still takes smart-money %s bets", cfg["name"],
+                     cfg["name"])
+            continue
         if cfg["sport"] not in active:
             log.info("%s: out of season, skipping (no odds credits spent)",
                      cfg["name"])
