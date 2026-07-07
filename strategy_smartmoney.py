@@ -450,19 +450,19 @@ def tennis_signal(cons: dict, events: list) -> dict:
     return _priced_signal(cons, market, hits[0]) if market else None
 
 
-def advance_signal(cons: dict, open_events: list) -> dict:
-    """Map a team-to-advance consensus onto a DISCOVERED binary knockout
-    market. Fails closed on: teams not parseable, zero or multiple title
-    matches, a TIE/DRAW market present (regulation venue — a different
-    bet), or no matching side market."""
-    team_a, team_b = _vs_teams(cons.get("title"))
-    if not team_a or not team_b:
+def _binary_h2h_signal(cons: dict, open_events: list,
+                       name_a: str, name_b: str) -> dict:
+    """Shared discovery core: map a two-sided consensus onto a DISCOVERED
+    binary head-to-head market. Fails closed on: zero or multiple title
+    matches, a TIE/DRAW market present (a different bet than a binary
+    winner), a non-binary structure, or no matching side market."""
+    wa, wb = _surname_words(name_a), _surname_words(name_b)
+    if not wa or not wb:
         return None
-    wa, wb = _surname_words(team_a), _surname_words(team_b)
     hits = []
     for ev in open_events:
         tw = _surname_words(ev.get("title"))
-        if wa and wb and wa <= tw and wb <= tw:
+        if wa <= tw and wb <= tw:
             hits.append(ev)
     if len(hits) != 1:
         return None
@@ -473,13 +473,78 @@ def advance_signal(cons: dict, open_events: list) -> dict:
         blob = (f"{mk.get('ticker', '')} {mk.get('yes_sub_title', '')} "
                 f"{mk.get('title', '')}").upper()
         if "TIE" in _surname_words(blob) or "DRAW" in _surname_words(blob):
-            log.info("Advance refused (regulation venue with TIE): %s",
+            log.info("Discovery refused (venue has TIE — different bet): %s",
                      event.get("event_ticker"))
             return None
-    if len(markets) != 2:      # not a clean binary knockout listing
+    if len(markets) != 2:      # not a clean binary head-to-head listing
         return None
     market = _match_side_market(event, _surname_words(cons.get("outcome")))
     return _priced_signal(cons, market, event) if market else None
+
+
+def advance_signal(cons: dict, open_events: list) -> dict:
+    """Team-to-advance consensus -> discovered binary knockout market."""
+    team_a, team_b = _vs_teams(cons.get("title"))
+    if not team_a or not team_b:
+        return None
+    return _binary_h2h_signal(cons, open_events, team_a, team_b)
+
+
+# Any other head-to-head the sharps bet (UFC, golf match play, soccer
+# clubs, whatever Kalshi lists as a game): the title must reduce to a
+# clean "A vs B" with NO prop markers — set/game/map winners, O/U, spreads
+# and segment props are DIFFERENT bets and are rejected before discovery.
+_PROP_MARKERS = re.compile(
+    r"\bO/U\b|\bset\b|\bgame \d|\bmap\b|\bspread\b|\bhalf\b|1st|2nd|"
+    r"\bcorner|\bexact\b|\bscore\b|\bbtts\b|\btotal\b|\(BO\d\)", re.I)
+
+
+def _generic_vs_names(title: str) -> tuple:
+    """('A', 'B') when the title is a clean match-winner question."""
+    for part in (title or "").split(":"):
+        part = part.strip()
+        if _PROP_MARKERS.search(part) or " - " in part:
+            continue
+        m = re.fullmatch(r"(.{2,40}?)\s+vs\.?\s+(.{2,40})", part)
+        if m:
+            return m.group(1).strip(), m.group(2).strip()
+    return None, None
+
+
+def generic_vs_signal(cons: dict, open_events: list) -> dict:
+    """Discovery route for any clean head-to-head consensus. The outcome
+    must be one of the two named sides; everything else fails closed."""
+    if _PROP_MARKERS.search(cons.get("title") or ""):
+        return None
+    name_a, name_b = _generic_vs_names(cons.get("title"))
+    if not name_a or not name_b:
+        return None
+    ow = _surname_words(cons.get("outcome"))
+    if not (ow <= _surname_words(name_a) or ow <= _surname_words(name_b)):
+        return None                    # outcome isn't a side -> a prop
+    return _binary_h2h_signal(cons, open_events, name_a, name_b)
+
+
+# Tournament-winner futures: identical semantics on both venues.
+# "Will England win the 2026 FIFA World Cup?" <-> KXMENWORLDCUP-26-EN.
+WC_WINNER_SERIES = "KXMENWORLDCUP"
+WC_WINNER_RE = re.compile(
+    r"^will (.+?) win the \d{4} (?:fifa|men'?s)? ?world cup\??$", re.I)
+
+
+def wc_winner_signal(cons: dict, events: list) -> dict:
+    """Map a World Cup WINNER futures consensus onto KXMENWORLDCUP."""
+    m = WC_WINNER_RE.match((cons.get("title") or "").strip())
+    if not m:
+        return None
+    team = _surname_words(m.group(1))
+    if not team:
+        return None
+    for event in events:
+        market = _match_side_market(event, team)
+        if market:
+            return _priced_signal(cons, market, event)
+    return None
 
 
 def scan() -> list:
@@ -553,11 +618,18 @@ def scan() -> list:
         elif tennis:
             sig = tennis_signal(
                 cons, events_for(TENNIS_SERIES[tennis.group(1).upper()]))
+        elif WC_WINNER_RE.match((cons.get("title") or "").strip()):
+            sig = wc_winner_signal(cons, events_for(WC_WINNER_SERIES))
         else:
-            log.info("Unmappable consensus (no Kalshi venue): %s | %s | "
-                     "%d sharps $%.0f @ %.0fc", cons["title"], cons["outcome"],
-                     cons["wallets"], cons["stake"], 100 * cons["avg_price"])
-            continue
+            # last resort: generic head-to-head discovery across ALL open
+            # Kalshi events (UFC, golf, soccer clubs — whatever is listed)
+            sig = generic_vs_signal(cons, all_open_events())
+            if sig is None:
+                log.info("Unmappable consensus (no Kalshi venue): %s | %s | "
+                         "%d sharps $%.0f @ %.0fc", cons["title"],
+                         cons["outcome"], cons["wallets"], cons["stake"],
+                         100 * cons["avg_price"])
+                continue
         if not sig:
             continue
         event_ticker = sig.pop("event_ticker")
