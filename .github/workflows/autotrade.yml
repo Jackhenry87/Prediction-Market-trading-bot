@@ -77,6 +77,9 @@ jobs:
           # this % of bankroll — stops piles of correlated bets from becoming
           # one oversized wager
           MAX_THEME_PCT: ${{ vars.MAX_THEME_PCT || '40' }}
+          # MLB cut from the hourly devig model (owner call) — the copy
+          # runner still places MLB when profitable sharps are on it
+          SPORTS_LEAGUES: ${{ vars.SPORTS_LEAGUES || 'nba,nfl,nhl,wnba' }}
         run: python auto_trade.py
 
       - name: Commit updated scoreboards back to the repo

@@ -341,3 +341,128 @@ def test_consensus_and_signal_carry_wallet_ids(monkeypatch):
     assert cons[0]["wallet_ids"] == ["w1", "w2", "w3"]
     sig = sm.consensus_signal(cons[0], EVENTS)
     assert sig and sig["wallet_ids"] == ["w1", "w2", "w3"]
+
+
+WC_WINNER_EVENTS = [{
+    "event_ticker": "KXMENWORLDCUP-26", "title": "2026 FIFA World Cup Winner",
+    "markets": [
+        {"ticker": "KXMENWORLDCUP-26-EN", "status": "active",
+         "yes_sub_title": "England", "yes_ask": 32, "yes_bid": 29},
+        {"ticker": "KXMENWORLDCUP-26-FR", "status": "active",
+         "yes_sub_title": "France", "yes_ask": 28, "yes_bid": 25}]}]
+
+
+def test_wc_winner_futures_map():
+    cons = dict(slug="will-england-win-the-2026-fifa-world-cup",
+                title="Will England win the 2026 FIFA World Cup?",
+                outcome="Yes", wallets=4, stake=90000.0, avg_price=0.30)
+    sig = sm.wc_winner_signal(cons, WC_WINNER_EVENTS)
+    assert sig and sig["ticker"] == "KXMENWORLDCUP-26-EN"
+    # a different competition's futures never map here
+    cons["title"] = "Will England win the 2026 Premier League?"
+    assert sm.wc_winner_signal(cons, WC_WINNER_EVENTS) is None
+
+
+UFC_EVENTS = [{
+    "event_ticker": "KXUFCFIGHT-26JUL12JONASP", "title": "Jones vs Aspinall",
+    "markets": [
+        {"ticker": "KXUFCFIGHT-26JUL12JONASP-JON", "status": "active",
+         "yes_sub_title": "Jones", "yes_ask": 58, "yes_bid": 55},
+        {"ticker": "KXUFCFIGHT-26JUL12JONASP-ASP", "status": "active",
+         "yes_sub_title": "Aspinall", "yes_ask": 44, "yes_bid": 41}]}]
+
+
+def _ufc_cons(title="UFC 320: Jones vs Aspinall", outcome="Jones",
+              price=0.55):
+    return dict(slug="ufc-320-jones-aspinall", title=title, outcome=outcome,
+                wallets=3, stake=40000.0, avg_price=price)
+
+
+def test_generic_vs_discovery_maps_any_h2h():
+    sig = sm.generic_vs_signal(_ufc_cons(), UFC_EVENTS)
+    assert sig and sig["ticker"] == "KXUFCFIGHT-26JUL12JONASP-JON"
+    assert sig["price_cents"] == 58
+
+
+def test_generic_vs_rejects_props_and_ambiguity():
+    # set/game/segment props are DIFFERENT bets — never discovery-mapped
+    assert sm.generic_vs_signal(
+        _ufc_cons(title="Set 4 Winner: Lehecka vs Zverev"), UFC_EVENTS) is None
+    assert sm.generic_vs_signal(
+        _ufc_cons(title="Dota 2: REKONIX vs Vici Gaming - Game 1 Winner"),
+        UFC_EVENTS) is None
+    assert sm.generic_vs_signal(
+        _ufc_cons(title="Jones vs Aspinall: O/U 2.5 Rounds", outcome="Over"),
+        UFC_EVENTS) is None
+    # outcome must BE one of the two sides
+    assert sm.generic_vs_signal(_ufc_cons(outcome="Under"), UFC_EVENTS) is None
+    # two matching events -> refuse
+    dup = UFC_EVENTS + [dict(UFC_EVENTS[0], event_ticker="KXOTHER-JONASP")]
+    assert sm.generic_vs_signal(_ufc_cons(), dup) is None
+    # a TIE market means it's not a binary winner venue -> refuse
+    with_tie = [dict(UFC_EVENTS[0], markets=UFC_EVENTS[0]["markets"] + [
+        {"ticker": "X-TIE", "status": "active", "yes_sub_title": "Tie",
+         "yes_ask": 5, "yes_bid": 3}])]
+    assert sm.generic_vs_signal(_ufc_cons(), with_tie) is None
+
+
+POL_EVENTS = [
+    {"event_ticker": "KXSENATEAZ-26", "title": "Arizona Senate Race Winner",
+     "sub_title": "2026 general election",
+     "markets": [
+         {"ticker": "KXSENATEAZ-26-GAL", "status": "active",
+          "yes_sub_title": "Ruben Gallego", "yes_ask": 58, "yes_bid": 55},
+         {"ticker": "KXSENATEAZ-26-LAK", "status": "active",
+          "yes_sub_title": "Kari Lake", "yes_ask": 43, "yes_bid": 40}]},
+    {"event_ticker": "KXSENATEAZPRIM-26",
+     "title": "Arizona Senate Primary Winner",
+     "sub_title": "Republican primary",
+     "markets": [
+         {"ticker": "KXSENATEAZPRIM-26-LAK", "status": "active",
+          "yes_sub_title": "Kari Lake", "yes_ask": 67, "yes_bid": 64}]},
+]
+
+
+def _pol_cons(title, outcome="Yes", price=0.55):
+    return dict(slug="x", title=title, outcome=outcome, wallets=4,
+                stake=50000.0, avg_price=price)
+
+
+def test_politics_maps_exact_race():
+    sig = sm.politics_signal(
+        _pol_cons("Will Ruben Gallego win the Arizona Senate race?"),
+        POL_EVENTS)
+    assert sig and sig["ticker"] == "KXSENATEAZ-26-GAL"
+
+
+def test_politics_qualifier_guard_primary_vs_general():
+    # primary consensus must ONLY match the primary event (qualifier sets
+    # must agree exactly), and Lake appears in both -> without the
+    # qualifier guard this would be a classic wrong-market copy
+    sig = sm.politics_signal(
+        _pol_cons("Will Kari Lake win the Arizona Senate primary?",
+                  price=0.65),
+        POL_EVENTS)
+    assert sig and sig["ticker"] == "KXSENATEAZPRIM-26-LAK"
+    # general-election consensus on Lake maps to the GENERAL race market
+    sig = sm.politics_signal(
+        _pol_cons("Will Kari Lake win the Arizona Senate race?",
+                  price=0.41),
+        POL_EVENTS)
+    assert sig and sig["ticker"] == "KXSENATEAZ-26-LAK"
+
+
+def test_politics_fails_closed():
+    # margin/turnout style props are different bets
+    assert sm.politics_signal(
+        _pol_cons("Will Gallego win the Arizona Senate race by 5 points?"),
+        POL_EVENTS) is None
+    # unknown candidate/race -> no event match
+    assert sm.politics_signal(
+        _pol_cons("Will John Smith win the Ohio Senate race?"),
+        POL_EVENTS) is None
+    # ambiguity: same candidate+race matching two events -> refuse
+    dup = POL_EVENTS + [dict(POL_EVENTS[0], event_ticker="KXSENATEAZB-26")]
+    assert sm.politics_signal(
+        _pol_cons("Will Ruben Gallego win the Arizona Senate race?"),
+        dup) is None
