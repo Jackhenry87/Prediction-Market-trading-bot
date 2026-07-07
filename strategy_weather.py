@@ -62,6 +62,19 @@ CITIES = [
          lat=30.3208, lon=-97.7660, sigma=2.5, bias=2.0,
          tz="America/Chicago"),
 ]
+# Which cities the model may actually TRADE. New York is cut by default:
+# scored against real Kalshi settlements it was -$6.31 (the model's whole
+# net loss), losing under-forecast bets four days straight AND oversized.
+# One repo Variable brings a city back — no code change. Names match the
+# short code in each series ticker (NY/CHI/MIA/DEN/LAX/AUS).
+ENABLED_CITIES = {s.strip().upper() for s in os.getenv(
+    "WEATHER_CITIES", "CHI,MIA,DEN,LAX,AUS").split(",") if s.strip()}
+
+
+def city_enabled(city: dict) -> bool:
+    """A city trades only if its series code is in ENABLED_CITIES."""
+    code = city["series"].replace("KXHIGH", "").replace("KXLOW", "")
+    return code.upper() in ENABLED_CITIES
 # Fallback forecast-error std dev (deg F) for stations without a measured
 # sigma. History: guessed 3.0 -> widened to 4.5 after the first live week's
 # losses -> measurement showed the real error is ~1.5-2.3F and the losses
@@ -265,6 +278,10 @@ def scan() -> list:
 
     results = []
     for city in CITIES:
+        if not city_enabled(city):
+            log.info("%s cut from the weather model (owner call — lost "
+                     "money at this station)", city["name"])
+            continue
         try:
             forecasts = get_daily_high_forecasts(
                 city["lat"], city["lon"], city["name"]
