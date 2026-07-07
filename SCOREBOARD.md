@@ -1,6 +1,6 @@
 # 📊 Trading Scoreboard
 
-_Updated 2026-07-07 22:49 UTC — auto-generated every run; do not edit._
+_Updated 2026-07-07 23:43 UTC — auto-generated every run; do not edit._
 
 Signals are scored against official settlement whether or not a real order was placed. P&L shown is per 1-contract stakes.
 
@@ -51,12 +51,13 @@ Signals are scored against official settlement whether or not a real order was p
 
 ## 🌡️ Weather model
 
-### 🟢 0 W — 🔴 1 L — ⏳ 25 pending — net **-90¢**
+### 🟢 0 W — 🔴 1 L — ⏳ 26 pending — net **-90¢**
 
 _Brier **0.974** (coin flip 0.25) over 1 settled · avg CLV **-89.0¢** over 1 sampled_
 
 | Scanned (UTC) | Market | Side | Price | Model | Result |
 |---|---|---|---|---|---|
+| 07-07 23:43 | KXHIGHDEN-26JUL08-B88.5 | NO | 90¢ | 99% | ⏳ pending |
 | 07-07 22:49 | KXHIGHLAX-26JUL08-B73.5 | NO | 84¢ | 92% | ⏳ pending |
 | 07-07 21:12 | KXHIGHDEN-26JUL08-B90.5 | NO | 84¢ | 93% | ⏳ pending |
 | 07-07 19:29 | KXHIGHLAX-26JUL07-B73.5 | NO | 71¢ | 88% | ⏳ pending |
@@ -76,8 +77,7 @@ _Brier **0.974** (coin flip 0.25) over 1 settled · avg CLV **-89.0¢** over 1 s
 | 07-07 14:01 | KXHIGHMIA-26JUL08-B93.5 | NO | 65¢ | 80% | ⏳ pending |
 | 07-07 03:35 | KXHIGHDEN-26JUL07-B95.5 | NO | 60¢ | 84% | ⏳ pending |
 | 07-06 23:55 | KXHIGHCHI-26JUL07-B83.5 | NO | 64¢ | 80% | ⏳ pending |
-| 07-06 20:56 | KXHIGHMIA-26JUL07-B90.5 | NO | 74¢ | 80% | ⏳ pending |
-| … | _6 older rows in the CSV_ | | | | |
+| … | _7 older rows in the CSV_ | | | | |
 
 ## ₿ Crypto model
 
