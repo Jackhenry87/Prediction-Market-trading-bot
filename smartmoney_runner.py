@@ -89,6 +89,12 @@ def copy_pass(client, settings, session_seen: set,
     event we place into is recorded there so a later pass can never take
     the opposite side, even if the first order hasn't surfaced in the live
     position snapshot yet."""
+    try:
+        exited = strategy_smartmoney.check_exits(client, settings)
+        if exited:
+            log.info("Cashed out %d copy(ies) the sharps abandoned.", exited)
+    except Exception as exc:
+        log.warning("Exit check failed: %s", exc)
     results = strategy_smartmoney.scan()
     if not results:
         return 0
@@ -137,7 +143,9 @@ def copy_pass(client, settings, session_seen: set,
                      ticker, event)
             continue
         pct = copy_pct(s.get("wallets", strategy_smartmoney.MIN_WALLETS))
-        budget = bankroll * pct / 100.0
+        # flywheel: tilt size by the backers' proven record (bounded; the
+        # scaled hard caps below are still the final clamp)
+        budget = bankroll * pct / 100.0 * s.get("quality_mult", 1.0)
         count = contracts_for(budget, price)
         if count < 1:
             log.info("SKIP %s: %.0f%% of bankroll ($%.2f) buys no contract "
@@ -181,6 +189,12 @@ def copy_pass(client, settings, session_seen: set,
         held_events.add(event_of(ticker))
         session_events.add(event)
         session_events.add(event_of(ticker))
+        try:                              # remember the poly-link for exits
+            strategy_smartmoney.record_open_copy(
+                ticker, s.get("poly_slug", ""), s.get("poly_outcome", ""),
+                s.get("wallet_ids", []), s["side"], count)
+        except Exception as exc:
+            log.warning("Open-copy record failed for %s: %s", ticker, exc)
         exposure += notional
         placed += 1
     return placed

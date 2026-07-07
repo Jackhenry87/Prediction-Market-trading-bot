@@ -167,6 +167,46 @@ def test_score_copier_clv_samples_early(tmp_path, monkeypatch):
     assert by["T-settled"]["clv_cents"] == ""      # settled before sampling
 
 
+def test_backers_multiplier_tilts_within_band(monkeypatch):
+    scores = {"good": {"n": 6, "net": 180.0},   # +30c/copy -> full up-tilt
+              "bad": {"n": 6, "net": -180.0},    # -30c/copy -> full down-tilt
+              "thin": {"n": 2, "net": 200.0}}    # too few settled -> ignored
+    monkeypatch.setattr(sm, "PROVEN_MIN", 5)
+    monkeypatch.setattr(sm, "QUALITY_SCALE", 30.0)
+    monkeypatch.setattr(sm, "QUALITY_BAND", 0.30)
+    assert abs(sm.backers_multiplier(["good"], scores) - 1.30) < 1e-9
+    assert abs(sm.backers_multiplier(["bad"], scores) - 0.70) < 1e-9
+    assert sm.backers_multiplier(["thin"], scores) == 1.0     # not proven yet
+    assert sm.backers_multiplier([], scores) == 1.0
+    assert abs(sm.backers_multiplier(["good", "bad"], scores) - 1.0) < 1e-9
+
+
+def test_wallet_scores_parse(tmp_path):
+    log = tmp_path / "wlog.csv"
+    with open(log, "w", newline="") as fh:
+        w = csv.writer(fh)
+        w.writerow(sm.WALLET_LOG_COLUMNS)
+        w.writerow(["t", "K1", "yes", "40", "0xA", "win (+60c)"])
+        w.writerow(["t", "K2", "yes", "40", "0xA", "loss (-40c)"])
+        w.writerow(["t", "K3", "yes", "40", "0xB", ""])          # unsettled
+    s = sm.wallet_scores(log)
+    assert s["0xA"] == {"n": 2, "net": 20.0}
+    assert "0xB" not in s                                        # not scored
+
+
+def test_sharp_exit_fraction(monkeypatch):
+    since = NOW - 3600
+    recent = {
+        "a": [_trade("a", "m", "A", 0.5, 100, NOW - 100, "SELL")],   # sold ours
+        "b": [_trade("b", "m", "B", 0.5, 100, NOW - 100, "SELL")],   # other side
+        "c": [_trade("c", "m", "A", 0.5, 100, NOW - 9000, "SELL")],  # pre-entry
+        "d": [_trade("d", "m", "A", 0.5, 100, NOW - 100, "BUY")],    # not a sell
+    }
+    monkeypatch.setattr(sm, "fetch_wallet_recent", lambda w: recent[w])
+    frac = sm.sharp_exit_fraction("m", "A", list("abcd"), since, now=NOW)
+    assert abs(frac - 0.25) < 1e-9                              # only 'a' exited
+
+
 def test_consensus_needs_distinct_wallets(monkeypatch):
     trades = {
         "w1": [_trade("w1", "mlb-phi-kc-2026-07-06", "Phillies", 0.60, 200),

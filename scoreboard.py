@@ -119,6 +119,37 @@ def _executed_section(lines: list) -> None:
     lines.append("")
 
 
+def _wallet_leaderboard(lines: list) -> None:
+    """Which sharp wallets have actually made us money — the flywheel's
+    feedback. Sizing tilts toward the top and away from the bottom once a
+    wallet has enough settled copies."""
+    try:
+        import strategy_smartmoney as sm
+        scores = sm.wallet_scores()
+    except Exception:
+        return
+    ranked = sorted((dict(w=w, **s) for w, s in scores.items() if s["n"] > 0),
+                    key=lambda r: -r["net"] / r["n"])
+    if not ranked:
+        return
+    lines += ["## 🦈 Sharp wallet leaderboard", "",
+              "_Realized ¢/copy from the wallets we've followed "
+              f"(sizing tilts once a wallet has ≥{sm.PROVEN_MIN} settled)._",
+              "", "| Wallet | Copies | Net | ¢/copy | Sizing |",
+              "|---|---|---|---|---|"]
+    show = ranked[:5] if len(ranked) <= 8 else ranked[:4] + ranked[-4:]
+    for r in show:
+        w = r["w"]
+        tag = f"{w[:6]}…{w[-4:]}" if len(w) > 12 else w
+        per = r["net"] / r["n"]
+        proven = r["n"] >= sm.PROVEN_MIN
+        mult = sm.backers_multiplier([w], scores) if proven else 1.0
+        sizing = f"×{mult:.2f}" if proven else "building"
+        lines += [f"| `{tag}` | {r['n']} | {r['net']:+.0f}¢ | {per:+.1f} | "
+                  f"{sizing} |"]
+    lines += [""]
+
+
 def build(out: Path = OUT) -> None:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     lines = [
@@ -135,6 +166,7 @@ def build(out: Path = OUT) -> None:
         "",
     ]
     _executed_section(lines)
+    _wallet_leaderboard(lines)
 
     for name, path in SOURCES:
         header, body = _read(path)
