@@ -1,9 +1,17 @@
-"""Tests for the paper sportsbook. Run: pytest tests/"""
+"""Tests for the paper sportsbook. Run: pytest tests/
+
+The paperbook is an optional side component with its own dependencies
+(paperbook/requirements.txt); skip cleanly when they aren't installed so
+the core suite stays green with only the root requirements.txt.
+"""
 
 import pathlib
 import tempfile
 
 import pytest
+
+pytest.importorskip("fastapi", reason="paperbook deps not installed "
+                    "(pip install -r paperbook/requirements.txt)")
 
 
 @pytest.fixture()

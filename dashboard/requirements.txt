@@ -1,0 +1,5 @@
+# Dashboard deps, on top of the root requirements.txt
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-multipart>=0.0.9  # login form parsing
+httpx2>=2.5  # starlette TestClient backend, needed by tests/test_dashboard_app.py

@@ -1,0 +1,19 @@
+# Reference for hosting the dashboard on Render (render.com).
+# Blueprint files must live at the repo root to be auto-detected, so use
+# this as the manual "New Web Service" settings instead — the exact
+# click-by-click walkthrough is in dashboard/README.md.
+services:
+  - type: web
+    name: autotrader-dashboard
+    runtime: python
+    buildCommand: pip install -r requirements.txt -r dashboard/requirements.txt
+    startCommand: uvicorn dashboard.app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DASHBOARD_PASSWORD
+        sync: false          # set in the Render dashboard, never in git
+      - key: KALSHI_API_KEY_ID
+        sync: false
+      - key: KALSHI_PRIVATE_KEY_PEM
+        sync: false          # paste the full .pem contents as the value
+      - key: KALSHI_ENV
+        value: prod
