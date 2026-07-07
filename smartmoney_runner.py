@@ -12,7 +12,15 @@ SM_COPY_MIN_PCT..SM_COPY_MAX_PCT of bankroll (owner spec: 4-8%).
            DRY_RUN, MAX_ORDER_SIZE, MAX_TOTAL_EXPOSURE) — raise the
            MAX_* repo Variables if they start clamping the % sizing.
   dedupe   never re-copies a market already held/resting/copied this
-           session, and one bet per event.
+           session, and — critically — NEVER both sides of one event.
+           The one-bet-per-event rule is enforced two ways so it can't
+           slip through a poll gap: (1) a live snapshot of held/resting
+           positions each pass, and (2) a durable set of every event this
+           SESSION has already touched. (2) matters because a maker order
+           placed one pass may not show up in the live snapshot on the
+           next pass (in-flight / fill lag) — without durable memory the
+           copier could buy the OTHER side of the same match 10 minutes
+           later. It has done exactly that; this is the guard.
   records  orders are logged locally AND recovered by the hourly runs'
            fills reconciliation, so the scoreboard stays true even
            though this process never commits to git.
@@ -64,8 +72,23 @@ def held_and_events(client) -> tuple:
     return held, {event_of(t) for t in held}
 
 
-def copy_pass(client, settings, session_seen: set) -> int:
-    """One scan-and-copy pass. Returns orders placed."""
+def signal_event(sig: dict) -> str:
+    """The authoritative event key for a signal: the event_ticker the
+    mapper carried from Kalshi's own metadata, falling back to the
+    ticker-derived prefix. Two markets on one match share this key, so
+    it is what we dedupe on to guarantee we never hold both sides."""
+    from auto_trade import event_of
+    return sig.get("event_ticker") or event_of(sig.get("ticker", ""))
+
+
+def copy_pass(client, settings, session_seen: set,
+              session_events: set) -> int:
+    """One scan-and-copy pass. Returns orders placed.
+
+    ``session_events`` persists ACROSS passes for the whole session; every
+    event we place into is recorded there so a later pass can never take
+    the opposite side, even if the first order hasn't surfaced in the live
+    position snapshot yet."""
     results = strategy_smartmoney.scan()
     if not results:
         return 0
@@ -98,9 +121,17 @@ def copy_pass(client, settings, session_seen: set) -> int:
     for r, s in flat:
         from auto_trade import event_of
         ticker, price = s["ticker"], s["price_cents"]
+        event = signal_event(s)
         if ticker in held or ticker in session_seen:
             continue
-        if event_of(ticker) in held_events:
+        # one bet per event, ever — never the other side of a match we've
+        # already touched. Check the live snapshot AND this session's
+        # durable memory (the snapshot can miss an in-flight maker order).
+        if event in held_events or event in session_events \
+                or event_of(ticker) in held_events \
+                or event_of(ticker) in session_events:
+            log.info("SKIP %s: already hold/placed a side of event %s",
+                     ticker, event)
             continue
         pct = copy_pct(s.get("wallets", strategy_smartmoney.MIN_WALLETS))
         budget = bankroll * pct / 100.0
@@ -127,6 +158,8 @@ def copy_pass(client, settings, session_seen: set) -> int:
         if settings.dry_run:
             log.info("DRY_RUN: copy not sent.")
             session_seen.add(ticker)
+            session_events.add(event)
+            session_events.add(event_of(ticker))
             continue
         from auto_trade import maker_price
         placed_price = maker_price(price, "smartmoney")
@@ -143,6 +176,8 @@ def copy_pass(client, settings, session_seen: set) -> int:
             log.warning("Execution-log write failed: %s", exc)
         session_seen.add(ticker)
         held_events.add(event_of(ticker))
+        session_events.add(event)
+        session_events.add(event_of(ticker))
         exposure += notional
         placed += 1
     return placed
@@ -166,12 +201,14 @@ def main() -> int:
         log.warning("LIVE: real-money copies this session.")
 
     session_seen = set()
+    session_events = set()
     once = "--once" in sys.argv
     deadline = time.time() + RUN_MINUTES * 60
     total = 0
     while True:
         try:
-            total += copy_pass(client, settings, session_seen)
+            total += copy_pass(client, settings, session_seen,
+                               session_events)
         except Exception as exc:
             log.error("Copy pass failed: %s — retrying next poll", exc)
         if once or time.time() >= deadline:

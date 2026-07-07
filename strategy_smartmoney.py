@@ -36,8 +36,8 @@ from pathlib import Path
 import requests
 
 from strategy_sports import SERIES, _words
-from strategy_weather import (price_cents, score_pending_paper_trades,
-                              taker_fee_cents)
+from strategy_weather import (_close_cents, price_cents,
+                              score_pending_paper_trades, taker_fee_cents)
 from trade_logger import get_logger, setup_logging
 
 log = get_logger("strategy_smartmoney")
@@ -49,9 +49,43 @@ PAPER_LOG = Path(__file__).resolve().parent / "paper_trades_smartmoney.csv"
 # picks LOSE get blacklisted from the sharp set (follow winners only)
 WALLET_LOG = Path(__file__).resolve().parent / "smartmoney_wallets_log.csv"
 BLACKLIST_PATH = Path(__file__).resolve().parent / "smartmoney_blacklist.json"
+# a wallet sharp in politics is usually noise in tennis: bar a wallet from
+# a CATEGORY where its copied picks have lost, without blacklisting it
+# everywhere. Keyed "wallet|category".
+CAT_BARS_PATH = Path(__file__).resolve().parent / "smartmoney_category_bars.json"
 WALLET_LOG_COLUMNS = ["ts", "ticker", "side", "price_cents", "wallet",
                       "outcome"]
 BLACKLIST_MIN_SETTLED = int(os.getenv("SM_BLACKLIST_MIN", "4"))
+CAT_BLACKLIST_MIN = int(os.getenv("SM_CAT_BLACKLIST_MIN", "4"))
+# hours after entry before we sample the market price to score CLV — long
+# enough for the line to react, short enough to read before settlement
+CLV_LAG_H = float(os.getenv("SM_CLV_LAG_H", "3"))
+
+
+def category_of(ticker: str) -> str:
+    """Coarse bucket for a Kalshi ticker, so per-wallet edge is judged
+    within a domain rather than pooled across unrelated sports."""
+    t = (ticker or "").upper()
+    if t.startswith(("KXMLBGAME", "KXNBA", "KXNFL", "KXNHL", "KXWNBA")):
+        return "usleague"
+    if t.startswith(("KXATPMATCH", "KXWTAMATCH")):
+        return "tennis"
+    if t.startswith(("KXFIFAGAME", "KXMENWORLDCUP", "KXWOMENWORLDCUP")):
+        return "soccer"
+    return "other"          # politics + discovered head-to-heads
+
+
+def load_category_bars() -> set:
+    try:
+        import json
+        return set(json.loads(CAT_BARS_PATH.read_text()))
+    except (FileNotFoundError, ValueError):
+        return set()
+
+
+def category_allowed(wallet: str, category: str, bars: set = None) -> bool:
+    bars = load_category_bars() if bars is None else bars
+    return f"{wallet}|{category}" not in bars
 
 # --- sharp-wallet discovery ---
 TAPE_MIN_USDC = float(os.getenv("SM_TAPE_MIN_USDC", "250"))   # big trades only
@@ -59,6 +93,13 @@ TAPE_PAGES = int(os.getenv("SM_TAPE_PAGES", "3"))             # x500 trades
 CANDIDATES_MAX = int(os.getenv("SM_CANDIDATES_MAX", "40"))    # PnL lookups cap
 SHARP_MIN_PNL_2W = float(os.getenv("SM_MIN_PNL_2W", "500"))   # $ over 2 weeks
 SHARP_N = int(os.getenv("SM_SHARP_N", "15"))                  # wallets tracked
+# QUALITY over size: rank sharps by RISK-ADJUSTED return (steady earners),
+# not raw dollar PnL (which just finds whales turning over size at a
+# coin-flip win rate), and reject wallets whose whole month is one lucky
+# day. All measured from the same 1-month PnL curve we already fetch.
+MIN_UPDAY_FRAC = float(os.getenv("SM_MIN_UPDAY_FRAC", "0.45"))  # up-days share
+MAX_DAY_SHARE = float(os.getenv("SM_MAX_DAY_SHARE", "0.80"))    # no 1-day spike
+MIN_CURVE_PTS = int(os.getenv("SM_MIN_CURVE_PTS", "6"))         # judge shape
 
 # --- consensus rule (the point of the model) ---
 CONS_WINDOW_H = float(os.getenv("SM_CONS_WINDOW_H", "36"))
@@ -172,9 +213,46 @@ def pnl_change(curve: list, days: float, now_ts: float = None) -> float:
     return curve[-1][1] - base
 
 
+def _daily_deltas(curve: list, days: float = 30,
+                  now_ts: float = None) -> list:
+    """Day-over-day PnL changes within the trailing window, using the last
+    point before the window as the baseline so the first change is real."""
+    if not curve:
+        return []
+    cutoff = (now_ts or datetime.now(timezone.utc).timestamp()) - days * 86400
+    base, inwin = None, []
+    for t, p in curve:
+        if t < cutoff:
+            base = p
+        else:
+            inwin.append(p)
+    seq = ([base] if base is not None else []) + inwin
+    return [seq[i] - seq[i - 1] for i in range(1, len(seq))]
+
+
+def curve_quality(curve: list, now_ts: float = None) -> dict:
+    """Shape metrics that separate skill from luck: what fraction of days
+    are up, how concentrated the gains are in a single day, and a
+    Sharpe-like risk-adjusted return (mean daily PnL / its volatility)."""
+    deltas = _daily_deltas(curve, 30, now_ts)
+    n = len(deltas)
+    gains = [d for d in deltas if d > 0]
+    up_frac = (sum(1 for d in deltas if d >= 0) / n) if n else 0.0
+    max_share = (max(gains) / sum(gains)) if gains else 1.0
+    if n >= 2:
+        mean = sum(deltas) / n
+        std = (sum((d - mean) ** 2 for d in deltas) / n) ** 0.5
+        sharpe = mean / (std + 1e-6)
+    else:
+        sharpe = 0.0
+    return dict(pts=n, up_frac=up_frac, max_share=max_share, sharpe=sharpe)
+
+
 def select_sharp_wallets() -> dict:
-    """wallet -> 2-week PnL for the top consistently profitable wallets
-    found behind recent big-money flow."""
+    """wallet -> 2-week PnL for the top wallets behind recent big-money
+    flow, RANKED BY RISK-ADJUSTED RETURN (not raw dollars, which just finds
+    whales) and filtered for consistency (up over the week, fortnight AND
+    month, steady rather than one lucky day)."""
     stake = {}
     for tr in fetch_big_trades():
         w = tr.get("proxyWallet")
@@ -188,7 +266,7 @@ def select_sharp_wallets() -> dict:
         log.info("Sharp selection excludes %d graded-out wallet(s)",
                  len(blacklist))
 
-    sharp = {}
+    sharp, rank = {}, {}
     for w in candidates:
         try:
             curve = fetch_pnl_curve(w)
@@ -197,13 +275,24 @@ def select_sharp_wallets() -> dict:
             continue
         pnl2w = pnl_change(curve, 14)
         pnl1w = pnl_change(curve, 7)
-        # profitable over the fortnight AND still up over the last week —
-        # filters the one-lucky-parlay wallets
-        if pnl2w >= SHARP_MIN_PNL_2W and pnl1w > 0:
-            sharp[w] = pnl2w
-    top = dict(sorted(sharp.items(), key=lambda kv: -kv[1])[:SHARP_N])
-    log.info("Sharp wallets: %d of %d candidates (2w PnL $%.0f..$%.0f)",
-             len(top), len(candidates),
+        pnl30 = pnl_change(curve, 30)
+        # profitable across the week, fortnight AND month — one lucky
+        # streak alone no longer qualifies a wallet
+        if not (pnl2w >= SHARP_MIN_PNL_2W and pnl1w > 0 and pnl30 > 0):
+            continue
+        q = curve_quality(curve)
+        # when the curve is long enough to judge, demand a STEADY earner:
+        # enough up-days and no single day carrying most of the profit
+        if q["pts"] >= MIN_CURVE_PTS and (q["up_frac"] < MIN_UPDAY_FRAC
+                                          or q["max_share"] > MAX_DAY_SHARE):
+            log.debug("Skip %s: shape up=%.2f 1-day=%.0f%%", w,
+                      q["up_frac"], 100 * q["max_share"])
+            continue
+        sharp[w] = pnl2w
+        rank[w] = q["sharpe"]        # risk-adjusted, not size
+    top = dict(sorted(sharp.items(), key=lambda kv: -rank[kv[0]])[:SHARP_N])
+    log.info("Sharp wallets: %d of %d candidates (ranked by risk-adjusted "
+             "return; 2w PnL $%.0f..$%.0f)", len(top), len(candidates),
              min(top.values(), default=0), max(top.values(), default=0))
     return top
 
@@ -269,15 +358,20 @@ def grade_wallets(client, path: Path = WALLET_LOG,
         with open(path, "w", newline="") as fh:
             csv.writer(fh).writerows([header] + body)
 
-    stats = {}
+    stats, cat_stats = {}, {}
     for row in body:
         out = row[idx["outcome"]]
         if not out or "(" not in out:
             continue
         w = row[idx["wallet"]]
+        net = float(out.split("(")[1].rstrip("c)"))
         s = stats.setdefault(w, dict(n=0, net=0.0))
         s["n"] += 1
-        s["net"] += float(out.split("(")[1].rstrip("c)"))
+        s["net"] += net
+        cat = category_of(row[idx["ticker"]])
+        cs = cat_stats.setdefault((w, cat), dict(n=0, net=0.0))
+        cs["n"] += 1
+        cs["net"] += net
     blacklist = {w for w, s in stats.items()
                  if s["n"] >= BLACKLIST_MIN_SETTLED and s["net"] < 0}
     if blacklist != load_blacklist():
@@ -285,7 +379,75 @@ def grade_wallets(client, path: Path = WALLET_LOG,
         log.info("Wallet grades updated: %d wallet(s) blacklisted (lost "
                  "money over >=%d settled copies)", len(blacklist),
                  BLACKLIST_MIN_SETTLED)
+    # per-category bars: a wallet net-negative in ONE domain is barred from
+    # that domain only (it may still be sharp elsewhere)
+    cat_bars = {f"{w}|{c}" for (w, c), s in cat_stats.items()
+                if s["n"] >= CAT_BLACKLIST_MIN and s["net"] < 0}
+    if cat_bars != load_category_bars():
+        CAT_BARS_PATH.write_text(json.dumps(sorted(cat_bars)))
+        log.info("Category grades updated: %d wallet-category pair(s) barred",
+                 len(cat_bars))
     return blacklist
+
+
+def score_copier_clv(path: Path = PAPER_LOG, now_ts: float = None) -> None:
+    """Closing-line value for copies: compare our entry to the Kalshi price
+    a few HOURS later while the market is STILL TRADING — the honest test of
+    whether the copier is EARLY (line moves our way after we buy, +CLV) or
+    late (edge already priced in, ~0/-CLV). Filled once per row and never
+    overwritten, so this early reading — not the settlement price — is what
+    the scoreboard reports. Rows that settle before the lag elapses are
+    left for the outcome scorer."""
+    import csv
+    from datetime import datetime
+    if not path.exists():
+        return
+    with open(path, newline="") as fh:
+        rows = list(csv.reader(fh))
+    if len(rows) < 2:
+        return
+    header, body = rows[0], rows[1:]
+    if "clv_cents" not in header:
+        if "model_prob" not in header:
+            return
+        header.append("clv_cents")
+    for row in body:                      # pad legacy/short rows
+        while len(row) < len(header):
+            row.append("")
+    idx = {name: i for i, name in enumerate(header)}
+    now = now_ts or datetime.now(timezone.utc).timestamp()
+    from kalshi_client import KalshiClient
+    client = KalshiClient(env="prod")
+    scored = 0
+    for row in body:
+        if row[idx["clv_cents"]] or row[idx["outcome"]]:
+            continue
+        try:
+            entered = datetime.fromisoformat(
+                row[idx["scanned_at_utc"]]).timestamp()
+        except (ValueError, KeyError, IndexError):
+            continue
+        if now - entered < CLV_LAG_H * 3600:      # give the line time to move
+            continue
+        try:
+            market = client.get_market(row[idx["ticker"]])
+        except Exception:
+            continue
+        if market.get("result") in ("yes", "no"):
+            continue                              # settled before we sampled
+        close = _close_cents(market)
+        if close is None:
+            continue
+        price = float(row[idx["price_cents"]])
+        clv = (close - price) if row[idx["side"]] == "yes" \
+            else ((100.0 - close) - price)
+        row[idx["clv_cents"]] = f"{clv:+.0f}"
+        scored += 1
+    if scored:
+        with open(path, "w", newline="") as fh:
+            csv.writer(fh).writerows([header] + body)
+        log.info("Copier CLV: sampled %d fresh copy(ies) (early line read)",
+                 scored)
 
 
 def fetch_wallet_buys(wallet: str, window_h: float,
@@ -620,6 +782,7 @@ def scan() -> list:
         return []
 
     client = KalshiClient(env="prod")
+    cat_bars = load_category_bars()      # per-domain wallet grades, loaded once
     events_by_series = {}
 
     def events_for(series: str) -> list:
@@ -697,6 +860,17 @@ def scan() -> list:
                 continue
         if not sig:
             continue
+        # per-category gate: only sharps with a NON-losing record in this
+        # domain count. If barring them drops the consensus below the
+        # minimum, the pick no longer has enough proven backing -> skip.
+        cat = category_of(sig["ticker"])
+        backing = [w for w in sig.get("wallet_ids", [])
+                   if category_allowed(w, cat, cat_bars)]
+        if len(backing) < MIN_WALLETS:
+            log.info("Category gate (%s): %s dropped — only %d/%d backing "
+                     "sharps have a non-losing %s record", cat, sig["ticker"],
+                     len(backing), cons["wallets"], cat)
+            continue
         event_ticker = sig.pop("event_ticker")
         title = sig.pop("event_title")
         log.info("SMART MONEY: %d sharps ($%.0f) on %s -> %s",
@@ -711,6 +885,7 @@ def scan() -> list:
 def main() -> int:
     setup_logging()
     try:
+        score_copier_clv()                # early line read before settlement
         score_pending_paper_trades(PAPER_LOG)
     except Exception as exc:
         log.warning("Scoring skipped (%s)", exc)

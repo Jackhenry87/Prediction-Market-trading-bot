@@ -160,7 +160,7 @@ def build(out: Path = OUT) -> None:
         # beat the closing price — the classic predictor of profitability.
         settled = [r for r in body
                    if r[idx["outcome"]].startswith(("win", "loss"))]
-        if settled and "model_prob" in idx:
+        if "model_prob" in idx:
             briers = []
             for r in settled:
                 try:
@@ -169,9 +169,12 @@ def build(out: Path = OUT) -> None:
                     continue
                 won = 1.0 if r[idx["outcome"]].startswith("win") else 0.0
                 briers.append((p - won) ** 2)
+            # CLV is sampled mid-life (before settlement), so count every
+            # row that has a reading, not just settled ones — that's the
+            # early signal we want to see as soon as it exists
             clvs = []
             if "clv_cents" in idx:
-                for r in settled:
+                for r in body:
                     if len(r) > idx["clv_cents"] and r[idx["clv_cents"]]:
                         try:
                             clvs.append(float(r[idx["clv_cents"]]))
@@ -180,13 +183,12 @@ def build(out: Path = OUT) -> None:
             stats = []
             if briers:
                 stats.append(f"Brier **{sum(briers) / len(briers):.3f}** "
-                             f"(coin flip 0.25)")
+                             f"(coin flip 0.25) over {len(briers)} settled")
             if clvs:
                 avg = sum(clvs) / len(clvs)
-                stats.append(f"avg CLV **{avg:+.1f}¢**")
+                stats.append(f"avg CLV **{avg:+.1f}¢** over {len(clvs)} sampled")
             if stats:
-                lines += ["_" + " · ".join(stats)
-                          + f" over {len(settled)} settled_", ""]
+                lines += ["_" + " · ".join(stats) + "_", ""]
         lines += [
             "| Scanned (UTC) | Market | Side | Price | Model | Result |",
             "|---|---|---|---|---|---|",
