@@ -14,6 +14,20 @@ def test_new_york_cut_but_cities_reversible(monkeypatch):
     assert sw.city_enabled(by_series["KXHIGHNY"])
 
 
+def test_station_cal_prefers_measured_and_benches(monkeypatch):
+    city = {"series": "KXHIGHDEN", "bias": -0.5, "sigma": 2.5}
+    # no calibration file -> static constants, trades
+    c = sw.station_cal(city, cal={})
+    assert c["bias"] == -0.5 and c["sigma"] == 2.5 and c["trade"] is True
+    # measured recent calibration overrides the constants
+    cal = {"KXHIGHDEN": {"bias": 1.2, "sigma": 3.0, "trade": True}}
+    c = sw.station_cal(city, cal=cal)
+    assert c["bias"] == 1.2 and c["sigma"] == 3.0
+    # a benched station is flagged so scan() skips it
+    cal = {"KXHIGHDEN": {"bias": 0.0, "sigma": 6.0, "trade": False}}
+    assert sw.station_cal(city, cal=cal)["trade"] is False
+
+
 def test_normal_cdf_basics():
     assert abs(sw.normal_cdf(0, 0, 1) - 0.5) < 1e-9
     assert sw.normal_cdf(10, 0, 1) > 0.999
