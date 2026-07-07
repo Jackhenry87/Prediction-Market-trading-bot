@@ -46,8 +46,9 @@ async def lifespan(app: FastAPI):
     state["trades"] = data.load_history()
     state["updated_at"] = data.now_iso()
     client = None
-    if settings.kalshi_api_key_id and (settings.kalshi_private_key_pem
-                                       or settings.kalshi_private_key_path):
+    has_key = bool(settings.kalshi_private_key_pem
+                   or settings.kalshi_private_key_path)
+    if settings.kalshi_api_key_id and has_key:
         try:
             client = KalshiClient(settings.kalshi_api_key_id,
                                   settings.kalshi_private_key_path or None,
@@ -55,10 +56,17 @@ async def lifespan(app: FastAPI):
                                   private_key_pem=(
                                       settings.kalshi_private_key_pem or None))
         except Exception as exc:  # bad key must not take the site down
-            log.error("Kalshi credentials rejected (%s: %s) — check "
-                      "KALSHI_PRIVATE_KEY_PEM is the full unmodified .pem; "
-                      "starting in REPLAY mode instead",
-                      type(exc).__name__, exc)
+            state["live_error"] = (
+                f"private key rejected ({type(exc).__name__}: {exc}) — "
+                f"re-paste the full .pem into KALSHI_PRIVATE_KEY_PEM")
+    elif settings.kalshi_api_key_id:
+        state["live_error"] = ("KALSHI_API_KEY_ID is set but no private key "
+                               "found — set KALSHI_PRIVATE_KEY_PEM")
+    elif has_key:
+        state["live_error"] = ("private key found but KALSHI_API_KEY_ID is "
+                               "empty — set it to the key's ID from Kalshi")
+    if state["live_error"]:
+        log.error("%s — starting in REPLAY mode instead", state["live_error"])
     if client:
         state["mode"] = "live"
         task = asyncio.create_task(live_poller(client))
@@ -84,6 +92,7 @@ state = {
     "resting_orders": 0,
     "exchange_active": None,
     "updated_at": None,
+    "live_error": None,   # why we're in replay mode, shown on the page
 }
 sockets: set = set()
 
@@ -110,6 +119,7 @@ def snapshot() -> dict:
         "resting_orders": state["resting_orders"],
         "exchange_active": state["exchange_active"],
         "updated_at": state["updated_at"],
+        "live_error": state["live_error"],
     }
 
 

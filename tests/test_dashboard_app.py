@@ -22,7 +22,8 @@ def test_snapshot_shape(client, monkeypatch):
     r = client.get("/api/snapshot")
     assert r.status_code == 200
     body = r.json()
-    assert set(body) >= {"mode", "stats", "feed", "positions", "balance_usd"}
+    assert set(body) >= {"mode", "stats", "feed", "positions", "balance_usd",
+                         "live_error"}
     assert body["stats"]["trades"] == 0
 
 

@@ -88,9 +88,11 @@ class DashboardSettings:
 
 
 def _normalize_pem(pem: str) -> str:
-    """Repair PEM text whose newlines got mangled by an env-var editor
-    (a very common hosted-deploy failure): rebuild the standard header /
-    64-char body lines / footer. Already-valid PEM passes through intact."""
+    """Repair PEM text mangled by an env-var editor (a very common hosted
+    deploy failure): drop stray wrapping quotes and rebuild the standard
+    header / 64-char body lines / footer when the newlines were flattened.
+    Already-valid PEM passes through intact."""
+    pem = pem.strip().strip("\"'")
     m = re.match(r"\s*-----BEGIN ([A-Z0-9 ]+)-----(.+)-----END \1-----\s*$",
                  pem, re.S)
     if not m:

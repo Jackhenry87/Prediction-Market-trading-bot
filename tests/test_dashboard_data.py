@@ -18,6 +18,7 @@ def test_normalize_pem_repairs_mangled_newlines():
     flattened = good.replace("\n", " ")
     assert config._normalize_pem(flattened) == good
     assert config._normalize_pem(good) == good
+    assert config._normalize_pem('"' + flattened + '"') == good  # quoted paste
     assert config._normalize_pem("not a pem") == "not a pem"
 
 

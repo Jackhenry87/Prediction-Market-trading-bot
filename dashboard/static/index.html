@@ -193,7 +193,7 @@ const THEME_COLORS = {weather:"var(--weather)",sports:"var(--sports)",crypto:"va
 const fmt$ = (v,sign) => (v==null?"—":(sign&&v>0?"+":"")+(v<0?"-":"")+"$"+Math.abs(v).toFixed(2));
 const cents = v => v==null?"—":Math.round(v)+"¢";
 
-let stats=null, feedTrades=[], balance=null, mode="replay";
+let stats=null, feedTrades=[], balance=null, mode="replay", liveError=null;
 
 /* ---------- count-up tiles ---------- */
 const shown={};
@@ -349,7 +349,14 @@ function renderModels(){
 /* ---------- positions ---------- */
 function renderPositions(list){
   const box=$("positions");
-  if(mode==="replay"){ $("possub").textContent="live mode only — add Kalshi keys to .env"; box.innerHTML=`<div class="empty">shown when running with credentials</div>`; return; }
+  if(mode==="replay"){
+    $("possub").textContent="live mode only";
+    box.innerHTML=`<div class="empty"></div>`;
+    box.firstChild.textContent = liveError
+      ? "Not live: "+liveError
+      : "Shown when running with Kalshi credentials.";
+    return;
+  }
   if(!list||!list.length){ box.innerHTML=`<div class="empty">no open positions</div>`; return; }
   box.innerHTML=list.map(p=>`<div class="pos-item" data-ticker="${p.ticker}">
       <span><span class="tdot" style="background:${THEME_COLORS[p.theme]||THEME_COLORS.other}"></span>
@@ -376,7 +383,8 @@ function renderHeader(snap){
   else $("exchpill").textContent = mode==="replay"?"exchange n/a":"exchange —";
   if(snap.updated_at) $("updpill").textContent="updated "+snap.updated_at.slice(11,19)+" UTC";
   $("feedsub").textContent = mode==="replay"
-    ? "REPLAY of your real history — add keys for live"
+    ? (liveError ? "REPLAY — "+liveError
+                 : "REPLAY of your real history — add keys for live")
     : "every buy & sell, newest first";
   $("restpill").textContent = mode==="live" ? (snap.resting_orders??0)+" resting orders" : "";
 }
@@ -384,6 +392,7 @@ function renderHeader(snap){
 /* ---------- websocket ---------- */
 function applySnapshot(s){
   stats=s.stats; balance=s.balance_usd; feedTrades=s.feed||[];
+  liveError=s.live_error||null;
   renderHeader(s); renderTiles(); renderTape(); renderFeed(); renderChart(); renderModels();
   renderPositions(s.positions);
 }
