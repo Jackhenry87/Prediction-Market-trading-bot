@@ -39,8 +39,8 @@ def _pnl_cents(outcome: str) -> float:
 
 
 def _account_section(lines: list) -> None:
-    """Headline money truth from Kalshi's own books (account_snapshot.json,
-    written by every run): balance, open exposure, realized won/lost."""
+    """Headline money truth, anchored so it can't lie: total EQUITY (cash +
+    live value of open positions) minus what was deposited."""
     import json
     path = ROOT / "account_snapshot.json"
     if not path.exists():
@@ -49,22 +49,27 @@ def _account_section(lines: list) -> None:
         snap = json.loads(path.read_text())
     except ValueError:
         return
-    pnl = snap.get("realized_pnl_usd", 0.0)
+    # net P&L = equity - deposits (fall back to legacy field if present)
+    pnl = snap.get("net_pnl_usd", snap.get("realized_pnl_usd", 0.0))
     sign = "+" if pnl >= 0 else "-"
     dot = "🟢" if pnl >= 0 else "🔴"
-    exp = snap.get("exposure_usd")
-    exp_s = "n/a" if exp is None else f"${exp:.2f}"
-    lines += [
-        "## 💰 Account",
-        "",
-        f"**Balance ${snap.get('balance_usd', 0):.2f}** · "
-        f"open exposure {exp_s} · "
-        f"{dot} **won/lost since {snap.get('since', '?')}: "
-        f"{sign}${abs(pnl):.2f}** "
-        f"({snap.get('settled_wins', 0)} wins / "
-        f"{snap.get('settled_losses', 0)} losses on settled markets)",
-        "",
-    ]
+    cash = snap.get("balance_usd", 0.0)
+    pv = snap.get("positions_value_usd")
+    equity = snap.get("equity_usd", cash + (pv or 0.0))
+    deposits = snap.get("deposits_usd")
+    pv_s = "n/a" if pv is None else f"${pv:.2f}"
+    head = (f"## 💰 Account", "",
+            f"**Equity ${equity:.2f}** = cash ${cash:.2f} + open positions "
+            f"{pv_s}", "")
+    lines += list(head)
+    if deposits is not None:
+        lines += [f"{dot} **Net P&L: {sign}${abs(pnl):.2f}** "
+                  f"(${deposits:.2f} deposited → ${equity:.2f} now) · "
+                  f"{snap.get('settled_wins', 0)}W / "
+                  f"{snap.get('settled_losses', 0)}L settled", ""]
+    else:
+        lines += [f"{dot} **{sign}${abs(pnl):.2f}** since "
+                  f"{snap.get('since', '?')}", ""]
 
 
 def _confidence_map() -> dict:

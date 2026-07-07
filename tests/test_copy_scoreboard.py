@@ -42,6 +42,24 @@ def test_copy_scoreboard_empty(tmp_path):
     assert "No copy trades recorded yet" in out.read_text()
 
 
+def test_account_section_equity_minus_deposits(tmp_path, monkeypatch):
+    import json
+
+    import scoreboard
+    monkeypatch.setattr(scoreboard, "ROOT", tmp_path)
+    (tmp_path / "account_snapshot.json").write_text(json.dumps({
+        "balance_usd": 15.28, "positions_value_usd": 9.00,
+        "equity_usd": 24.28, "deposits_usd": 50.0, "net_pnl_usd": -25.72,
+        "settled_wins": 29, "settled_losses": 162, "since": "2026-07-01"}))
+    lines = []
+    scoreboard._account_section(lines)
+    md = "\n".join(lines)
+    # equity breakdown and the honest deposit-anchored P&L, not a phantom
+    assert "Equity $24.28" in md and "cash $15.28" in md
+    assert "open positions $9.00" in md
+    assert "Net P&L: -$25.72" in md and "$50.00 deposited → $24.28 now" in md
+
+
 def test_weather_by_city_from_settlements(tmp_path, monkeypatch):
     import json
 

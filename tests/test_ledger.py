@@ -146,8 +146,9 @@ def test_scoreboard_account_headline(tmp_path, monkeypatch):
     import json
     import scoreboard
     (tmp_path / "account_snapshot.json").write_text(json.dumps(dict(
-        balance_usd=15.36, exposure_usd=0.0, realized_pnl_usd=-24.51,
-        settled_wins=9, settled_losses=17, since="2026-07-01",
+        balance_usd=15.36, positions_value_usd=9.15, equity_usd=24.51,
+        deposits_usd=50.0, net_pnl_usd=-25.49, settled_wins=9,
+        settled_losses=17, since="2026-07-01",
         updated="2026-07-06T21:00:00+00:00")))
     monkeypatch.setattr(scoreboard, "ROOT", tmp_path)
     monkeypatch.setattr(scoreboard, "SOURCES", [])
@@ -155,9 +156,9 @@ def test_scoreboard_account_headline(tmp_path, monkeypatch):
     scoreboard.build(out)
     text = out.read_text()
     assert "## 💰 Account" in text
-    assert "Balance $15.36" in text
-    assert "won/lost since 2026-07-01: -$24.51" in text
-    assert "9 wins / 17 losses" in text
+    assert "Equity $24.51" in text and "cash $15.36" in text
+    assert "Net P&L: -$25.49" in text
+    assert "$50.00 deposited → $24.51 now" in text
 
 
 def test_reconcile_handles_live_api_schema(tmp_path):
