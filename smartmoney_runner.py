@@ -117,7 +117,10 @@ def copy_pass(client, settings, session_seen: set,
     placed = 0
 
     flat = [(r, s) for r in results for s in r["signals"]]
-    flat.sort(key=lambda rs: -rs[1].get("stake", 0.0))
+    # place the highest-CONVICTION copies first so, if a cap binds, the
+    # sharpest-sized pile gets funded ahead of a whale's routine bet
+    flat.sort(key=lambda rs: -rs[1].get("conviction",
+                                        rs[1].get("stake", 0.0)))
     for r, s in flat:
         from auto_trade import event_of
         ticker, price = s["ticker"], s["price_cents"]

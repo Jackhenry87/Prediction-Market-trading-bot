@@ -105,6 +105,12 @@ MIN_CURVE_PTS = int(os.getenv("SM_MIN_CURVE_PTS", "6"))         # judge shape
 CONS_WINDOW_H = float(os.getenv("SM_CONS_WINDOW_H", "36"))
 MIN_WALLETS = int(os.getenv("SM_MIN_WALLETS", "3"))           # distinct sharps
 MIN_STAKE_USDC = float(os.getenv("SM_MIN_STAKE", "50"))       # per-sharp stake
+# CONVICTION: a bet's weight in the consensus ranking is scaled by how big
+# it is FOR THAT WALLET (a sharp dropping 5x its usual size is screaming;
+# a whale's routine size is not), capped so one wallet can't dominate.
+# Pricing (avg entry) stays raw — we still copy where they actually got in.
+CONV_CAP = float(os.getenv("SM_CONV_CAP", "4"))              # max x-normal
+CONV_FLOOR = float(os.getenv("SM_CONV_FLOOR", "20"))        # $ typical-size floor
 
 # --- pricing ---
 # Sharps demand an edge, so fair value sits above their entry: prob =
@@ -469,29 +475,75 @@ def fetch_wallet_buys(wallet: str, window_h: float,
     return out
 
 
+def fetch_wallet_recent(wallet: str) -> list:
+    """This wallet's raw recent trades — the baseline for how big its bets
+    normally are (conviction) and whether it plays both sides (wash)."""
+    try:
+        return _get(TAPE_URL, user=wallet, limit=100)
+    except Exception as exc:
+        log.debug("recent-trades fetch failed for %s (%s)", wallet, exc)
+        return []
+
+
+def _typical_notional(trades: list) -> float:
+    """This wallet's usual bet size (median trade notional), floored so a
+    micro-history can't produce absurd conviction multipliers."""
+    vals = sorted(float(t.get("size", 0)) * float(t.get("price", 0))
+                  for t in trades if float(t.get("size", 0)) > 0)
+    med = vals[len(vals) // 2] if vals else 0.0
+    return max(med, CONV_FLOOR)
+
+
+def _is_wash_wallet(trades: list, window_h: float, now: float) -> bool:
+    """True if the wallet BOUGHT two or more DIFFERENT outcomes of the same
+    market recently — the signature of a market-maker / wash trader whose
+    'PnL' is spread capture, not a directional read worth copying."""
+    by_market = {}
+    for tr in trades:
+        if tr.get("side") != "BUY":
+            continue
+        if now - float(tr.get("timestamp", 0)) > window_h * 3600:
+            continue
+        m = tr.get("conditionId") or tr.get("slug") or ""
+        by_market.setdefault(m, set()).add(
+            tr.get("outcome") or str(tr.get("outcomeIndex")))
+    return any(len(sides) >= 2 for sides in by_market.values())
+
+
 def build_consensus(sharp_wallets: dict, now_ts: float = None) -> list:
     """Markets where >= MIN_WALLETS distinct sharps bought the SAME outcome
-    recently. Returns [{slug, title, outcome, wallets, stake, avg_price}]."""
+    recently. Ranked by CONVICTION (per-wallet-normalised size), with
+    market-maker/wash wallets dropped. Pricing stays raw stake-weighted."""
+    now = now_ts or datetime.now(timezone.utc).timestamp()
     groups = {}
     for w in sharp_wallets:
+        recent = fetch_wallet_recent(w)
+        if _is_wash_wallet(recent, CONS_WINDOW_H, now):
+            log.debug("Wash/two-sided wallet dropped from consensus: %s", w)
+            continue
+        typical = _typical_notional(recent)
         for tr in fetch_wallet_buys(w, CONS_WINDOW_H, now_ts):
             key = (tr.get("slug") or tr.get("conditionId") or "",
                    tr.get("outcome") or str(tr.get("outcomeIndex")))
             g = groups.setdefault(key, dict(wallets=set(), stake=0.0,
-                                            weighted=0.0,
+                                            weighted=0.0, conviction=0.0,
                                             title=tr.get("title", "")))
-            usdc = float(tr.get("size", 0)) * float(tr.get("price", 0))
+            price = float(tr.get("price", 0))
+            usdc = float(tr.get("size", 0)) * price
+            conv = min(CONV_CAP, usdc / typical)      # x this wallet's normal
             g["wallets"].add(w)
             g["stake"] += usdc
-            g["weighted"] += usdc * float(tr.get("price", 0))
+            g["weighted"] += usdc * price              # raw -> pricing unchanged
+            g["conviction"] += usdc * conv             # conviction -> ranking
     out = []
     for (slug, outcome), g in groups.items():
         if len(g["wallets"]) >= MIN_WALLETS and g["stake"] > 0:
             out.append(dict(slug=slug, outcome=outcome, title=g["title"],
                             wallets=len(g["wallets"]), stake=g["stake"],
+                            conviction=g["conviction"],
                             wallet_ids=sorted(g["wallets"]),
                             avg_price=g["weighted"] / g["stake"]))
-    out.sort(key=lambda c: -c["stake"])
+    out.sort(key=lambda c: -c["conviction"])
     return out
 
 
@@ -521,6 +573,7 @@ def _priced_signal(cons: dict, market: dict, event: dict) -> dict:
     return dict(side="yes", price_cents=yes_ask, model_prob=p,
                 ev_cents=ev, ticker=market.get("ticker"),
                 wallets=cons["wallets"], stake=cons["stake"],
+                conviction=cons.get("conviction", cons["stake"]),
                 wallet_ids=cons.get("wallet_ids", []),
                 subtitle=f"{label} ({cons['wallets']} sharps, "
                          f"${cons['stake']:.0f})",
