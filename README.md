@@ -33,12 +33,14 @@ live bankroll, and records every signal and execution for scoring.
 | Model | File | Edge hypothesis |
 |-------|------|-----------------|
 | weather | `strategy_weather.py` | NWS station forecasts reprice Kalshi's daily high-temp buckets slower than the forecast updates. Normal(forecast, SIGMA_F) prices each bucket. |
-| sports | `strategy_sports.py` | Devigged sportsbook consensus (Shin's method per book, Pinnacle weighted 3×) vs Kalshi moneylines, with a line-movement (steam) filter: only trade sides the sharp line moved toward. |
+| sports | `strategy_sports.py` | Devigged sportsbook consensus (Shin's method per book, Pinnacle weighted 3×) vs Kalshi moneylines, with a line-movement (steam) filter: only trade sides the sharp line moved toward. OFF in the hourly (owner call) — sports bets come from the smart-money copier only. |
 | macro | `strategy_macro.py` | Resolution lag: after a macro print (claims, CPI, payrolls, U3) the correct side is *known*; buy it if still cheap. Fresh-release gate + strict reference-period matching. OFF by default. |
 | crypto | `strategy_crypto.py` | Lognormal option-style pricing of BTC/ETH threshold markets. OFF (weak edge). |
 | commodities | `strategy_commodities.py` | Same approach for oil/gas/metals thresholds. OFF (weak edge). |
 
-`ENABLED_MODELS` (repo Variable) controls which run; default `weather,sports`.
+`ENABLED_MODELS` (repo Variable) controls which run; default `weather,nowcast`
+(the hourly is weather-only — every other market comes from the smart-money
+copier, which runs its own always-on watcher).
 
 ## Automation (GitHub Actions)
 
