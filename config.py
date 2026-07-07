@@ -80,6 +80,7 @@ class DashboardSettings:
     of polling the live account. It can never place orders either way."""
     kalshi_api_key_id: str = ""
     kalshi_private_key_path: str = ""
+    kalshi_private_key_pem: str = ""   # PEM text alternative to the path
     kalshi_env: str = "demo"
     password: str = ""          # empty = no login gate (local use)
     poll_seconds: int = 20      # live-mode poll cadence
@@ -92,7 +93,10 @@ def load_dashboard_settings() -> DashboardSettings:
 
     key_id = os.getenv("KALSHI_API_KEY_ID", "").strip()
     key_path = os.getenv("KALSHI_PRIVATE_KEY_PATH", "").strip()
-    if key_path and not os.path.isfile(key_path):
+    # Hosts like Render/Actions store the key as secret TEXT, not a file —
+    # accept either. PEM text wins when both are set.
+    key_pem = os.getenv("KALSHI_PRIVATE_KEY_PEM", "").strip()
+    if key_path and not key_pem and not os.path.isfile(key_path):
         raise ConfigError(
             f"KALSHI_PRIVATE_KEY_PATH points to {key_path!r} but no such "
             f"file exists."
@@ -111,6 +115,7 @@ def load_dashboard_settings() -> DashboardSettings:
     return DashboardSettings(
         kalshi_api_key_id=key_id,
         kalshi_private_key_path=key_path,
+        kalshi_private_key_pem=key_pem,
         kalshi_env=env,
         password=os.getenv("DASHBOARD_PASSWORD", "").strip(),
         poll_seconds=poll_seconds,

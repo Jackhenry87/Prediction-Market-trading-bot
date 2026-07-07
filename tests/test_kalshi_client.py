@@ -47,6 +47,29 @@ def test_env_selection(client):
         kalshi_client.KalshiClient("id", "nope.pem", "staging")
 
 
+def test_private_key_pem_text_signs_like_the_file(tmp_path):
+    """Hosts that store the key as secret text (Render, Actions) must get
+    the same signing behavior as the .pem-file path."""
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    pem = key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    )
+    client = kalshi_client.KalshiClient(
+        "test-key-id", None, "demo", private_key_pem=pem.decode())
+    headers = client._headers("GET", "/trade-api/v2/portfolio/balance")
+    message = (headers["KALSHI-ACCESS-TIMESTAMP"]
+               + "GET" + "/trade-api/v2/portfolio/balance").encode()
+    key.public_key().verify(
+        base64.b64decode(headers["KALSHI-ACCESS-SIGNATURE"]),
+        message,
+        padding.PSS(mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=hashes.SHA256().digest_size),
+        hashes.SHA256(),
+    )
+
+
 def test_order_body_v2_single_book_mapping(client, monkeypatch):
     captured = {}
 

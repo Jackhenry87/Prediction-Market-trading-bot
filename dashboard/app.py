@@ -44,11 +44,14 @@ settings = load_dashboard_settings()
 async def lifespan(app: FastAPI):
     state["trades"] = data.load_history()
     state["updated_at"] = data.now_iso()
-    if settings.kalshi_api_key_id and settings.kalshi_private_key_path:
+    if settings.kalshi_api_key_id and (settings.kalshi_private_key_pem
+                                       or settings.kalshi_private_key_path):
         state["mode"] = "live"
         client = KalshiClient(settings.kalshi_api_key_id,
-                              settings.kalshi_private_key_path,
-                              settings.kalshi_env)
+                              settings.kalshi_private_key_path or None,
+                              settings.kalshi_env,
+                              private_key_pem=settings.kalshi_private_key_pem
+                              or None)
         task = asyncio.create_task(live_poller(client))
         log.info("dashboard LIVE (%s), polling every %ss",
                  settings.kalshi_env, settings.poll_seconds)
@@ -135,11 +138,22 @@ def _positions_view(raw: dict, quotes: dict) -> list:
 async def live_poller(client: KalshiClient) -> None:
     seen_fills, seen_settles = set(), set()
     # Everything already in the CSV seed is history, not a fresh event.
+    # Keep retrying the seed — a failure here (bad creds, network blip at
+    # boot) must not silently kill the poller task.
     start_ts = max([t["ts"] for t in state["trades"]], default=0)
-    for f in await asyncio.to_thread(client.get_fills, start_ts or None):
-        seen_fills.add(_fill_key(f))
-    for s in await asyncio.to_thread(client.get_settlements, start_ts or None):
-        seen_settles.add(_settle_key(s))
+    while True:
+        try:
+            for f in await asyncio.to_thread(client.get_fills,
+                                             start_ts or None):
+                seen_fills.add(_fill_key(f))
+            for s in await asyncio.to_thread(client.get_settlements,
+                                             start_ts or None):
+                seen_settles.add(_settle_key(s))
+            break
+        except (KalshiError, OSError) as exc:
+            log.warning("live seed failed, retrying in %ss: %s",
+                        settings.poll_seconds, exc)
+            await asyncio.sleep(settings.poll_seconds)
 
     quotes: dict = {}
     while True:

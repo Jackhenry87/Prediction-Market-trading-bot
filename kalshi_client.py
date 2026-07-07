@@ -31,15 +31,23 @@ class KalshiError(Exception):
 
 class KalshiClient:
     def __init__(self, key_id: str = None, private_key_path: str = None,
-                 env: str = "demo"):
+                 env: str = "demo", private_key_pem: str = None):
         """Without credentials the client is public/read-only: market-data
-        endpoints work unauthenticated, portfolio/trading calls will 401."""
+        endpoints work unauthenticated, portfolio/trading calls will 401.
+
+        The key can come from a .pem file (local .env workflow) or directly
+        as PEM text via private_key_pem (hosts like Render/Actions that
+        store the key as a secret env var, not a file)."""
         if env not in ROOTS:
             raise KalshiError(f"KALSHI_ENV must be demo or prod, got {env!r}")
         self.env = env
         self.root = ROOTS[env]
         self.key_id = key_id
-        if key_id and private_key_path:
+        if key_id and private_key_pem:
+            self.private_key = serialization.load_pem_private_key(
+                private_key_pem.encode(), password=None
+            )
+        elif key_id and private_key_path:
             with open(private_key_path, "rb") as fh:
                 self.private_key = serialization.load_pem_private_key(
                     fh.read(), password=None
