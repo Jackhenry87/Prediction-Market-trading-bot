@@ -219,6 +219,13 @@ def build(out: Path = OUT) -> None:
     ]
     _account_section(lines)
     lines += [
+        "## 📑 Spreadsheets",
+        "",
+        "- **[kalshi_report.csv](kalshi_report.csv)** — real money: every open "
+        "position + settled market since Jul 2, with model, city and copy-trade "
+        "columns (GitHub shows it as a sortable table; opens in Excel/Sheets).",
+        "- **[paper_report.csv](paper_report.csv)** — paper trades only, kept "
+        "separate from the real book.",
         "",
     ]
     _executed_section(lines)

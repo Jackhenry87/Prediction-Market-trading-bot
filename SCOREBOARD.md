@@ -1,6 +1,6 @@
 # 📊 Trading Scoreboard
 
-_Updated 2026-07-08 04:47 UTC — auto-generated every run; do not edit._
+_Updated 2026-07-08 05:15 UTC — auto-generated every run; do not edit._
 
 Signals are scored against official settlement whether or not a real order was placed. P&L shown is per 1-contract stakes.
 
@@ -10,6 +10,10 @@ Signals are scored against official settlement whether or not a real order was p
 
 🔴 **Net P&L: -$18.26** ($50.00 deposited → $31.74 now) · 18W / 70L settled
 
+## 📑 Spreadsheets
+
+- **[kalshi_report.csv](kalshi_report.csv)** — real money: every open position + settled market since Jul 2, with model, city and copy-trade columns (GitHub shows it as a sortable table; opens in Excel/Sheets).
+- **[paper_report.csv](paper_report.csv)** — paper trades only, kept separate from the real book.
 
 ## 💵 Real orders placed
 
