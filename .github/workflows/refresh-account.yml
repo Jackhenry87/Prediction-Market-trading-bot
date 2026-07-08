@@ -1,0 +1,56 @@
+name: refresh-account
+
+# One-tap authoritative scoreboard refresh from Kalshi's REST API.
+# Run it from the Actions tab (or your phone) whenever you want the Account
+# section marked to your real, live portfolio — no CSV uploads. The hourly
+# pipeline already refreshes this every run; this is the manual "update now".
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-account
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Write Kalshi key
+        env:
+          KALSHI_PEM: ${{ secrets.KALSHI_PRIVATE_KEY_PEM }}
+        run: printf '%s\n' "$KALSHI_PEM" > kalshi_prod.pem
+      - name: Refresh account from Kalshi REST API
+        env:
+          KALSHI_API_KEY_ID: ${{ secrets.KALSHI_API_KEY_ID }}
+          KALSHI_PRIVATE_KEY_PATH: kalshi_prod.pem
+          KALSHI_ENV: ${{ vars.KALSHI_ENV || 'prod' }}
+          KALSHI_DEPOSITS_USD: ${{ vars.KALSHI_DEPOSITS_USD || '50' }}
+          RECORD_SINCE: ${{ vars.RECORD_SINCE || '2026-07-01' }}
+        run: python refresh_account.py
+
+      - name: Commit refreshed scoreboard
+        if: always()
+        run: |
+          git config user.name "account-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f account_snapshot.json SCOREBOARD.md 2>/dev/null || true
+          if ! git diff --cached --quiet; then
+            git commit -m "account refresh from Kalshi API [skip ci]"
+            for i in 1 2 3 4 5; do
+              git fetch -q origin main || true
+              git rebase -X theirs origin/main || git rebase --abort || true
+              if git push origin HEAD:main; then break; fi
+              sleep $((i * 3))
+            done
+          fi

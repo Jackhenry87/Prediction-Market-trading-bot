@@ -112,8 +112,34 @@ class KalshiClient:
     def get_balance_cents(self) -> int:
         return self._request("GET", "/portfolio/balance")["balance"]
 
-    def get_positions(self):
-        return self._request("GET", "/portfolio/positions")
+    def get_positions(self, retries: int = 2):
+        """Full portfolio positions, paged across the cursor so accounts with
+        many markets return ALL of them (not just the first page). Light retry
+        on a transient empty/failed response — an empty positions list feeds
+        the equity math, so a blip must not silently zero the book."""
+        import time as _time
+        for attempt in range(retries + 1):
+            try:
+                market_pos, event_pos, cursor = [], [], None
+                while True:
+                    params = {"limit": 200}
+                    if cursor:
+                        params["cursor"] = cursor
+                    data = self._request("GET", "/portfolio/positions",
+                                         params=params)
+                    market_pos += data.get("market_positions") or []
+                    event_pos += data.get("event_positions") or []
+                    cursor = data.get("cursor")
+                    if not cursor:
+                        break
+                if market_pos or attempt == retries:
+                    return {"market_positions": market_pos,
+                            "event_positions": event_pos}
+            except Exception:
+                if attempt == retries:
+                    raise
+            _time.sleep(1.5 * (attempt + 1))
+        return {"market_positions": [], "event_positions": []}
 
     def get_resting_orders(self):
         return self._request(

@@ -76,3 +76,42 @@ def test_order_body_v2_single_book_mapping(client, monkeypatch):
     client.create_limit_order("KXTEST-1", "yes", "sell", 10, 37)
     assert captured["body"]["side"] == "ask"
     assert captured["body"]["price"] == "0.3700"
+
+
+def test_get_positions_pages_across_cursor(client):
+    pages = [
+        {"market_positions": [{"ticker": "A", "position": 1}],
+         "event_positions": [], "cursor": "pg2"},
+        {"market_positions": [{"ticker": "B", "position": 2}],
+         "event_positions": [], "cursor": None},
+    ]
+    seen = {"n": 0}
+
+    def fake(method, path, params=None, body=None):
+        i = seen["n"]; seen["n"] += 1
+        return pages[i]
+    client._request = fake
+    res = client.get_positions()
+    assert [p["ticker"] for p in res["market_positions"]] == ["A", "B"]
+
+
+def test_get_positions_retries_transient_empty(client):
+    seq = [
+        {"market_positions": [], "event_positions": [], "cursor": None},
+        {"market_positions": [{"ticker": "X", "position": 3}],
+         "event_positions": [], "cursor": None},
+    ]
+    st = {"n": 0}
+
+    def fake(method, path, params=None, body=None):
+        r = seq[min(st["n"], len(seq) - 1)]; st["n"] += 1
+        return r
+    client._request = fake
+    res = client.get_positions(retries=2)
+    assert [p["ticker"] for p in res["market_positions"]] == ["X"]
+
+
+def test_get_positions_flat_book_stays_empty(client):
+    client._request = lambda method, path, params=None, body=None: {
+        "market_positions": [], "event_positions": [], "cursor": None}
+    assert client.get_positions(retries=1)["market_positions"] == []
