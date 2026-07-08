@@ -5,9 +5,13 @@ name: arb-live
 # rate, and Actions minutes are free on this public repo. Single-pass each run:
 # full-exchange MECE-ladder discovery + depth-aware placement.
 #
-# SAFE BY DEFAULT: DETECT-ONLY (DRY_RUN=true). To place real risk-free baskets,
-# set repo Variable ARB_DRY_RUN=false (and KILL_SWITCH=false). Only ever places
-# provably-exhaustive numeric-ladder baskets (the exhaustiveness guard).
+# RUNS ON THE DEMO ACCOUNT ($200 play money). It PLACES real baskets
+# (DRY_RUN=false) but against demo-api.kalshi.co, so a live, continuous demo of
+# arb working with ZERO real-money risk. Only ever places provably-exhaustive
+# numeric-ladder baskets (the exhaustiveness guard). Nothing is committed back —
+# demo fills must never touch the real-money executed_trades.csv on this public
+# repo. When you're ready to go live on prod, flip the env block back to the
+# prod secrets + KALSHI_ENV=prod and re-add a persist step.
 
 on:
   schedule:
@@ -15,7 +19,7 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: arb-live
@@ -32,38 +36,24 @@ jobs:
           python-version: '3.12'
           cache: pip
       - run: pip install -r requirements.txt
-      - name: Write Kalshi key
+      - name: Write Kalshi demo key
         env:
-          KALSHI_PEM: ${{ secrets.KALSHI_PRIVATE_KEY_PEM }}
-        run: printf '%s\n' "$KALSHI_PEM" > kalshi_prod.pem
-      - name: Hunt risk-free baskets
+          KALSHI_PEM: ${{ secrets.KALSHI_DEMO_PRIVATE_KEY_PEM }}
+        run: printf '%s\n' "$KALSHI_PEM" > kalshi_demo.pem
+      - name: Hunt risk-free baskets (DEMO — $200 play money)
         env:
-          KALSHI_API_KEY_ID: ${{ secrets.KALSHI_API_KEY_ID }}
-          KALSHI_PRIVATE_KEY_PATH: kalshi_prod.pem
-          KALSHI_ENV: ${{ vars.KALSHI_ENV || 'prod' }}
-          DRY_RUN: ${{ vars.ARB_DRY_RUN || 'true' }}
+          KALSHI_API_KEY_ID: ${{ secrets.KALSHI_DEMO_API_KEY_ID }}
+          KALSHI_PRIVATE_KEY_PATH: kalshi_demo.pem
+          KALSHI_ENV: demo
+          # play money — actually PLACE baskets so you can watch arb work live
+          DRY_RUN: 'false'
           KILL_SWITCH: ${{ vars.KILL_SWITCH || 'false' }}
-          MAX_ORDER_SIZE: ${{ vars.MAX_ORDER_SIZE || '2' }}
-          MAX_TOTAL_EXPOSURE: ${{ vars.MAX_TOTAL_EXPOSURE || '20' }}
+          # demo has $200; let baskets use all of it, no per-order cap in the way
+          MAX_ORDER_SIZE: '10000'
+          MAX_TOTAL_EXPOSURE: '200'
           ARB_CATEGORIES: ${{ vars.ARB_CATEGORIES || '' }}
           ARB_SERIES: ${{ vars.ARB_SERIES || '' }}
           ARB_MIN_PROFIT_CENTS: ${{ vars.ARB_MIN_PROFIT_CENTS || '2' }}
-          ARB_MAX_BALANCE_PCT: ${{ vars.ARB_MAX_BALANCE_PCT || '100' }}
-          ARB_RESERVE_USD: ${{ vars.ARB_RESERVE_USD || '0' }}
+          ARB_MAX_BALANCE_PCT: '100'
+          ARB_RESERVE_USD: '0'
         run: python arb_runner.py --once
-
-      - name: Persist executed arb records
-        if: always()
-        run: |
-          git config user.name "arb-bot"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f executed_trades.csv 2>/dev/null || true
-          if ! git diff --cached --quiet; then
-            git commit -m "arb records [skip ci]"
-            for i in 1 2 3 4 5; do
-              git fetch -q origin main || true
-              git rebase -X theirs origin/main || git rebase --abort || true
-              if git push origin HEAD:main; then break; fi
-              sleep $((i * 3))
-            done
-          fi
