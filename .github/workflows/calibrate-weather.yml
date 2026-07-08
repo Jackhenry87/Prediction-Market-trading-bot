@@ -35,6 +35,10 @@ jobs:
           git add -f weather_calibration.json 2>/dev/null || true
           if ! git diff --cached --quiet; then
             git commit -m "Refresh weather calibration [skip ci]"
-            git pull --rebase
-            git push
+            for i in 1 2 3 4 5; do
+              git fetch -q origin main || true
+              git rebase -X theirs origin/main || git rebase --abort || true
+              if git push origin HEAD:main; then break; fi
+              sleep $((i * 3))
+            done
           fi

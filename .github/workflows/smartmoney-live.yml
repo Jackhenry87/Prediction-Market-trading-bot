@@ -53,6 +53,17 @@ jobs:
           SM_RUN_MINUTES: '110'
           # follow-the-exit is a live SELL surface: OFF unless armed
           SM_FOLLOW_EXITS: ${{ vars.SM_FOLLOW_EXITS || 'false' }}
+          # pinned specialists always kept in the sharp pool (comma-separated
+          # Polymarket wallets). Seeded with holymoses7 (elections sharp,
+          # $1->~$87k). Add more via the repo Variable. Consensus + flywheel
+          # still apply — a pin is "always considered", not "always copied".
+          SM_PINNED_WALLETS: ${{ vars.SM_PINNED_WALLETS || '0xa4b366ad22fc0d06f1e934ff468e8922431a87b8' }}
+          # auto-sell each copy at entry +this% so winners recycle instead of
+          # locking until resolution (esp. long-dated politics). 0 disables.
+          SM_TAKE_PROFIT_PCT: ${{ vars.SM_TAKE_PROFIT_PCT || '75' }}
+          # HARD lockup guard: never buy a market resolving more than this
+          # many days out, so capital can't freeze in a far-dated bet. 0 off.
+          SM_MAX_DAYS_OUT: ${{ vars.SM_MAX_DAYS_OUT || '60' }}
         run: python smartmoney_runner.py
 
       - name: Persist copy state + copy scoreboard across sessions
@@ -66,6 +77,14 @@ jobs:
           done
           if ! git diff --cached --quiet; then
             git commit -m "copy state + scoreboard [skip ci]"
-            git pull --rebase
-            git push
+            # conflict-proof: main moves during the ~110-min session (merges,
+            # the hourly run), so a plain rebase hits content conflicts in
+            # these generated files and fails the whole job. Keep OUR fresh
+            # copy (-X theirs = the rebased commit's version) and never fail.
+            for i in 1 2 3 4 5; do
+              git fetch -q origin main || true
+              git rebase -X theirs origin/main || git rebase --abort || true
+              if git push origin HEAD:main; then break; fi
+              sleep $((i * 3))
+            done
           fi

@@ -95,6 +95,12 @@ def copy_pass(client, settings, session_seen: set,
             log.info("Cashed out %d copy(ies) the sharps abandoned.", exited)
     except Exception as exc:
         log.warning("Exit check failed: %s", exc)
+    try:                                  # auto-sell winners -> recycle cash
+        tp = strategy_smartmoney.place_copy_take_profits(client, settings)
+        if tp:
+            log.info("Rested %d take-profit sell(s) on held copies.", tp)
+    except Exception as exc:
+        log.warning("Take-profit placement failed: %s", exc)
     results = strategy_smartmoney.scan()
     if not results:
         return 0

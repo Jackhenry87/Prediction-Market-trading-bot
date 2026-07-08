@@ -57,6 +57,15 @@ WALLET_LOG_COLUMNS = ["ts", "ticker", "side", "price_cents", "wallet",
                       "outcome"]
 BLACKLIST_MIN_SETTLED = int(os.getenv("SM_BLACKLIST_MIN", "4"))
 CAT_BLACKLIST_MIN = int(os.getenv("SM_CAT_BLACKLIST_MIN", "4"))
+# PINNED specialists: named wallets ALWAYS kept in the sharp pool even when
+# auto-discovery (2-week PnL of recent big flow) would miss them — important
+# for politics, where the edge lives in long-horizon markets that don't
+# throw off fresh big trades every fortnight. They still only trigger a copy
+# via normal consensus (>= MIN_WALLETS agreeing), and the flywheel still
+# sizes them by their proven record for US — no solo-tailing, no blank check.
+# A blacklisted pinned wallet is still dropped (our own loss data wins).
+PINNED_WALLETS = {w.strip().lower() for w in
+                  os.getenv("SM_PINNED_WALLETS", "").split(",") if w.strip()}
 # hours after entry before we sample the market price to score CLV — long
 # enough for the line to react, short enough to read before settlement
 CLV_LAG_H = float(os.getenv("SM_CLV_LAG_H", "3"))
@@ -74,6 +83,11 @@ QUALITY_BAND = float(os.getenv("SM_QUALITY_BAND", "0.30"))  # +/-30% sizing swin
 OPEN_COPIES_PATH = Path(__file__).resolve().parent / "smartmoney_open_copies.json"
 FOLLOW_EXITS = os.getenv("SM_FOLLOW_EXITS", "false").lower() == "true"
 EXIT_FRAC = float(os.getenv("SM_EXIT_FRAC", "0.5"))       # backers-out to exit
+# TAKE-PROFIT: rest an auto-sell on every copy we hold at entry + this %, so
+# a winner cashes out and the capital RECYCLES instead of sitting locked
+# until a far-off resolution (the point on long-dated politics picks). 24/7
+# via the copier; the hourly manages the rest. Set 0 to disable.
+SM_TAKE_PROFIT_PCT = float(os.getenv("SM_TAKE_PROFIT_PCT", "75"))
 
 
 def category_of(ticker: str) -> str:
@@ -199,6 +213,7 @@ def check_exits(client, settings) -> int:
         return 0
     try:
         positions = client.get_positions()
+        resting = {o.get("ticker") for o in client.get_resting_orders() or []}
     except Exception as exc:
         log.warning("Exit check skipped (positions unavailable): %s", exc)
         return 0
@@ -207,7 +222,13 @@ def check_exits(client, settings) -> int:
     now = datetime.now(timezone.utc).timestamp()
     still_open, sold = [], 0
     for c in copies:
-        pos = held.get(c.get("ticker"), 0)
+        ticker = c.get("ticker")
+        pos = held.get(ticker, 0)
+        if pos != 0 and ticker in resting:
+            # a sell is already resting (e.g. take-profit) — don't stack a
+            # second and over-sell the position
+            still_open.append(c)
+            continue
         if pos == 0:                     # settled or already exited -> forget
             continue
         frac = sharp_exit_fraction(c["slug"], c["outcome"],
@@ -250,6 +271,51 @@ def check_exits(client, settings) -> int:
     save_open_copies(still_open)
     return sold
 
+
+def place_copy_take_profits(client, settings) -> int:
+    """Rest a take-profit SELL on every copy we still hold, at entry +
+    SM_TAKE_PROFIT_PCT%, so winners auto-cash-out and the capital recycles
+    rather than locking until resolution. Idempotent (skips a position that
+    already has a resting order); like the hourly take-profit, closing sells
+    bypass the order-size cap. Off under DRY_RUN / KILL_SWITCH / pct<=0."""
+    if settings.dry_run or settings.kill_switch or SM_TAKE_PROFIT_PCT <= 0:
+        return 0
+    copies = {c.get("ticker") for c in load_open_copies()}
+    if not copies:
+        return 0
+    try:
+        positions = client.get_positions()
+        resting = {o.get("ticker") for o in client.get_resting_orders() or []}
+    except Exception as exc:
+        log.warning("Take-profit skipped (positions/orders unavailable): %s",
+                    exc)
+        return 0
+    from kalshi_exposure import _position_exposure_cents
+    placed = 0
+    for p in positions.get("market_positions", []):
+        ticker = p.get("ticker")
+        pos = float(p.get("position", 0) or 0)
+        if pos == 0 or ticker not in copies or ticker in resting:
+            continue
+        cost = _position_exposure_cents(p)
+        count = int(abs(pos))
+        if not cost or count < 1:
+            continue
+        avg = cost / count
+        target = min(int(round(avg * (1 + SM_TAKE_PROFIT_PCT / 100.0))), 99)
+        if target <= avg:
+            continue
+        side = "yes" if pos > 0 else "no"
+        try:
+            client.create_limit_order(ticker, side, "sell", count, target)
+            log.info("COPY TAKE-PROFIT: rest sell %d x %s @ %dc "
+                     "(entry %.0fc, +%.0f%%)", count, ticker, target, avg,
+                     SM_TAKE_PROFIT_PCT)
+            placed += 1
+        except Exception as exc:
+            log.error("Take-profit sell failed for %s: %s", ticker, exc)
+    return placed
+
 # --- sharp-wallet discovery ---
 TAPE_MIN_USDC = float(os.getenv("SM_TAPE_MIN_USDC", "250"))   # big trades only
 TAPE_PAGES = int(os.getenv("SM_TAPE_PAGES", "3"))             # x500 trades
@@ -288,6 +354,12 @@ MIN_EDGE_CENTS = float(os.getenv("SM_MIN_EDGE_CENTS", "3"))
 # the calibration is the sharps' own track record). Its own floor still
 # refuses longshot lottery tickets.
 SM_MIN_PRICE_CENTS = float(os.getenv("SM_MIN_PRICE", "25"))
+# HARD lockup guard: never buy a market that resolves more than this many
+# days out — capital shouldn't sit frozen in a far-dated bet (a 2028
+# nomination market ties up money for years). Protects the WHOLE copier,
+# not just politics. 0 disables. Unknown resolution date -> not blocked
+# (fail open; virtually every Kalshi market carries close_time).
+SM_MAX_DAYS_OUT = float(os.getenv("SM_MAX_DAYS_OUT", "60"))
 
 MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN",
           "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
@@ -424,11 +496,11 @@ def select_sharp_wallets() -> dict:
     month, steady rather than one lucky day)."""
     stake = {}
     for tr in fetch_big_trades():
-        w = tr.get("proxyWallet")
+        w = (tr.get("proxyWallet") or "").lower()   # normalise so a pinned
         usdc = float(tr.get("size", 0)) * float(tr.get("price", 0))
-        if w:
+        if w:                                        # wallet can't count twice
             stake[w] = stake.get(w, 0.0) + usdc
-    blacklist = load_blacklist()
+    blacklist = {b.lower() for b in load_blacklist()}
     candidates = [w for w in sorted(stake, key=stake.get, reverse=True)
                   if w not in blacklist][:CANDIDATES_MAX]
     if blacklist:
@@ -463,6 +535,16 @@ def select_sharp_wallets() -> dict:
     log.info("Sharp wallets: %d of %d candidates (ranked by risk-adjusted "
              "return; 2w PnL $%.0f..$%.0f)", len(top), len(candidates),
              min(top.values(), default=0), max(top.values(), default=0))
+    # pinned specialists are ALWAYS in the pool (unless we've graded them out),
+    # even if discovery missed them this run — they still need consensus
+    for w in PINNED_WALLETS:
+        if w in blacklist or w in top:
+            continue
+        try:
+            top[w] = pnl_change(fetch_pnl_curve(w), 14)
+        except Exception:
+            top[w] = 0.0
+        log.info("Pinned specialist kept in sharp pool: %s…", w[:12])
     return top
 
 
@@ -718,12 +800,44 @@ def kalshi_date_token(y: str, m: str, d: str) -> str:
     return f"{y[2:]}{MONTHS[int(m) - 1]}{d}"
 
 
+def _parse_ts(v):
+    """Unix seconds from a Kalshi time field (ISO string or epoch), or None."""
+    if v in (None, "", 0):
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    try:
+        return datetime.fromisoformat(str(v).replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+def _too_far_out(market: dict, event: dict, now_ts: float = None) -> bool:
+    """True if this market resolves more than SM_MAX_DAYS_OUT days out, so we
+    skip it (no frozen capital in far-dated bets). Unknown date -> not
+    blocked (fail open)."""
+    if SM_MAX_DAYS_OUT <= 0:
+        return False
+    now = now_ts or datetime.now(timezone.utc).timestamp()
+    for src in (market, event):
+        for field in ("close_time", "expiration_time",
+                      "expected_expiration_time", "latest_expiration_time"):
+            ts = _parse_ts(src.get(field))
+            if ts is not None:
+                return (ts - now) > SM_MAX_DAYS_OUT * 86400
+    return False
+
+
 def _priced_signal(cons: dict, market: dict, event: dict) -> dict:
     """YES signal on this Kalshi market at the sharps' price + premium, or
     None when the ask already ran past their entry (no chasing)."""
     p = min(cons["avg_price"] + PREMIUM_PTS / 100.0, MAX_PROB)
     label = (market.get("yes_sub_title") or market.get("subtitle")
              or market.get("title") or "")
+    if _too_far_out(market, event):
+        log.info("Skip (resolves > %.0fd out — no frozen capital): %s",
+                 SM_MAX_DAYS_OUT, market.get("ticker"))
+        return None
     yes_ask = price_cents(market, "yes_ask")
     if not yes_ask or not 0 < yes_ask < 100:
         return None
