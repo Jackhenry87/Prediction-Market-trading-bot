@@ -58,6 +58,8 @@ def _account_section(lines: list) -> None:
     equity = snap.get("equity_usd", cash + (pv or 0.0))
     deposits = snap.get("deposits_usd")
     pv_s = "n/a" if pv is None else f"${pv:.2f}"
+    if snap.get("positions_stale") and pv is not None:
+        pv_s += " _(last known — live fetch failed this run)_"
     lines += [
         "## 💰 Account", "",
         f"**Equity ${equity:.2f}** = cash ${cash:.2f} + open positions "

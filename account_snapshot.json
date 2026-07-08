@@ -1,11 +1,15 @@
 {
   "balance_usd": 15.62,
-  "positions_value_usd": 0.0,
-  "equity_usd": 15.62,
+  "positions_value_usd": 16.12,
+  "equity_usd": 31.74,
   "deposits_usd": 50.0,
-  "net_pnl_usd": -34.38,
+  "net_pnl_usd": -18.26,
   "settled_wins": 18,
   "settled_losses": 70,
   "since": "2026-07-01",
-  "updated": "2026-07-08T02:51:14+00:00"
+  "positions_stale": false,
+  "updated": "2026-07-08T04:46:49+00:00",
+  "positions_open": 20,
+  "positions_cost_basis_usd": 17.48,
+  "source": "KalshiAdvancedPortfolio.csv (manual import)"
 }

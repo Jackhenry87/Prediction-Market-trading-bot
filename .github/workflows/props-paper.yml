@@ -1,0 +1,61 @@
+name: props-paper
+
+# Player-props PAPER trader (Underdog DFS lines vs sharp sportsbook consensus).
+# NO real money, NO Kalshi — it records value picks to paper_trades_props.csv
+# and, if PAPERBOOK_URL is set, auto-places them on the paperbook site.
+#
+# MANUAL-DISPATCH ONLY, on purpose: it reads OddsBlaze (soft DFS board +
+# sharp books). No cron means it never spends your quota on its own — run it
+# from the Actions tab when you want a scan. Add a `schedule:` block if you
+# move to a plan where continuous scanning makes sense.
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: props-paper
+  cancel-in-progress: false
+
+jobs:
+  props:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Scan DFS vs sharp and paper-place
+        env:
+          ODDSBLAZE_KEY: ${{ secrets.ODDSBLAZE_KEY }}
+          # optional: auto-place onto a hosted paperbook site
+          PAPERBOOK_URL: ${{ vars.PAPERBOOK_URL || '' }}
+          PAPERBOOK_API_KEY: ${{ secrets.PAPERBOOK_API_KEY }}
+          PROPS_SOURCE: ${{ vars.PROPS_SOURCE || 'prizepicks' }}
+          PROPS_SHARP_BOOKS: ${{ vars.PROPS_SHARP_BOOKS || 'draftkings,betmgm,caesars,fanatics' }}
+          PROPS_LEAGUE: ${{ vars.PROPS_LEAGUE || 'mlb' }}
+          PROPS_MIN_EDGE_PCT: ${{ vars.PROPS_MIN_EDGE_PCT || '6' }}
+          PROPS_MAX_PER_DAY: ${{ vars.PROPS_MAX_PER_DAY || '4' }}
+          PROPS_STAKE_DOLLARS: ${{ vars.PROPS_STAKE_DOLLARS || '50' }}
+        run: python props_paper_runner.py --once
+
+      - name: Persist props paper ledger
+        if: always()
+        run: |
+          git config user.name "props-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f paper_trades_props.csv 2>/dev/null || true
+          if ! git diff --cached --quiet; then
+            git commit -m "props paper ledger [skip ci]"
+            for i in 1 2 3 4 5; do
+              git fetch -q origin main || true
+              git rebase -X theirs origin/main || git rebase --abort || true
+              if git push origin HEAD:main; then break; fi
+              sleep $((i * 3))
+            done
+          fi

@@ -48,6 +48,27 @@ def init_db() -> None:
                 payout_cents INTEGER DEFAULT 0,
                 created_at INTEGER NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS prop_markets (
+                id TEXT PRIMARY KEY,    -- deterministic: event_stat_player_line
+                sport TEXT, event_id TEXT,
+                player TEXT, stat TEXT,          -- e.g. 'pitcher_strikeouts'
+                line REAL,                       -- the point, e.g. 6.5
+                over_odds REAL, under_odds REAL, -- decimal, as posted
+                commence_time TEXT,
+                result TEXT,            -- 'over' | 'under' | 'push' | NULL
+                settled INTEGER DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS prop_bets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                market_id TEXT NOT NULL REFERENCES prop_markets(id),
+                side TEXT NOT NULL,     -- 'over' | 'under'
+                stake_cents INTEGER NOT NULL,
+                odds REAL NOT NULL,
+                status TEXT NOT NULL DEFAULT 'open',  -- open|won|lost|void
+                payout_cents INTEGER DEFAULT 0,
+                created_at INTEGER NOT NULL
+            );
             """
         )
 
@@ -177,5 +198,105 @@ def settle_game(game_id: str, result: str) -> int:
                           "WHERE id=?", (payout, b["user_id"]))
             else:
                 c.execute("UPDATE bets SET status='lost' WHERE id=?", (b["id"],))
+            settled += 1
+    return settled
+
+
+# ---------- player props ----------
+def upsert_prop(m: dict) -> None:
+    """Post (or refresh the odds of) a player-prop market. Never disturbs an
+    already-settled market's result."""
+    with connect() as c:
+        c.execute(
+            "INSERT INTO prop_markets (id, sport, event_id, player, stat, "
+            "line, over_odds, under_odds, commence_time) VALUES (:id,:sport,"
+            ":event_id,:player,:stat,:line,:over_odds,:under_odds,"
+            ":commence_time) ON CONFLICT(id) DO UPDATE SET "
+            "over_odds=:over_odds, under_odds=:under_odds, "
+            "commence_time=:commence_time WHERE settled=0",
+            m,
+        )
+
+
+def open_props() -> list:
+    with connect() as c:
+        return c.execute(
+            "SELECT * FROM prop_markets WHERE settled=0 ORDER BY commence_time"
+        ).fetchall()
+
+
+def get_prop(market_id: str):
+    with connect() as c:
+        return c.execute(
+            "SELECT * FROM prop_markets WHERE id=?", (market_id,)).fetchone()
+
+
+def place_prop_bet(user_id: int, market_id: str, side: str,
+                   stake_cents: int) -> dict:
+    """Deduct stake and record a paper prop bet at the market's posted odds.
+    Fails closed (ValueError, no money moves) on any invalid input."""
+    if side not in ("over", "under"):
+        raise ValueError("side must be 'over' or 'under'")
+    if stake_cents <= 0:
+        raise ValueError("stake must be positive")
+    with connect() as c:
+        m = c.execute(
+            "SELECT * FROM prop_markets WHERE id=? AND settled=0", (market_id,)
+        ).fetchone()
+        if not m:
+            raise ValueError("prop market not found or already settled")
+        odds = m["over_odds"] if side == "over" else m["under_odds"]
+        if not odds or odds <= 1:
+            raise ValueError("no odds available for that side")
+        user = c.execute(
+            "SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
+        if user["balance_cents"] < stake_cents:
+            raise ValueError("insufficient balance")
+        c.execute("UPDATE users SET balance_cents=balance_cents-? WHERE id=?",
+                  (stake_cents, user_id))
+        cur = c.execute(
+            "INSERT INTO prop_bets (user_id, market_id, side, stake_cents, "
+            "odds, created_at) VALUES (?,?,?,?,?,?)",
+            (user_id, market_id, side, stake_cents, odds, int(time.time())),
+        )
+        return dict(id=cur.lastrowid, market_id=market_id, side=side,
+                    stake_cents=stake_cents, odds=odds)
+
+
+def user_prop_bets(user_id: int) -> list:
+    with connect() as c:
+        return c.execute(
+            "SELECT b.*, m.player, m.stat, m.line, m.result FROM prop_bets b "
+            "JOIN prop_markets m ON m.id=b.market_id WHERE b.user_id=? "
+            "ORDER BY b.created_at DESC", (user_id,)
+        ).fetchall()
+
+
+def settle_prop(market_id: str, result: str) -> int:
+    """Grade a prop market and settle every open bet on it. 'push' voids
+    (stake returned). Returns the number of bets settled."""
+    if result not in ("over", "under", "push"):
+        raise ValueError("result must be 'over', 'under' or 'push'")
+    settled = 0
+    with connect() as c:
+        c.execute("UPDATE prop_markets SET result=?, settled=1 WHERE id=?",
+                  (result, market_id))
+        for b in c.execute(
+                "SELECT * FROM prop_bets WHERE market_id=? AND status='open'",
+                (market_id,)).fetchall():
+            if result == "push":
+                c.execute("UPDATE prop_bets SET status='void', payout_cents=? "
+                          "WHERE id=?", (b["stake_cents"], b["id"]))
+                c.execute("UPDATE users SET balance_cents=balance_cents+? "
+                          "WHERE id=?", (b["stake_cents"], b["user_id"]))
+            elif b["side"] == result:
+                payout = int(round(b["stake_cents"] * b["odds"]))
+                c.execute("UPDATE prop_bets SET status='won', payout_cents=? "
+                          "WHERE id=?", (payout, b["id"]))
+                c.execute("UPDATE users SET balance_cents=balance_cents+? "
+                          "WHERE id=?", (payout, b["user_id"]))
+            else:
+                c.execute("UPDATE prop_bets SET status='lost' WHERE id=?",
+                          (b["id"],))
             settled += 1
     return settled

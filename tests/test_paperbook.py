@@ -86,3 +86,69 @@ def test_duplicate_username_rejected(client):
     c.post("/signup", data={"username": "dup", "password": "secret1"})
     assert c.post("/signup", data={"username": "dup", "password": "secret1"}
                   ).status_code == 400
+
+
+def _prop(mid="mlb_ks_degrom_6.5", over=1.91, under=1.91):
+    return {"id": mid, "sport": "baseball_mlb", "event_id": "evt1",
+            "player": "Jacob deGrom", "stat": "pitcher_strikeouts",
+            "line": 6.5, "over_odds": over, "under_odds": under,
+            "commence_time": "2026-07-08T23:05:00Z"}
+
+
+def test_prop_post_bet_settle(client):
+    c, db = client
+    c.post("/signup", data={"username": "pat", "password": "secret1"})
+    key = db.get_user_by_name("pat")["api_key"]
+    hdr = {"X-API-Key": key}
+
+    # post the market, then bet the over
+    assert c.post("/api/props", headers=hdr, json=_prop()).status_code == 200
+    props = c.get("/api/props", headers=hdr).json()["props"]
+    assert len(props) == 1 and props[0]["player"] == "Jacob deGrom"
+
+    r = c.post("/api/prop_bets", headers=hdr,
+               json={"market_id": _prop()["id"], "side": "over",
+                     "stake_cents": 5000})
+    assert r.status_code == 200 and r.json()["balance_cents"] == 95000
+
+    # grade it a winner
+    db.settle_prop(_prop()["id"], "over")
+    assert db.get_user_by_name("pat")["balance_cents"] == 95000 + round(5000 * 1.91)
+    # settled market drops off the open list
+    assert c.get("/api/props", headers=hdr).json()["props"] == []
+
+
+def test_prop_push_refunds_stake(client):
+    c, db = client
+    c.post("/signup", data={"username": "peg", "password": "secret1"})
+    key = db.get_user_by_name("peg")["api_key"]
+    hdr = {"X-API-Key": key}
+    c.post("/api/props", headers=hdr, json=_prop("m_push"))
+    c.post("/api/prop_bets", headers=hdr,
+           json={"market_id": "m_push", "side": "under", "stake_cents": 4000})
+    db.settle_prop("m_push", "push")
+    # push voids: stake returned, balance back to start
+    assert db.get_user_by_name("peg")["balance_cents"] == 100000
+
+
+def test_prop_bet_input_fails_closed(client):
+    c, db = client
+    c.post("/signup", data={"username": "peter", "password": "secret1"})
+    key = db.get_user_by_name("peter")["api_key"]
+    hdr = {"X-API-Key": key}
+    c.post("/api/props", headers=hdr, json=_prop("m_x"))
+    # unknown market
+    assert c.post("/api/prop_bets", headers=hdr,
+                  json={"market_id": "nope", "side": "over",
+                        "stake_cents": 100}).status_code == 400
+    # bad side
+    assert c.post("/api/prop_bets", headers=hdr,
+                  json={"market_id": "m_x", "side": "home",
+                        "stake_cents": 100}).status_code == 400
+    # over balance
+    assert c.post("/api/prop_bets", headers=hdr,
+                  json={"market_id": "m_x", "side": "over",
+                        "stake_cents": 99999999}).status_code == 400
+    # missing prop fields
+    assert c.post("/api/props", headers=hdr,
+                  json={"id": "bad", "player": "x"}).status_code == 400
