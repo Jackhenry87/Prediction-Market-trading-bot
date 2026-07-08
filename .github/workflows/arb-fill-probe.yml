@@ -1,0 +1,34 @@
+name: arb-fill-probe
+
+# One-tap DEMO probe that places a small MARKETABLE order (play money) and dumps
+# the RAW Kalshi create-order response, so we can confirm arb_runner._filled_count
+# reads real fills correctly before trusting the partial-fill guard on real money.
+# Uses the demo secrets only. Cleans up after itself (cancel + flatten).
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Write demo Kalshi key
+        env:
+          KALSHI_PEM: ${{ secrets.KALSHI_DEMO_PRIVATE_KEY_PEM }}
+        run: printf '%s\n' "$KALSHI_PEM" > kalshi_demo.pem
+      - name: Probe a real fill on demo
+        env:
+          KALSHI_ENV: demo
+          KALSHI_API_KEY_ID: ${{ secrets.KALSHI_DEMO_API_KEY_ID }}
+          KALSHI_PRIVATE_KEY_PATH: kalshi_demo.pem
+        run: python arb_fill_probe.py
