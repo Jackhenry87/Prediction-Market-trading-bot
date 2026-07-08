@@ -1,0 +1,37 @@
+name: arb-demo
+
+# One-tap DEMO smoke test of the arb plumbing (play money, demo.kalshi.co).
+# Validates the whole chain — auth, positions, scan, and a real place->cancel
+# order lifecycle — before any live run. Uses SEPARATE demo secrets so your
+# prod keys are never touched.
+#
+# Requires repo Secrets: KALSHI_DEMO_API_KEY_ID, KALSHI_DEMO_PRIVATE_KEY_PEM.
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Write demo Kalshi key
+        env:
+          KALSHI_PEM: ${{ secrets.KALSHI_DEMO_PRIVATE_KEY_PEM }}
+        run: printf '%s\n' "$KALSHI_PEM" > kalshi_demo.pem
+      - name: Run demo smoke test
+        env:
+          KALSHI_ENV: demo
+          KALSHI_API_KEY_ID: ${{ secrets.KALSHI_DEMO_API_KEY_ID }}
+          KALSHI_PRIVATE_KEY_PATH: kalshi_demo.pem
+          ARB_SERIES: ${{ vars.ARB_SERIES || 'KXHIGHNY,KXHIGHCHI,KXHIGHMIA,KXHIGHDEN,KXHIGHLAX,KXHIGHAUS' }}
+        run: python arb_demo_smoke.py
