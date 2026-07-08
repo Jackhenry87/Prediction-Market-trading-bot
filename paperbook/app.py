@@ -185,6 +185,45 @@ async def api_place_bet(request: Request, user=Depends(api_user)):
             "balance_cents": db.get_user(user["id"])["balance_cents"]}
 
 
+# ---------- player props (bot API) ----------
+@app.get("/api/props")
+def api_props(user=Depends(api_user)):
+    return {"props": [dict(m) for m in db.open_props()]}
+
+
+@app.post("/api/props")
+async def api_upsert_prop(request: Request, user=Depends(api_user)):
+    """Post (or refresh the odds of) a prop market. The bot posts the
+    soft-book line here, then bets the value side via /api/prop_bets."""
+    body = await request.json()
+    required = ("id", "player", "stat", "line", "over_odds", "under_odds")
+    if not all(k in body for k in required):
+        raise HTTPException(400, f"need fields: {', '.join(required)}")
+    market = {"id": str(body["id"]), "sport": body.get("sport", ""),
+              "event_id": body.get("event_id", ""), "player": body["player"],
+              "stat": body["stat"], "commence_time": body.get("commence_time", "")}
+    try:
+        market["line"] = float(body["line"])
+        market["over_odds"] = float(body["over_odds"])
+        market["under_odds"] = float(body["under_odds"])
+    except (TypeError, ValueError):
+        raise HTTPException(400, "line/over_odds/under_odds must be numbers")
+    db.upsert_prop(market)
+    return {"ok": True, "market_id": market["id"]}
+
+
+@app.post("/api/prop_bets")
+async def api_place_prop_bet(request: Request, user=Depends(api_user)):
+    body = await request.json()
+    try:
+        bet = db.place_prop_bet(user["id"], body["market_id"], body["side"],
+                                int(body["stake_cents"]))
+    except (ValueError, KeyError, TypeError) as exc:
+        raise HTTPException(400, str(exc))
+    return {"ok": True, "bet": bet,
+            "balance_cents": db.get_user(user["id"])["balance_cents"]}
+
+
 @app.get("/healthz")
 def healthz():
     return {"ok": True}
