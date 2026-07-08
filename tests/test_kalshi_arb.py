@@ -95,7 +95,7 @@ def test_profit_below_buffer_skipped():
 
 
 def test_single_leg_is_not_a_basket():
-    assert kalshi_arb.evaluate_event(_event(), [_mkt("A", 10)]) is None
+    assert kalshi_arb.evaluate_event(_event(), _ladder([10])) is None
 
 
 # ---------- depth-aware sizing ----------
@@ -166,3 +166,15 @@ def test_no_size_when_book_empty():
     client = _FakeBook({"A": {"no": [], "yes": []}, "B": {"no": [[70, 5]]}})
     assert kalshi_arb.size_basket(client, _yes_arb(["A", "B"]), 100000,
                                   buffer_cents=2) is None
+
+
+def test_huge_profit_is_capped_even_on_a_numeric_ladder():
+    # a numeric ladder summing to 15c would claim +85c — implausible for a
+    # liquid exhaustive market, so the max-profit cap rejects it too.
+    assert kalshi_arb.evaluate_event(_event(), _ladder([5, 5, 5])) is None
+
+
+def test_plausible_small_arb_still_passes():
+    # a real, exhaustive numeric ladder a few cents under par -> genuine arb
+    arb = kalshi_arb.evaluate_event(_event(), _ladder([31, 31, 31]))   # 93c
+    assert arb is not None and 2 <= arb["profit_cents"] <= 7

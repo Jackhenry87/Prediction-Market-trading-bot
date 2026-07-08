@@ -97,13 +97,15 @@ def arb_pass(client, settings, done: set) -> int:
     for a in arbs:
         if a["event_ticker"] in done:
             continue
-        done.add(a["event_ticker"])
         # depth-aware size: as big as the book + your caps allow, no bigger
         sized = kalshi_arb.size_basket(client, a, remaining)
         if not sized or sized["count"] < 1:
+            # too thin / over budget RIGHT NOW — don't mark done, re-check next
+            # poll in case the book deepens (24/7 catch rate).
             log.info("ARB %s: no size clears the buffer within the book/budget "
-                     "— skipping.", a["event_ticker"])
+                     "— will re-check next poll.", a["event_ticker"])
             continue
+        done.add(a["event_ticker"])       # attempted -> never re-leg the basket
         log.info("ARB %s (%s): buy %s x%d on %d legs -> guaranteed +%.1fc/ea "
                  "= $%.2f (cost $%.2f)", a["title"], a["event_ticker"],
                  a["side"].upper(), sized["count"], a["n"], sized["profit_cents"],
