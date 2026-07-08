@@ -464,7 +464,23 @@ def write_weather_city_pnl(client) -> None:
              {c: a["net"] for c, a in agg.items()})
 
 
-def positions_market_value(client) -> float:
+def _open_order_count() -> int:
+    """Open (unsettled) real orders on our own record — an independent check
+    that we DO hold positions, even if the live positions fetch comes back
+    empty. Local, committed, and never lies about whether money is deployed."""
+    import csv as _csv
+    from pathlib import Path
+    path = Path(__file__).resolve().parent / "executed_trades.csv"
+    if not path.exists():
+        return 0
+    try:
+        with open(path, newline="") as fh:
+            return sum(1 for r in _csv.DictReader(fh) if not r.get("outcome"))
+    except OSError:
+        return 0
+
+
+def positions_market_value(client, positions=None) -> float:
     """Current MARKET value of every open position in USD — what you'd get
     cashing out now, marked at each market's live price (settled -> 0/$1;
     open -> mid of the held side). Falls back to cost basis for any market
@@ -473,7 +489,9 @@ def positions_market_value(client) -> float:
     from kalshi_exposure import _position_exposure_cents
     from strategy_weather import _close_cents, price_cents
     total = 0.0
-    for p in client.get_positions().get("market_positions", []):
+    if positions is None:
+        positions = client.get_positions()
+    for p in positions.get("market_positions", []):
         pos = float(p.get("position", 0) or 0)
         if pos == 0:
             continue
@@ -519,12 +537,38 @@ def write_account_snapshot(client) -> None:
     deposits = float(os.getenv("KALSHI_DEPOSITS_USD", "50"))
     min_ts = int(datetime.strptime(since, "%Y-%m-%d")
                  .replace(tzinfo=timezone.utc).timestamp())
+    prev = {}
+    snap_path = Path(__file__).resolve().parent / "account_snapshot.json"
+    if snap_path.exists():
+        try:
+            prev = json.loads(snap_path.read_text())
+        except ValueError:
+            prev = {}
     cash = client.get_balance_cents() / 100.0
+    positions_stale = False
     try:
-        positions_val = positions_market_value(client)
+        positions = client.get_positions()
+        held = [p for p in positions.get("market_positions", [])
+                if float(p.get("position", 0) or 0) != 0]
+        # Guard: an empty positions fetch while we still have open orders on
+        # record is a failed/rate-limited API call, NOT a flat book. Reporting
+        # $0 then writes off every open position as a total loss (the phantom
+        # -$34 bug). Reuse the last known-good value instead — stale, but far
+        # closer to truth than zero. Self-resolves once orders settle (their
+        # outcomes fill in and the open-order count drops).
+        if not held and _open_order_count() > 0:
+            positions_val = prev.get("positions_value_usd")
+            positions_stale = positions_val is not None
+            log.warning("Positions fetch empty but %d open orders on record — "
+                        "reusing last known positions value $%s, not $0.",
+                        _open_order_count(),
+                        "n/a" if positions_val is None else f"{positions_val:.2f}")
+        else:
+            positions_val = positions_market_value(client, positions)
     except Exception as exc:
         log.warning("Could not value open positions: %s", exc)
-        positions_val = None
+        positions_val = prev.get("positions_value_usd")
+        positions_stale = positions_val is not None
     equity = cash + (positions_val or 0.0)
     net_pnl = equity - deposits
     # keep a settled W/L tally for the record line (informational only)
@@ -543,6 +587,7 @@ def write_account_snapshot(client) -> None:
         deposits_usd=round(deposits, 2),
         net_pnl_usd=round(net_pnl, 2),
         settled_wins=wins, settled_losses=losses, since=since,
+        positions_stale=positions_stale,
         updated=datetime.now(timezone.utc).isoformat(timespec="seconds"))
     path = Path(__file__).resolve().parent / "account_snapshot.json"
     path.write_text(json.dumps(snap, indent=2))
