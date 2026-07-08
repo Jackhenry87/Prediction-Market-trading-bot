@@ -13,7 +13,9 @@ API (header  X-API-Key: <your key>):
       POST /api/bets           {game_id, side, stake_cents}
 """
 
+import logging
 import os
+import secrets as _secrets
 from pathlib import Path
 
 import bcrypt
@@ -26,7 +28,26 @@ from . import db
 
 BASE = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE / "templates"))
-signer = URLSafeSerializer(os.getenv("SECRET_KEY", "dev-secret-change-me"), "sess")
+
+# Session signing key. NEVER fall back to a known constant — a public
+# default lets anyone forge a cookie for any uid (full auth bypass). If
+# SECRET_KEY is unset we use an ephemeral RANDOM key: safe, though sessions
+# don't survive a restart, which is the loud nudge to set it in production.
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    SECRET_KEY = _secrets.token_hex(32)
+    logging.getLogger("paperbook").warning(
+        "SECRET_KEY not set — using an ephemeral random key (sessions reset "
+        "on restart). Set SECRET_KEY in production.")
+signer = URLSafeSerializer(SECRET_KEY, "sess")
+# session cookie is HTTPS-only + SameSite=Lax (blocks interception and most
+# CSRF on the cookie-authed forms). Opt out only for local http dev.
+COOKIE_SECURE = os.getenv("PAPERBOOK_INSECURE_COOKIES") != "1"
+
+
+def _set_session(resp, uid: int) -> None:
+    resp.set_cookie("session", signer.dumps({"uid": uid}), httponly=True,
+                    secure=COOKIE_SECURE, samesite="lax", max_age=30 * 86400)
 
 
 def hash_pw(password: str) -> str:
@@ -92,7 +113,7 @@ def signup(username: str = Form(...), email: str = Form(""),
         raise HTTPException(400, "username taken")
     user = db.create_user(username, email.strip(), hash_pw(password))
     resp = RedirectResponse("/mybets", status_code=303)
-    resp.set_cookie("session", signer.dumps({"uid": user["id"]}), httponly=True)
+    _set_session(resp, user["id"])
     return resp
 
 
@@ -107,7 +128,7 @@ def login(username: str = Form(...), password: str = Form(...)):
     if not user or not verify_pw(password, user["pw_hash"]):
         raise HTTPException(401, "wrong username or password")
     resp = RedirectResponse("/mybets", status_code=303)
-    resp.set_cookie("session", signer.dumps({"uid": user["id"]}), httponly=True)
+    _set_session(resp, user["id"])
     return resp
 
 
