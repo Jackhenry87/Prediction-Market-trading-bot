@@ -1,14 +1,14 @@
 # 📊 Trading Scoreboard
 
-_Updated 2026-07-08 22:56 UTC — auto-generated every run; do not edit._
+_Updated 2026-07-08 23:59 UTC — auto-generated every run; do not edit._
 
 Signals are scored against official settlement whether or not a real order was placed. P&L shown is per 1-contract stakes.
 
 ## 💰 Account
 
-**Equity $35.17** = cash $19.05 + open positions $16.12 _(last known — live fetch failed this run)_
+**Equity $33.70** = cash $17.58 + open positions $16.12 _(last known — live fetch failed this run)_
 
-🔴 **Net P&L: -$14.83** ($50.00 deposited → $35.17 now) · 26W / 75L settled
+🔴 **Net P&L: -$16.30** ($50.00 deposited → $33.70 now) · 26W / 75L settled
 
 ## 📑 Spreadsheets
 
@@ -17,10 +17,12 @@ Signals are scored against official settlement whether or not a real order was p
 
 ## 💵 Real orders placed
 
-**62 orders, $46.29 deployed.** Settled: **9 W — 25 L, realized +$1.62**; 28 open.
+**64 orders, $47.70 deployed.** Settled: **9 W — 25 L, realized +$1.62**; 30 open.
 
 | Placed (UTC) | Model | Market | Side | Qty | Price | Confidence | Cost | Result |
 |---|---|---|---|---|---|---|---|---|
+| 07-08 23:59 | nowcast | KXHIGHCHI-26JUL08-B88.5 | NO | 73 | 1¢ | 100% | $0.73 | ⏳ open |
+| 07-08 23:59 | weather | KXHIGHDEN-26JUL09-B90.5 | NO | 1 | 68¢ | 91% | $0.68 | ⏳ open |
 | 07-08 22:56 | nowcast | KXHIGHCHI-26JUL08-B88.5 | NO | 12 | 6¢ | 100% | $0.72 | ⏳ open |
 | 07-08 22:56 | weather | KXHIGHDEN-26JUL09-B90.5 | NO | 1 | 69¢ | 91% | $0.69 | ⏳ open |
 | 07-08 22:56 | weather | KXHIGHCHI-26JUL09-B84.5 | NO | 1 | 64¢ | 77% | $0.64 | ⏳ open |
@@ -39,8 +41,6 @@ Signals are scored against official settlement whether or not a real order was p
 | 07-07 18:54 | untracked | KXATPMATCH-26JUL07AUGDJO-DJO | YES | 1 | 40¢ | — | $0.40 | 🟢 win (+$0.60) |
 | 07-07 17:06 | untracked | KXATPMATCH-26JUL07AUGDJO-AUG | YES | 1 | 44¢ | — | $0.44 | 🔴 loss (-$0.44) |
 | 07-07 19:29 | weather | KXHIGHLAX-26JUL07-B73.5 | NO | 1 | 70¢ | 88% | $0.70 | 🔴 loss (-$0.70) |
-| 07-07 19:29 | weather | KXHIGHLAX-26JUL08-B77.5 | NO | 1 | 59¢ | 85% | $0.59 | ⏳ open |
-| 07-07 19:29 | weather | KXHIGHDEN-26JUL08-B92.5 | NO | 1 | 62¢ | 84% | $0.62 | ⏳ open |
 
 ## 🌡️ Weather by city (real settled P&L since 2026-07-01)
 
