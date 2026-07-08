@@ -1,0 +1,68 @@
+name: arb-live
+
+# Within-Kalshi risk-free basket hunter (kalshi_arb + arb_runner). Scans the
+# mutually-exclusive ladders for baskets trading below their $1 payout and —
+# when armed — buys every leg to lock the guaranteed margin.
+#
+# SAFE BY DEFAULT: DRY_RUN=true here, so it only DETECTS and logs baskets. To
+# let it actually place real risk-free baskets, set repo Variable
+# ARB_DRY_RUN=false (and KILL_SWITCH=false). Arbs are rare — most passes will
+# find nothing, which is the tool working, not failing.
+
+on:
+  schedule:
+    - cron: '50 * * * *'      # free slot (00 autotrade,15 sm,30 refresh,45 sports)
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: arb-live
+  cancel-in-progress: false
+
+jobs:
+  arb:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Write Kalshi key
+        env:
+          KALSHI_PEM: ${{ secrets.KALSHI_PRIVATE_KEY_PEM }}
+        run: printf '%s\n' "$KALSHI_PEM" > kalshi_prod.pem
+      - name: Hunt risk-free baskets
+        env:
+          KALSHI_API_KEY_ID: ${{ secrets.KALSHI_API_KEY_ID }}
+          KALSHI_PRIVATE_KEY_PATH: kalshi_prod.pem
+          KALSHI_ENV: ${{ vars.KALSHI_ENV || 'prod' }}
+          # detect-only until you deliberately arm it
+          DRY_RUN: ${{ vars.ARB_DRY_RUN || 'true' }}
+          KILL_SWITCH: ${{ vars.KILL_SWITCH || 'false' }}
+          MAX_ORDER_SIZE: ${{ vars.MAX_ORDER_SIZE || '2' }}
+          MAX_TOTAL_EXPOSURE: ${{ vars.MAX_TOTAL_EXPOSURE || '20' }}
+          ARB_SERIES: ${{ vars.ARB_SERIES || 'KXHIGHNY,KXHIGHCHI,KXHIGHMIA,KXHIGHDEN,KXHIGHLAX,KXHIGHAUS' }}
+          ARB_MIN_PROFIT_CENTS: ${{ vars.ARB_MIN_PROFIT_CENTS || '2' }}
+          ARB_CONTRACTS: ${{ vars.ARB_CONTRACTS || '1' }}
+        run: python arb_runner.py --once
+
+      - name: Persist executed arb records
+        if: always()
+        run: |
+          git config user.name "arb-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f executed_trades.csv 2>/dev/null || true
+          if ! git diff --cached --quiet; then
+            git commit -m "arb records [skip ci]"
+            for i in 1 2 3 4 5; do
+              git fetch -q origin main || true
+              git rebase -X theirs origin/main || git rebase --abort || true
+              if git push origin HEAD:main; then break; fi
+              sleep $((i * 3))
+            done
+          fi
