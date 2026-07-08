@@ -28,14 +28,30 @@ ROOT = Path(__file__).resolve().parent
 OUT = ROOT / "kalshi_report.csv"
 DEFAULT_START = "2026-07-02"
 
-COLUMNS = ["marketTicker", "eventTitle", "marketTitle", "closeDate", "model",
-           "copyTrade", "city", "status", "side", "count", "avgPrice_cents",
-           "exposure_usd", "lastPrice_cents", "unrealized_usd", "realized_usd",
-           "total_usd", "result"]
+COLUMNS = ["market", "model", "copyTrade", "city", "status", "side", "count",
+           "avgPrice_cents", "exposure_usd", "lastPrice_cents",
+           "unrealized_usd", "realized_usd", "total_usd",
+           "categoryTotal_usd", "cityTotal_usd", "result", "closeDate",
+           "ticker"]
 
 CITY = {"NY": "New York", "CHI": "Chicago", "MIA": "Miami", "DEN": "Denver",
         "LAX": "Los Angeles", "AUS": "Austin", "PHIL": "Philadelphia",
         "HOU": "Houston", "PHX": "Phoenix"}
+
+
+def _title(event: str, market_title: str, ticker: str) -> str:
+    """Human-readable market name (never the raw ticker if we can help it)."""
+    event, market_title = (event or "").strip(), (market_title or "").strip()
+    if event and market_title:
+        return f"{event} · {market_title}"
+    return event or market_title or ticker
+
+
+def _num(s) -> float:
+    try:
+        return float(str(s).replace("+", "").replace("$", "").replace(",", ""))
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def ticker_city(ticker: str) -> str:
@@ -46,9 +62,10 @@ def ticker_city(ticker: str) -> str:
 def ticker_model(ticker: str, exec_map: dict = None) -> str:
     """Which strategy this market belongs to. Prefer the real order record;
     otherwise infer from the ticker family."""
-    if exec_map and ticker in exec_map:
-        return exec_map[ticker]
-    if ticker.startswith(("KXHIGH", "KXLOW")):
+    m = (exec_map or {}).get(ticker, "")
+    if m and m != "untracked":          # trust a specific model label...
+        return m
+    if ticker.startswith(("KXHIGH", "KXLOW")):   # ...else infer from the family
         return "weather"
     if re.match(r"KX(MLB|NBA|NFL|NHL|WNBA)", ticker or ""):
         return "sports"
@@ -109,12 +126,10 @@ def open_row(mp: dict, market: dict, exec_map: dict, copy_map: dict = None) -> d
     value = (count * held_c / 100.0) if held_c is not None else exposure
     unreal = value - exposure
     ticker = mp.get("ticker", "")
+    m = market or {}
     return {
-        "marketTicker": ticker,
-        "eventTitle": (market or {}).get("title", ""),
-        "marketTitle": (market or {}).get("yes_sub_title")
-        or (market or {}).get("subtitle", ""),
-        "closeDate": (market or {}).get("close_time", ""),
+        "market": _title(m.get("title"),
+                         m.get("yes_sub_title") or m.get("subtitle"), ticker),
         "model": ticker_model(ticker, exec_map),
         "copyTrade": (copy_map or {}).get(ticker, ""),
         "city": ticker_city(ticker),
@@ -126,7 +141,10 @@ def open_row(mp: dict, market: dict, exec_map: dict, copy_map: dict = None) -> d
         "unrealized_usd": f"{unreal:+.2f}",
         "realized_usd": "0.00",
         "total_usd": f"{unreal:+.2f}",
+        "categoryTotal_usd": "", "cityTotal_usd": "",
         "result": "",
+        "closeDate": m.get("close_time", ""),
+        "ticker": ticker,
     }
 
 
@@ -141,12 +159,10 @@ def settled_row(s: dict, market: dict, exec_map: dict, copy_map: dict = None) ->
     cost = ((_money(s, "yes_total_cost") or 0.0)
             + (_money(s, "no_total_cost") or 0.0))
     avg_c = (cost / count * 100.0) if count else 0.0
+    m = market or {}
     return {
-        "marketTicker": ticker,
-        "eventTitle": (market or {}).get("title", ""),
-        "marketTitle": (market or {}).get("yes_sub_title")
-        or (market or {}).get("subtitle", ""),
-        "closeDate": (market or {}).get("close_time", ""),
+        "market": _title(m.get("title"),
+                         m.get("yes_sub_title") or m.get("subtitle"), ticker),
         "model": ticker_model(ticker, exec_map),
         "copyTrade": (copy_map or {}).get(ticker, ""),
         "city": ticker_city(ticker),
@@ -158,7 +174,10 @@ def settled_row(s: dict, market: dict, exec_map: dict, copy_map: dict = None) ->
         "unrealized_usd": "0.00",
         "realized_usd": f"{pnl:+.2f}",
         "total_usd": f"{pnl:+.2f}",
+        "categoryTotal_usd": "", "cityTotal_usd": "",
         "result": result,
+        "closeDate": m.get("close_time", ""),
+        "ticker": ticker,
     }
 
 
@@ -179,7 +198,42 @@ def build_rows(positions: list, settlements: list, market_lookup,
         if t in open_tickers:            # still holding some -> shown as open
             continue
         rows.append(settled_row(s, market_lookup(t), exec_map, copy_map))
-    return rows
+    return finalize(rows)
+
+
+def finalize(rows: list) -> list:
+    """Fill the per-row categoryTotal_usd / cityTotal_usd columns and append
+    summary rows: total P&L per category (model), per weather city, and a
+    grand total across every tracked position. (This is the SUM of each
+    position's P&L; the equity-based net is in the Account section.)"""
+    from collections import defaultdict
+    cat, city, grand = defaultdict(float), defaultdict(float), 0.0
+    for r in rows:
+        v = _num(r.get("total_usd"))
+        grand += v
+        if r.get("model"):
+            cat[r["model"]] += v
+        if r.get("city"):
+            city[r["city"]] += v
+    for r in rows:
+        r["categoryTotal_usd"] = (f"{cat[r['model']]:+.2f}"
+                                  if r.get("model") else "")
+        r["cityTotal_usd"] = f"{city[r['city']]:+.2f}" if r.get("city") else ""
+
+    def srow(market, **kw):
+        base = {c: "" for c in COLUMNS}
+        base.update(market=market, status="TOTAL", **kw)
+        return base
+
+    summary = [srow("═══ GRAND TOTAL (sum of positions) ═══",
+                    total_usd=f"{grand:+.2f}")]
+    for m, v in sorted(cat.items(), key=lambda x: -x[1]):
+        summary.append(srow(f"TOTAL · category: {m}", model=m,
+                            total_usd=f"{v:+.2f}", categoryTotal_usd=f"{v:+.2f}"))
+    for c, v in sorted(city.items(), key=lambda x: -x[1]):
+        summary.append(srow(f"TOTAL · weather city: {c}", city=c,
+                            total_usd=f"{v:+.2f}", cityTotal_usd=f"{v:+.2f}"))
+    return rows + summary
 
 
 def write_csv(rows: list, out: Path = OUT) -> None:
