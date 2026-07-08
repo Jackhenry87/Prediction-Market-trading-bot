@@ -9,71 +9,93 @@ def _event(mutually_exclusive=True, **kw):
                 mutually_exclusive=mutually_exclusive, **kw)
 
 
-def _mkt(ticker, yes_ask, status="active", yes_bid=None):
-    return {"ticker": ticker, "yes_ask": yes_ask, "yes_bid": yes_bid,
-            "status": status}
+def _ladder(asks, bids=None, status=None):
+    """A NUMERIC MECE partition (a 'less' bottom tail + 'between' buckets + a
+    'greater' top tail) — the only provably-exhaustive shape the scanner trades.
+    asks[i] is each leg's yes_ask (None to leave a leg unquoted)."""
+    n = len(asks)
+    mk = []
+    for i, a in enumerate(asks):
+        if i == 0:
+            st, floor, cap = "less", None, 70
+        elif i == n - 1:
+            st, floor, cap = "greater", 70 + n, None
+        else:
+            st, floor, cap = "between", 70 + i, 70 + i + 1
+        m = {"ticker": chr(65 + i), "yes_ask": a, "strike_type": st,
+             "floor_strike": floor, "cap_strike": cap,
+             "status": (status[i] if status else "active")}
+        if bids is not None:
+            m["yes_bid"] = bids[i]
+        mk.append(m)
+    return mk
+
+
+def _categorical(asks):
+    """Mutually-exclusive but CATEGORICAL (candidate names, no numeric strike) —
+    NOT collectively exhaustive; must be rejected."""
+    return [{"ticker": chr(65 + i), "yes_ask": a, "status": "active"}
+            for i, a in enumerate(asks)]
 
 
 def test_arb_detected_when_basket_below_dollar():
-    # 3 legs at 30/30/32 = 92c + small fees -> guaranteed ~5c (buy YES)
-    markets = [_mkt("A", 30), _mkt("B", 30), _mkt("C", 32)]
-    arb = kalshi_arb.evaluate_event(_event(), markets)
+    # 3-leg numeric ladder at 30/30/32 = 92c -> ~+3.5c after fees (buy YES)
+    arb = kalshi_arb.evaluate_event(_event(), _ladder([30, 30, 32]))
     assert arb is not None and arb["side"] == "yes"
     assert arb["n"] == 3 and arb["cost_cents"] == 92
-    assert arb["profit_cents"] > 2
+    assert 2 <= arb["profit_cents"] <= 7
     assert all(side == "yes" for _, _, side in arb["legs"])
 
 
 def test_no_basket_arb_when_bids_rich():
     # yes_bids 55/55 sum 110 > 100 -> buy NO on both; pays (2-1)*100=100c,
-    # cost = (100-55)*2 = 90c, profit ~ 110-100-fees ~ +7c
-    markets = [_mkt("A", 60, yes_bid=55), _mkt("B", 60, yes_bid=55)]
-    arb = kalshi_arb.evaluate_event(_event(), markets)
+    # cost 90c -> ~+6.5c after fees
+    arb = kalshi_arb.evaluate_event(_event(), _ladder([60, 60], bids=[55, 55]))
     assert arb is not None and arb["side"] == "no"
-    assert arb["payout_cents"] == 100 and arb["profit_cents"] > 2
+    assert arb["payout_cents"] == 100 and 2 <= arb["profit_cents"] <= 7
     assert all(side == "no" for _, _, side in arb["legs"])
 
 
 def test_picks_the_more_profitable_side():
-    # YES ask-sum 80 -> ~+16c; NO bid-sum 116 -> ~+12c. Both qualify; the
+    # YES ask 46/46 -> ~+4.5c; NO bid 53/53 -> ~+2.5c. Both within the cap; the
     # richer YES side is returned.
-    markets = [_mkt("A", 40, yes_bid=58), _mkt("B", 40, yes_bid=58)]
-    arb = kalshi_arb.evaluate_event(_event(), markets)
+    arb = kalshi_arb.evaluate_event(_event(), _ladder([46, 46], bids=[53, 53]))
     assert arb is not None and arb["side"] == "yes"
-    assert arb["profit_cents"] > 10
+    assert arb["profit_cents"] > 3
+
+
+def test_categorical_field_is_rejected():
+    # a 'who wins' field (no numeric strikes) is NOT provably exhaustive even if
+    # it sums below $1 -> must be rejected (the field candidate could win).
+    assert kalshi_arb.evaluate_event(_event(), _categorical([30, 30, 32])) is None
 
 
 def test_not_mutually_exclusive_never_arbs():
-    # cheap basket but not a proven MECE ladder -> must skip (could all lose)
-    markets = [_mkt("A", 10), _mkt("B", 10)]
     assert kalshi_arb.evaluate_event(_event(mutually_exclusive=False),
-                                     markets) is None
+                                     _ladder([30, 30])) is None
 
 
 def test_unquoted_leg_fails_closed():
     # one leg has no ask -> basket incomplete -> skip even though others cheap
-    markets = [_mkt("A", 20), _mkt("B", 20), _mkt("C", None)]
-    assert kalshi_arb.evaluate_event(_event(), markets) is None
+    assert kalshi_arb.evaluate_event(_event(), _ladder([20, 20, None])) is None
 
 
 def test_closed_leg_fails_closed():
-    markets = [_mkt("A", 30), _mkt("B", 30, status="settled")]
-    assert kalshi_arb.evaluate_event(_event(), markets) is None
+    assert kalshi_arb.evaluate_event(
+        _event(), _ladder([30, 30], status=["active", "settled"])) is None
 
 
 def test_no_arb_when_sum_at_or_above_dollar():
-    markets = [_mkt("A", 50), _mkt("B", 51)]        # 101c -> negative
-    assert kalshi_arb.evaluate_event(_event(), markets) is None
+    assert kalshi_arb.evaluate_event(_event(), _ladder([50, 51])) is None
 
 
 def test_profit_below_buffer_skipped():
     # 49/50 = 99c, ~1c gross, fees push it under the 2c floor -> skip
-    markets = [_mkt("A", 49), _mkt("B", 50)]
-    assert kalshi_arb.evaluate_event(_event(), markets) is None
+    assert kalshi_arb.evaluate_event(_event(), _ladder([49, 50])) is None
 
 
 def test_single_leg_is_not_a_basket():
-    assert kalshi_arb.evaluate_event(_event(), [_mkt("A", 10)]) is None
+    assert kalshi_arb.evaluate_event(_event(), _ladder([10])) is None
 
 
 # ---------- depth-aware sizing ----------
@@ -144,3 +166,15 @@ def test_no_size_when_book_empty():
     client = _FakeBook({"A": {"no": [], "yes": []}, "B": {"no": [[70, 5]]}})
     assert kalshi_arb.size_basket(client, _yes_arb(["A", "B"]), 100000,
                                   buffer_cents=2) is None
+
+
+def test_huge_profit_is_capped_even_on_a_numeric_ladder():
+    # a numeric ladder summing to 15c would claim +85c — implausible for a
+    # liquid exhaustive market, so the max-profit cap rejects it too.
+    assert kalshi_arb.evaluate_event(_event(), _ladder([5, 5, 5])) is None
+
+
+def test_plausible_small_arb_still_passes():
+    # a real, exhaustive numeric ladder a few cents under par -> genuine arb
+    arb = kalshi_arb.evaluate_event(_event(), _ladder([31, 31, 31]))   # 93c
+    assert arb is not None and 2 <= arb["profit_cents"] <= 7
