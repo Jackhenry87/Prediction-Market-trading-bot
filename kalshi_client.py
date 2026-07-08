@@ -172,18 +172,12 @@ class KalshiClient:
 
     # --- trading ---
     def create_limit_order(self, ticker: str, side: str, action: str,
-                           count: int, price_cents: int,
-                           self_trade_prevention_type: str = "taker_at_cross"):
+                           count: int, price_cents: int):
         """side: 'yes'|'no'; action: 'buy'|'sell'; price in cents (1-99).
 
         Converted to the V2 single-book model (POST /portfolio/events/orders):
         buying YES is a bid at p; buying NO is an ask at 100-p (selling is the
         mirror image). Prices are fixed-point dollar strings.
-
-        self_trade_prevention_type defaults to "taker_at_cross" (if our own
-        orders would match, cancel the incoming one rather than pulling resting
-        orders). Pass None to omit it entirely — only the demo fill-probe does
-        that, to deliberately self-cross and observe a real fill.
         """
         if side == "yes":
             book_side = "bid" if action == "buy" else "ask"
@@ -198,9 +192,10 @@ class KalshiClient:
             "count": str(count),  # V2 wants numeric fields as strings
             "price": f"{book_cents / 100:.4f}",
             "time_in_force": "good_till_canceled",
+            # self-trade prevention is required by the V2 API; cancel the
+            # incoming order if it would cross our own resting orders
+            "self_trade_prevention_type": "taker_at_cross",
         }
-        if self_trade_prevention_type is not None:
-            body["self_trade_prevention_type"] = self_trade_prevention_type
         return self._request("POST", "/portfolio/events/orders", body=body)
 
     def cancel_order(self, order_id: str):

@@ -100,3 +100,15 @@ def test_filled_count_parses_vintages():
     assert arb_runner._filled_count({"status": "executed"}, 10) == 10
     assert arb_runner._filled_count({"status": "resting"}, 10) == 0
     assert arb_runner._filled_count({"nope": 1}, 10) is None
+
+
+def test_filled_count_real_kalshi_demo_shape():
+    # the EXACT create-order response shape captured from Kalshi demo:
+    # flat object, fill_count/remaining_count as STRING decimals, no status.
+    resting = {"client_order_id": "x", "fill_count": "0.00",
+               "order_id": "o", "remaining_count": "1.00", "ts_ms": 1}
+    assert arb_runner._filled_count(resting, 1) == 0        # nothing filled
+    full = {"fill_count": "10.00", "remaining_count": "0.00", "order_id": "o"}
+    assert arb_runner._filled_count(full, 10) == 10         # fully filled
+    partial = {"fill_count": "3.00", "remaining_count": "7.00"}
+    assert arb_runner._filled_count(partial, 10) == 3       # partial -> caught
