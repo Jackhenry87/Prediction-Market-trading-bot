@@ -163,13 +163,113 @@ def test_series_config_sane():
         assert "_" in c["sport"]  # odds-api keys look like 'basketball_nba'
 
 
-def test_mlb_cut_from_hourly_but_leagues_reversible(monkeypatch):
-    # owner call: MLB out of the hourly devig model by default
+def test_confidence_floor_skips_coin_flips(monkeypatch):
+    monkeypatch.setattr(ss, "SPORTS_REQUIRE_STEAM", False)   # isolate the floor
+    monkeypatch.setattr(ss, "SPORTS_MIN_CONFIDENCE", 0.60)
+    # symmetric prices -> both sides ~50%, below the 60% floor
+    game = {"id": "g", "home_team": "Alpha Cats", "away_team": "Beta Dogs",
+            "commence_time": _in_hours(6), "bookmakers": [
+                {"key": "pinnacle", "markets": [{"key": "h2h", "outcomes": [
+                    {"name": "Alpha Cats", "price": 1.95},
+                    {"name": "Beta Dogs", "price": 1.95}]}]}]}
+    market = {"ticker": "T", "yes_sub_title": "Beta Dogs", "status": "active",
+              "yes_ask": 40, "yes_bid": 37}
+    assert ss.evaluate_market(market, [game], None) == []    # 50% < 60% floor
+
+
+def test_sports_placed_today_counts(tmp_path, monkeypatch):
+    import csv
+
+    import ledger
+    log = tmp_path / "exec.csv"
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    with open(log, "w", newline="") as fh:
+        w = csv.writer(fh)
+        w.writerow(ledger.EXEC_COLUMNS)
+        w.writerow([today + "T12:00:00Z", "sports", "K1", "yes", "1", "55",
+                    "0.55", "o", ""])
+        w.writerow([today + "T13:00:00Z", "sports", "K2", "no", "1", "52",
+                    "0.52", "o", ""])
+        w.writerow(["2020-01-01T00:00:00Z", "sports", "K3", "yes", "1", "50",
+                    "0.50", "o", ""])                        # old day
+        w.writerow([today + "T14:00:00Z", "weather", "K4", "no", "1", "60",
+                    "0.60", "o", ""])                        # not sports
+    monkeypatch.setattr(ledger, "EXEC_LOG", log)
+    assert ss._sports_placed_today() == 2
+
+
+def test_ml_daily_budget_caps_scan(monkeypatch):
+    monkeypatch.setattr(ss, "SPORTS_MAX_ML_PER_DAY", 2)
+    monkeypatch.setattr(ss, "SPORTS_MAX_TOTALS_PER_DAY", 0)
+    monkeypatch.setattr(ss, "_sports_placed_today", lambda kind="all": 0)
+    monkeypatch.setattr(ss, "in_season_sports", lambda k: {"baseball_mlb"})
+    monkeypatch.setattr(ss, "fetch_games", lambda k, s: [
+        {"id": "g", "home_team": "A A", "away_team": "B B", "bookmakers": []}])
+    # five qualifying plays with ascending edge -> only the top 2 come back
+    monkeypatch.setattr(ss, "evaluate_market", lambda m, g, h: [dict(
+        side="yes", price_cents=50, model_prob=0.7,
+        ev_cents=float(m["ticker"][1:]), steam=0.02,
+        ticker=m["ticker"], subtitle="x")])
+
+    class _Fake:
+        def __init__(self, *a, **k): pass
+        def get_positions(self): return {"market_positions": []}
+        def _request(self, method, path, params=None):
+            # moneyline series only; totals series returns nothing
+            if "TOTAL" in str(params.get("series_ticker", "")):
+                return {"events": []}
+            return {"events": [{"event_ticker": "E1", "title": "t",
+                                "markets": [{"ticker": f"K{i}",
+                                             "status": "active"}
+                                            for i in range(5)]}]}
+    monkeypatch.setattr(ss, "KalshiClient", _Fake)
+    results = ss.scan("key")
+    tickers = [s["ticker"] for r in results for s in r["signals"]]
+    assert len(tickers) == 2 and set(tickers) == {"K4", "K3"}   # top 2 by edge
+
+
+def test_fair_total_mean_and_over_prob(monkeypatch):
+    monkeypatch.setattr(ss, "TOTAL_SIGMA", 3.0)
+    # symmetric over/under at 8.5 -> devigged P(over)=0.5 -> mean == line
+    game = {"bookmakers": [{"key": "pinnacle", "markets": [{"key": "totals",
+            "outcomes": [{"name": "Over", "price": 1.95, "point": 8.5},
+                         {"name": "Under", "price": 1.95, "point": 8.5}]}]}]}
+    assert abs(ss.fair_total_mean(game) - 8.5) < 1e-6
+    # at the mean, P(over) is 0.5; well below the mean it's high
+    assert abs(ss.over_prob(8.5, 8.5) - 0.5) < 1e-9
+    assert ss.over_prob(8.5, 5.5) > 0.8
+
+
+def test_total_game_match_fails_closed():
+    games = [{"home_team": "Colorado Rockies", "away_team": "Los Angeles Dodgers"},
+             {"home_team": "New York Yankees", "away_team": "Boston Red Sox"}]
+    g = ss.match_total_game("Colorado vs Los Angeles D: Total Runs", games)
+    assert g and g["home_team"] == "Colorado Rockies"
+    # a doubleheader (same two teams twice) can't be told apart -> refuse
+    dh = [{"home_team": "Colorado Rockies", "away_team": "Los Angeles Dodgers"},
+          {"home_team": "Colorado Rockies", "away_team": "Los Angeles Dodgers"}]
+    assert ss.match_total_game("Colorado vs Los Angeles D: Total Runs", dh) is None
+
+
+def test_evaluate_total_market_gates(monkeypatch):
+    monkeypatch.setattr(ss, "SPORTS_REQUIRE_STEAM", False)
+    monkeypatch.setattr(ss, "TOTAL_SIGMA", 3.0)
+    monkeypatch.setattr(ss, "SPORTS_MIN_CONFIDENCE", 0.60)
+    monkeypatch.setattr(ss, "MIN_EDGE_CENTS", 5.0)
+    # mean 8.5; Over 6.5 (within the 2.5 window) is ~75% -> ask 60c = edge
+    mkt = {"ticker": "T", "yes_sub_title": "Over 6.5", "status": "active",
+           "floor_strike": 6.5, "yes_ask": 60, "yes_bid": 57}
+    sig = ss.evaluate_total_market(mkt, mean=8.5)
+    assert sig and sig[0]["side"] == "yes" and sig[0]["model_prob"] > 0.7
+    # a strike far from the mean is outside the reliable window -> skipped
+    far = dict(mkt, floor_strike=13.5)
+    assert ss.evaluate_total_market(far, mean=8.5) == []
+
+
+def test_leagues_configurable(monkeypatch):
+    # MLB is back in by default; SPORTS_LEAGUES still gates each league
     by_name = {c["name"]: c for c in ss.SERIES}
-    monkeypatch.setattr(ss, "ENABLED_LEAGUES", {"nba", "nfl", "nhl", "wnba"})
-    assert not ss.league_enabled(by_name["MLB"])
-    assert ss.league_enabled(by_name["NBA"])
-    assert ss.league_enabled(by_name["WNBA"])
-    # one repo Variable brings it back
-    monkeypatch.setattr(ss, "ENABLED_LEAGUES", {"mlb"})
+    monkeypatch.setattr(ss, "ENABLED_LEAGUES", {"mlb", "wnba"})
     assert ss.league_enabled(by_name["MLB"])
+    assert ss.league_enabled(by_name["WNBA"])
+    assert not ss.league_enabled(by_name["NBA"])     # excluded by the Variable

@@ -74,14 +74,13 @@ jobs:
           # OFF. smartmoney is NOT here by design — it has its own
           # always-on watcher (smartmoney-live.yml). Override via repo
           # Variable ENABLED_MODELS if ever needed.
+          # sports runs 24/7 in its own always-on runner (sports-live.yml),
+          # NOT here — the hourly stays weather-only and just scores/commits.
           ENABLED_MODELS: ${{ vars.ENABLED_MODELS || 'weather,nowcast' }}
           # no single theme (weather/crypto/sports/commodities) may exceed
           # this % of bankroll — stops piles of correlated bets from becoming
           # one oversized wager
           MAX_THEME_PCT: ${{ vars.MAX_THEME_PCT || '40' }}
-          # only used if 'sports' is ever re-added to ENABLED_MODELS
-          # (MLB stays cut from it either way — owner call)
-          SPORTS_LEAGUES: ${{ vars.SPORTS_LEAGUES || 'nba,nfl,nhl,wnba' }}
           # New York cut from weather (real settlements: -$6.31, the model's
           # whole loss — oversized + under-forecast four days running). Add
           # NY back via this Variable if it earns its place later.
@@ -101,18 +100,19 @@ jobs:
           # for days — paper_trades_crypto.csv never exists while crypto is
           # off, so nothing in the list was ever committed)
           for f in paper_trades.csv paper_trades_crypto.csv \
-                   paper_trades_sports.csv paper_trades_commodities.csv \
+                   paper_trades_commodities.csv \
                    paper_trades_smartmoney.csv paper_trades_macro.csv \
                    paper_trades_nowcast.csv \
                    smartmoney_wallets_log.csv smartmoney_blacklist.json \
                    smartmoney_category_bars.json \
-                   executed_trades.csv sports_line_history.json account_snapshot.json \
+                   executed_trades.csv account_snapshot.json \
                    weather_city_pnl.json SCOREBOARD.md; do
             git add -f "$f" 2>/dev/null || true
           done
-          # NB: smartmoney_open_copies.json / copy_trades.csv / COPY_SCOREBOARD.md
-          # are owned+committed by the copier (smartmoney-live) only — the
-          # hourly must not re-commit its stale checkout of them.
+          # NB: copier files (smartmoney_open_copies.json / copy_trades.csv /
+          # COPY_SCOREBOARD.md) and sports files (sports_line_history.json /
+          # paper_trades_sports.csv) are owned+committed by their own always-on
+          # runners — the hourly must not re-commit its stale checkout of them.
           if ! git diff --cached --quiet; then
             git commit -m "Update trade records [skip ci]"
             # conflict-proof: generated files can't clean-merge when main moved
