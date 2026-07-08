@@ -13,7 +13,7 @@ name: arb-live
 
 on:
   schedule:
-    - cron: '50 * * * *'      # free slot (00 autotrade,15 sm,30 refresh,45 sports)
+    - cron: '*/15 * * * *'    # light single-pass every 15 min (minute-frugal)
   workflow_dispatch: {}
 
 permissions:
@@ -26,7 +26,7 @@ concurrency:
 jobs:
   arb:
     runs-on: ubuntu-latest
-    timeout-minutes: 125
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -55,11 +55,7 @@ jobs:
           # depth-aware sizing: up to this % of balance, keeping a reserve
           ARB_MAX_BALANCE_PCT: ${{ vars.ARB_MAX_BALANCE_PCT || '100' }}
           ARB_RESERVE_USD: ${{ vars.ARB_RESERVE_USD || '0' }}
-          # 24/7 fast-poll: check every ~3 min for ~110 min, then the next
-          # hourly run picks up the chain
-          ARB_POLL_SECONDS: ${{ vars.ARB_POLL_SECONDS || '180' }}
-          ARB_RUN_MINUTES: '110'
-        run: python arb_runner.py
+        run: python arb_runner.py --once
 
       - name: Persist executed arb records
         if: always()
