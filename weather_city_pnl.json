@@ -2,34 +2,34 @@
   "since": "2026-07-01",
   "cities": {
     "Miami": {
-      "net": -1.36,
-      "wins": 3,
+      "net": -0.63,
+      "wins": 5,
       "losses": 4
     },
     "Austin": {
-      "net": -0.43,
-      "wins": 2,
-      "losses": 5
-    },
-    "Chicago": {
-      "net": -2.36,
+      "net": -1.44,
       "wins": 3,
       "losses": 6
     },
+    "New York": {
+      "net": -27.8,
+      "wins": 1,
+      "losses": 5
+    },
+    "Chicago": {
+      "net": -3.48,
+      "wins": 4,
+      "losses": 7
+    },
     "Los Angeles": {
-      "net": -0.33,
+      "net": -1.03,
       "wins": 2,
-      "losses": 4
+      "losses": 5
     },
     "Denver": {
-      "net": 2.25,
-      "wins": 5,
+      "net": 3.23,
+      "wins": 7,
       "losses": 3
-    },
-    "New York": {
-      "net": -27.98,
-      "wins": 0,
-      "losses": 5
     }
   }
 }
