@@ -66,8 +66,24 @@ def test_picks_the_more_profitable_side():
 
 def test_categorical_field_is_rejected():
     # a 'who wins' field (no numeric strikes) is NOT provably exhaustive even if
-    # it sums below $1 -> must be rejected (the field candidate could win).
-    assert kalshi_arb.evaluate_event(_event(), _categorical([30, 30, 32])) is None
+    # it sums below $1 -> the YES basket must be rejected (the field candidate
+    # could win). Only yes_asks quoted here, so no NO basket to fall back on.
+    assert kalshi_arb.evaluate_event(_event(), _categorical([46, 46])) is None
+
+
+def test_no_basket_allowed_on_categorical_mece_event():
+    # A categorical (non-numeric) at-most-one-YES field with rich bids: the NO
+    # basket is risk-free WITHOUT exhaustiveness (>= n-1 legs pay $1; if none
+    # win, all pay), so it must be allowed even though the YES side is gated.
+    mk = [{"ticker": "A", "yes_bid": 54, "status": "active"},
+          {"ticker": "B", "yes_bid": 54, "status": "active"}]   # sum 108 > 100
+    arb = kalshi_arb.evaluate_event(_event(), mk)
+    assert arb is not None and arb["side"] == "no"
+    assert 2 <= arb["profit_cents"] <= 7
+    # ...but the YES basket on the same categorical field is still rejected.
+    mk_yes = [{"ticker": "A", "yes_ask": 46, "status": "active"},
+              {"ticker": "B", "yes_ask": 46, "status": "active"}]
+    assert kalshi_arb.evaluate_event(_event(), mk_yes) is None
 
 
 def test_not_mutually_exclusive_never_arbs():
@@ -160,6 +176,22 @@ def test_reserve_and_pct_caps_limit_spend():
     sized2 = kalshi_arb.size_basket(client, arb, 1000, max_pct=50,
                                     reserve_usd=0, buffer_cents=2)
     assert sized2["count"] == 8
+
+
+def test_size_basket_sets_marginal_limit_prices():
+    # Leg A: 3 YES @ 30 then 1000 @ 50; Leg B: 1000 YES @ 30. Sizing walks A
+    # past its 30c top level, so the placement limit for A must be the MARGINAL
+    # (worst) level consumed — 50 — not the stale 30c top-of-book (which would
+    # under-fill). B never leaves its single level, so its limit stays 30.
+    client = _FakeBook({
+        "A": {"no": [[70, 3], [50, 1000]], "yes": []},
+        "B": {"no": [[70, 1000]], "yes": []},
+    })
+    sized = kalshi_arb.size_basket(client, _yes_arb(["A", "B"]), 100000,
+                                   max_pct=100, reserve_usd=0, buffer_cents=2)
+    limits = {t: p for t, p, _ in sized["legs"]}
+    assert sized["count"] == 1000
+    assert limits["A"] == 50 and limits["B"] == 30
 
 
 def test_no_size_when_book_empty():

@@ -94,16 +94,21 @@ def _exhaustive_numeric(markets: list) -> bool:
 
 def evaluate_event(event: dict, markets: list) -> dict:
     """Return the best risk-free basket on a complete mutually-exclusive event,
-    else None. Two directions, both guaranteed by exactly-one-YES:
+    else None. Two directions, guaranteed by at-most-one-YES:
       • YES basket — buy YES on every leg; the one winner pays $1. Profit when
-        sum(yes_ask) < 100.
+        sum(yes_ask) < 100. ONLY risk-free on a provably-EXHAUSTIVE ladder: if a
+        field is not collectively exhaustive, the untradeable 'none of the
+        above' outcome makes the YES basket LOSE — so YES is gated on
+        _exhaustive_numeric.
       • NO basket — buy NO on every leg; all but the winner pay $1 (N-1 total).
-        Profit when sum(yes_bid) > 100 (the book is rich on the bid side).
+        Profit when sum(yes_bid) > 100. Risk-free on ANY at-most-one-YES event:
+        at least N-1 legs pay $1, and if none win, all N pay — even better. So
+        NO does NOT require exhaustiveness (a non-exhaustive field's bids just
+        rarely sum over par, so it seldom triggers anyway).
     Fails closed on every ambiguity (not MECE, a closed leg, any unquoted leg)."""
     if not event.get("mutually_exclusive"):
         return None                      # can't prove at-most-one-YES -> skip
-    if ARB_REQUIRE_EXHAUSTIVE and not _exhaustive_numeric(markets):
-        return None                      # not provably collectively exhaustive
+    exhaustive = _exhaustive_numeric(markets)
     tickers, yes_asks, yes_bids = [], [], []
     for m in markets:
         if m.get("status") not in (None, "active", "open"):
@@ -118,8 +123,10 @@ def evaluate_event(event: dict, markets: list) -> dict:
                 title=event.get("title", ""), n=n)
     candidates = []
 
-    # YES basket: needs every yes_ask quoted; buy YES at the ask (marketable).
-    if all(a and 0 < a < 100 for a in yes_asks):
+    # YES basket: needs every yes_ask quoted AND a provably-exhaustive ladder;
+    # buy YES at the ask (marketable).
+    if ((exhaustive or not ARB_REQUIRE_EXHAUSTIVE)
+            and all(a and 0 < a < 100 for a in yes_asks)):
         cost = sum(yes_asks)
         fees = sum(taker_fee_cents(a) for a in yes_asks)
         profit = 100.0 - cost - fees     # exactly one leg pays $1
@@ -171,6 +178,19 @@ def _avg_fill(ladder: list, n: int):
         filled += take
         if filled >= n:
             return cost / n
+    return None
+
+
+def _marginal_price(ladder: list, n: int):
+    """The WORST (highest) price paid to fill n contracts cheapest-first — i.e.
+    the deepest level consumed. This is the marketable-limit price that fills
+    the full n: submit any lower and the deeper levels don't match and n
+    under-fills. None if the ladder can't supply n."""
+    filled = 0.0
+    for price, qty in ladder:
+        filled += qty
+        if filled >= n:
+            return price
     return None
 
 
@@ -237,7 +257,14 @@ def size_basket(client: KalshiClient, arb: dict, balance_cents: float,
         else:
             hi = mid - 1
     cost, profit_per = basket_econ(ladders, arb["side"], arb["n"], lo)
-    return dict(arb, count=lo, cost_cents=cost, fees_cents=None,
+    # Rewrite each leg's price to the MARGINAL fill price for `lo` (not the stale
+    # top-of-book quote): the runner places a marketable limit AT this price, so
+    # the full `lo` fills. Placing at top-of-book would under-fill any leg whose
+    # `lo` walks past the best level, leaving an unbalanced (non-risk-free)
+    # basket. Legs stay aligned with `ladders` (both iterate arb['legs']).
+    limit_legs = [(t, _marginal_price(lad, lo), side)
+                  for (t, _, side), lad in zip(arb["legs"], ladders)]
+    return dict(arb, legs=limit_legs, count=lo, cost_cents=cost, fees_cents=None,
                 profit_cents=profit_per, basket_profit_usd=profit_per * lo / 100.0)
 
 
