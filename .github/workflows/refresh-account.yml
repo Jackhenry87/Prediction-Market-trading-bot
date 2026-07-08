@@ -36,15 +36,17 @@ jobs:
           KALSHI_PRIVATE_KEY_PATH: kalshi_prod.pem
           KALSHI_ENV: ${{ vars.KALSHI_ENV || 'prod' }}
           KALSHI_DEPOSITS_USD: ${{ vars.KALSHI_DEPOSITS_USD || '50' }}
-          RECORD_SINCE: ${{ vars.RECORD_SINCE || '2026-07-01' }}
+          RECORD_SINCE: ${{ vars.RECORD_SINCE || '2026-07-02' }}
         run: python refresh_account.py
 
-      - name: Commit refreshed scoreboard
+      - name: Commit refreshed scoreboard + spreadsheets
         if: always()
         run: |
           git config user.name "account-bot"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f account_snapshot.json SCOREBOARD.md 2>/dev/null || true
+          git add -f account_snapshot.json SCOREBOARD.md \
+            kalshi_report.csv paper_report.csv \
+            trade_history.csv HISTORY.md 2>/dev/null || true
           if ! git diff --cached --quiet; then
             git commit -m "account refresh from Kalshi API [skip ci]"
             for i in 1 2 3 4 5; do
