@@ -1,8 +1,5 @@
 """Tests for the paper sportsbook. Run: pytest tests/"""
 
-import pathlib
-import tempfile
-
 import pytest
 
 
@@ -17,6 +14,33 @@ def client(monkeypatch, tmp_path):
     import paperbook.app as app_mod
     importlib.reload(app_mod)
     return TestClient(app_mod.app), db
+
+
+def test_no_known_default_secret_blocks_forgery(monkeypatch, tmp_path):
+    # With SECRET_KEY unset the app must NOT fall back to a public constant.
+    # A cookie forged with the old default key must be rejected (no auth bypass).
+    monkeypatch.delenv("SECRET_KEY", raising=False)
+    monkeypatch.setenv("PAPERBOOK_INSECURE_COOKIES", "1")
+    import importlib
+    import paperbook.db as db
+    db.DB_PATH = tmp_path / "t.db"
+    db.init_db()
+    import paperbook.app as app_mod
+    importlib.reload(app_mod)
+    from fastapi.testclient import TestClient
+    from itsdangerous import URLSafeSerializer
+    c = TestClient(app_mod.app)
+    forged = URLSafeSerializer("dev-secret-change-me", "sess").dumps({"uid": 1})
+    r = c.get("/mybets", cookies={"session": forged}, follow_redirects=False)
+    assert r.status_code == 303 and "/login" in r.headers["location"]
+
+
+def test_session_cookie_is_hardened(client):
+    c, _ = client
+    r = c.post("/signup", data={"username": "amy", "password": "secret1"},
+               follow_redirects=False)
+    setc = r.headers.get("set-cookie", "").lower()
+    assert "httponly" in setc and "samesite=lax" in setc and "secure" in setc
 
 
 def test_signup_login_bet_settle(client):
