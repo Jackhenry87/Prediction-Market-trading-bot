@@ -1,0 +1,78 @@
+name: sports-live
+
+# The always-on SPORTS runner — the selective sharp-line tracker, 24/7,
+# deliberately separate from the hourly pipeline (like smartmoney-live).
+# Each job polls the sharp sportsbook lines every SPORTS_POLL_SECONDS for
+# ~110 minutes and places only the top few conviction plays a day
+# (SPORTS_MAX_PER_DAY). Hourly cron + queued concurrency = a continuous
+# 24/7 chain. Records are recovered into executed_trades.csv by the hourly
+# runs' fills reconciliation.
+#
+# Stop from your phone: repo Variable KILL_SWITCH=true, or DRY_RUN=true to
+# watch without placing.
+
+on:
+  schedule:
+    - cron: '45 * * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sports-live
+  cancel-in-progress: false
+
+jobs:
+  sports:
+    runs-on: ubuntu-latest
+    timeout-minutes: 125
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Write Kalshi key
+        env:
+          KALSHI_PEM: ${{ secrets.KALSHI_PRIVATE_KEY_PEM }}
+        run: printf '%s\n' "$KALSHI_PEM" > kalshi_prod.pem
+      - name: Watch the sharp lines and place
+        env:
+          KALSHI_API_KEY_ID: ${{ secrets.KALSHI_API_KEY_ID }}
+          KALSHI_PRIVATE_KEY_PATH: kalshi_prod.pem
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          KALSHI_ENV: ${{ vars.KALSHI_ENV || 'prod' }}
+          DRY_RUN: ${{ vars.SPORTS_DRY_RUN || vars.DRY_RUN || 'false' }}
+          KILL_SWITCH: ${{ vars.KILL_SWITCH || 'false' }}
+          MAX_ORDER_SIZE: ${{ vars.MAX_ORDER_SIZE || '2' }}
+          MAX_TOTAL_EXPOSURE: ${{ vars.MAX_TOTAL_EXPOSURE || '20' }}
+          SPORTS_LEAGUES: ${{ vars.SPORTS_LEAGUES || 'mlb,nba,nfl,nhl,wnba' }}
+          SPORTS_MAX_PER_DAY: ${{ vars.SPORTS_MAX_PER_DAY || '4' }}
+          SPORTS_MIN_CONFIDENCE: ${{ vars.SPORTS_MIN_CONFIDENCE || '0.60' }}
+          SPORTS_MIN_MOVE: ${{ vars.SPORTS_MIN_MOVE || '0.01' }}
+          # Odds API credits are the real 24/7 limit (free tier ~500/month).
+          # 30-min polling keeps the free tier alive-ish; drop this once you
+          # have the paid Odds tier for true continuous coverage.
+          SPORTS_POLL_SECONDS: ${{ vars.SPORTS_POLL_SECONDS || '1800' }}
+          SPORTS_RUN_MINUTES: '110'
+        run: python sports_runner.py
+
+      - name: Persist sports state across sessions
+        if: always()
+        run: |
+          git config user.name "sports-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          for f in sports_line_history.json paper_trades_sports.csv; do
+            git add -f "$f" 2>/dev/null || true
+          done
+          if ! git diff --cached --quiet; then
+            git commit -m "sports state [skip ci]"
+            for i in 1 2 3 4 5; do
+              git fetch -q origin main || true
+              git rebase -X theirs origin/main || git rebase --abort || true
+              if git push origin HEAD:main; then break; fi
+              sleep $((i * 3))
+            done
+          fi

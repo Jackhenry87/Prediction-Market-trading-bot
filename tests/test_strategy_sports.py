@@ -163,13 +163,71 @@ def test_series_config_sane():
         assert "_" in c["sport"]  # odds-api keys look like 'basketball_nba'
 
 
-def test_mlb_cut_from_hourly_but_leagues_reversible(monkeypatch):
-    # owner call: MLB out of the hourly devig model by default
+def test_confidence_floor_skips_coin_flips(monkeypatch):
+    monkeypatch.setattr(ss, "SPORTS_REQUIRE_STEAM", False)   # isolate the floor
+    monkeypatch.setattr(ss, "SPORTS_MIN_CONFIDENCE", 0.60)
+    # symmetric prices -> both sides ~50%, below the 60% floor
+    game = {"id": "g", "home_team": "Alpha Cats", "away_team": "Beta Dogs",
+            "commence_time": _in_hours(6), "bookmakers": [
+                {"key": "pinnacle", "markets": [{"key": "h2h", "outcomes": [
+                    {"name": "Alpha Cats", "price": 1.95},
+                    {"name": "Beta Dogs", "price": 1.95}]}]}]}
+    market = {"ticker": "T", "yes_sub_title": "Beta Dogs", "status": "active",
+              "yes_ask": 40, "yes_bid": 37}
+    assert ss.evaluate_market(market, [game], None) == []    # 50% < 60% floor
+
+
+def test_sports_placed_today_counts(tmp_path, monkeypatch):
+    import csv
+
+    import ledger
+    log = tmp_path / "exec.csv"
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    with open(log, "w", newline="") as fh:
+        w = csv.writer(fh)
+        w.writerow(ledger.EXEC_COLUMNS)
+        w.writerow([today + "T12:00:00Z", "sports", "K1", "yes", "1", "55",
+                    "0.55", "o", ""])
+        w.writerow([today + "T13:00:00Z", "sports", "K2", "no", "1", "52",
+                    "0.52", "o", ""])
+        w.writerow(["2020-01-01T00:00:00Z", "sports", "K3", "yes", "1", "50",
+                    "0.50", "o", ""])                        # old day
+        w.writerow([today + "T14:00:00Z", "weather", "K4", "no", "1", "60",
+                    "0.60", "o", ""])                        # not sports
+    monkeypatch.setattr(ledger, "EXEC_LOG", log)
+    assert ss._sports_placed_today() == 2
+
+
+def test_daily_budget_caps_scan(monkeypatch):
+    monkeypatch.setattr(ss, "SPORTS_MAX_PER_DAY", 2)
+    monkeypatch.setattr(ss, "_sports_placed_today", lambda: 0)
+    monkeypatch.setattr(ss, "in_season_sports", lambda k: {"baseball_mlb"})
+    monkeypatch.setattr(ss, "fetch_games", lambda k, s: [
+        {"id": "g", "home_team": "A A", "away_team": "B B", "bookmakers": []}])
+    # five qualifying plays with ascending edge -> only the top 2 come back
+    monkeypatch.setattr(ss, "evaluate_market", lambda m, g, h: [dict(
+        side="yes", price_cents=50, model_prob=0.7,
+        ev_cents=float(m["ticker"][1:]), steam=0.02,
+        ticker=m["ticker"], subtitle="x")])
+
+    class _Fake:
+        def __init__(self, *a, **k): pass
+        def get_positions(self): return {"market_positions": []}
+        def _request(self, method, path, params=None):
+            return {"events": [{"event_ticker": "E1", "title": "t",
+                                "markets": [{"ticker": f"K{i}",
+                                             "status": "active"}
+                                            for i in range(5)]}]}
+    monkeypatch.setattr(ss, "KalshiClient", _Fake)
+    results = ss.scan("key")
+    tickers = [s["ticker"] for r in results for s in r["signals"]]
+    assert len(tickers) == 2 and set(tickers) == {"K4", "K3"}   # top 2 by edge
+
+
+def test_leagues_configurable(monkeypatch):
+    # MLB is back in by default; SPORTS_LEAGUES still gates each league
     by_name = {c["name"]: c for c in ss.SERIES}
-    monkeypatch.setattr(ss, "ENABLED_LEAGUES", {"nba", "nfl", "nhl", "wnba"})
-    assert not ss.league_enabled(by_name["MLB"])
-    assert ss.league_enabled(by_name["NBA"])
-    assert ss.league_enabled(by_name["WNBA"])
-    # one repo Variable brings it back
-    monkeypatch.setattr(ss, "ENABLED_LEAGUES", {"mlb"})
+    monkeypatch.setattr(ss, "ENABLED_LEAGUES", {"mlb", "wnba"})
     assert ss.league_enabled(by_name["MLB"])
+    assert ss.league_enabled(by_name["WNBA"])
+    assert not ss.league_enabled(by_name["NBA"])     # excluded by the Variable

@@ -54,12 +54,13 @@ SERIES = [
     dict(series="KXNHLGAME", sport="icehockey_nhl", name="NHL"),
     dict(series="KXWNBA", sport="basketball_wnba", name="WNBA"),
 ]
-# Owner call (2026-07-07): MLB is cut from the hourly devig model — its
-# record didn't earn the slot. MLB bets now happen ONLY when profitable
-# smart-money cappers are on them (the copy runner keeps its MLB mapping).
-# Re-enable anytime with repo Variable SPORTS_LEAGUES=mlb,nba,nfl,nhl,wnba.
+# Rebuilt 2026-07-08 into a SELECTIVE sharp-line tracker (owner call): the
+# old model bet every EV gap and bled. Now it follows where the sharp money
+# is moving and takes only the few best plays a day — a pick must clear a
+# confidence floor AND show a real steam move AND beat fees, and only the
+# top SPORTS_MAX_PER_DAY by edge are taken across all games. MLB is back in.
 ENABLED_LEAGUES = {s.strip().lower() for s in os.getenv(
-    "SPORTS_LEAGUES", "nba,nfl,nhl,wnba").split(",") if s.strip()}
+    "SPORTS_LEAGUES", "mlb,nba,nfl,nhl,wnba").split(",") if s.strip()}
 
 
 def league_enabled(cfg: dict) -> bool:
@@ -82,7 +83,15 @@ LINE_HISTORY = Path(__file__).resolve().parent / "sports_line_history.json"
 # SPORTS_REQUIRE_STEAM=false; SPORTS_MIN_MOVE sets how big the move must be.
 SPORTS_REQUIRE_STEAM = os.getenv(
     "SPORTS_REQUIRE_STEAM", "true").strip().lower() not in ("false", "0", "no")
-SPORTS_MIN_MOVE = float(os.getenv("SPORTS_MIN_MOVE", "0.0"))   # prob points
+# require a REAL sharp move (default 1 probability point since last look),
+# not any drift — noise-sized moves were half the losing bets
+SPORTS_MIN_MOVE = float(os.getenv("SPORTS_MIN_MOVE", "0.01"))   # prob points
+# only back a side the sharp price makes a genuine favorite — skip the
+# coin-flip games where variance dominates any thin edge
+SPORTS_MIN_CONFIDENCE = float(os.getenv("SPORTS_MIN_CONFIDENCE", "0.60"))
+# hard budget: at most this many NEW sports picks placed per day, the very
+# best by edge — "a few sharp plays a day", never a full slate
+SPORTS_MAX_PER_DAY = int(os.getenv("SPORTS_MAX_PER_DAY", "4"))
 
 
 PINNACLE_WEIGHT = 3.0   # trust the sharpest book ~3x a soft book
@@ -233,28 +242,52 @@ def evaluate_market(market: dict, games: list, history: dict = None) -> list:
 
     signals = []
     yes_ask = price_cents(market, "yes_ask")
-    if yes_ask and 0 < yes_ask < 100 and steam_ok(side):
+    if (yes_ask and 0 < yes_ask < 100 and steam_ok(side)
+            and p >= SPORTS_MIN_CONFIDENCE):
         ev = 100.0 * p - yes_ask - taker_fee_cents(yes_ask)
         if ev >= MIN_EDGE_CENTS:
             signals.append(dict(side="yes", price_cents=yes_ask,
-                                model_prob=p, ev_cents=ev))
+                                model_prob=p, ev_cents=ev,
+                                steam=abs(move_home or 0.0)))
     yes_bid = price_cents(market, "yes_bid")
-    if yes_bid and 0 < yes_bid < 100 and steam_ok(other):
+    if (yes_bid and 0 < yes_bid < 100 and steam_ok(other)
+            and (1.0 - p) >= SPORTS_MIN_CONFIDENCE):
         no_price = 100.0 - yes_bid
         ev = 100.0 * (1.0 - p) - no_price - taker_fee_cents(no_price)
         if ev >= MIN_EDGE_CENTS:
             signals.append(dict(side="no", price_cents=no_price,
-                                model_prob=1.0 - p, ev_cents=ev))
+                                model_prob=1.0 - p, ev_cents=ev,
+                                steam=abs(move_home or 0.0)))
     for s in signals:
         s.update(ticker=market.get("ticker"), subtitle=label)
     return signals
 
 
+def _sports_placed_today(now: datetime = None) -> int:
+    """How many real sports orders were already placed today — the daily
+    budget counts against this so we never exceed a few plays a day."""
+    from ledger import EXEC_LOG
+    now = now or datetime.now(timezone.utc)
+    today = now.strftime("%Y-%m-%d")
+    if not EXEC_LOG.exists():
+        return 0
+    n = 0
+    with open(EXEC_LOG, newline="") as fh:
+        for row in csv.DictReader(fh):
+            if (row.get("model") == "sports"
+                    and (row.get("placed_at_utc") or "").startswith(today)):
+                n += 1
+    return n
+
+
 def scan(api_key: str) -> list:
-    """Same result shape as the other models; 'date' carries the event
-    ticker so one-bet-per-event grouping works."""
+    """Selective sharp-line tracker: collect every play that clears the
+    steam + confidence + edge gates across all games, then return only the
+    top few by edge, capped so at most SPORTS_MAX_PER_DAY are placed per day.
+    The cap reads the executed ledger, which the runner appends to as it
+    places, so the budget holds across polls within a session. Result shape
+    matches the other models; 'date' carries the event ticker."""
     client = KalshiClient(env="prod")
-    results = []
     history = load_line_history()   # sharp lines as of the previous run
     new_history = {}                # what we'll persist for the next run
     try:
@@ -263,11 +296,17 @@ def scan(api_key: str) -> list:
         log.warning("Could not fetch in-season list (%s); trying all sports", exc)
         active = {c["sport"] for c in SERIES}
 
+    try:                            # don't spend budget on markets we hold
+        positions = client.get_positions()
+        held = {p.get("ticker") for p in positions.get("market_positions", [])
+                if float(p.get("position", 0) or 0) != 0}
+    except Exception:
+        held = set()
+
+    candidates = []                 # every qualifying play, ranked later
     for cfg in SERIES:
         if not league_enabled(cfg):
-            log.info("%s: cut from the hourly model (owner call) — copy "
-                     "runner still takes smart-money %s bets", cfg["name"],
-                     cfg["name"])
+            log.info("%s: not in SPORTS_LEAGUES, skipping", cfg["name"])
             continue
         if cfg["sport"] not in active:
             log.info("%s: out of season, skipping (no odds credits spent)",
@@ -282,46 +321,52 @@ def scan(api_key: str) -> list:
         if not games:
             continue
 
-        # record each game's current sharp home prob so the next run can tell
-        # which way the line moved (the steam filter's memory)
         now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
-        for g in games:
+        for g in games:            # steam memory: remember each sharp line
             hp = fair_home_prob(g)
             if hp is not None and g.get("id"):
                 new_history[g["id"]] = dict(
-                    home_prob=round(hp, 4),
-                    home_team=g.get("home_team"),
-                    away_team=g.get("away_team"),
-                    updated=now_iso)
+                    home_prob=round(hp, 4), home_team=g.get("home_team"),
+                    away_team=g.get("away_team"), updated=now_iso)
         try:
             data = client._request(
                 "GET", "/events",
                 params={"series_ticker": cfg["series"], "status": "open",
-                        "with_nested_markets": "true", "limit": 60},
-            )
+                        "with_nested_markets": "true", "limit": 60})
         except Exception as exc:
             log.warning("Skipping %s markets: %s", cfg["name"], exc)
             continue
 
         for event in data.get("events", []):
             event_ticker = event.get("event_ticker") or event.get("ticker") or ""
-            signals = []
             for market in event.get("markets") or []:
                 if market.get("status") not in (None, "active", "open"):
                     continue
-                got = evaluate_market(market, games, history)
-                if got:
-                    signals.extend(got)
-            if not signals:
-                continue
-            signals.sort(key=lambda s: -s["ev_cents"])
-            results.append(dict(date=event_ticker, mu=0.0,
-                                city=cfg["name"],
-                                title=event.get("title", ""),
-                                signals=signals))
+                for s in evaluate_market(market, games, history) or []:
+                    if s["ticker"] in held:
+                        continue
+                    candidates.append(dict(event_ticker=event_ticker,
+                                           title=event.get("title", ""),
+                                           league=cfg["name"], signal=s))
     if new_history:
         save_line_history(new_history)
-    return results
+
+    # daily budget: only the very best by edge, capped for the whole day
+    placed = _sports_placed_today()
+    budget = max(0, SPORTS_MAX_PER_DAY - placed)
+    candidates.sort(key=lambda c: -c["signal"]["ev_cents"])
+    chosen = candidates[:budget]
+    log.info("Sports: %d qualifying play(s); %d already placed today, budget "
+             "%d -> taking %d", len(candidates), placed, budget, len(chosen))
+
+    by_event = {}
+    for c in chosen:
+        g = by_event.setdefault(c["event_ticker"],
+                                dict(date=c["event_ticker"], mu=0.0,
+                                     city=c["league"], title=c["title"],
+                                     signals=[]))
+        g["signals"].append(c["signal"])
+    return list(by_event.values())
 
 
 def append_paper_trades(signals: list, event: str) -> None:
