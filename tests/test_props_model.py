@@ -32,6 +32,16 @@ def _book(sportsbook, judge_over, judge_under, line=1.5):
                                   "selection": {"name": "x"}}]}]}
 
 
+def _book_stat(sportsbook, market, line, over, under, player="Aaron Judge"):
+    """One OddsBlaze payload for an arbitrary market/line."""
+    def odd(side, price):
+        return {"market": market, "name": f"{player} {side} {line}",
+                "price": price,
+                "selection": {"name": player, "side": side, "line": line}}
+    return {"sportsbook": {"id": sportsbook},
+            "events": [{"odds": [odd("Over", over), odd("Under", under)]}]}
+
+
 def test_parse_book_two_way_only():
     q = pm.parse_book(_book("draftkings", "-110", "-110"))
     key = ("aaron judge", "Player Total Bases", 1.5)
@@ -61,6 +71,46 @@ def test_sharp_consensus_averages_books():
     key = ("aaron judge", "Player Total Bases", 1.5)
     assert key in fair
     assert 0.45 < fair[key]["p"] < 0.55 and fair[key]["books"] == 3
+
+
+def test_sharp_means_backs_out_the_mean():
+    # both books quote strikeouts 5.5 at even money -> P(over)=0.5 -> mean=5.5
+    payloads = {b: _book_stat(b, "Player Strikeouts", 5.5, "-110", "-110")
+                for b in ("draftkings", "betmgm")}
+    means = pm.sharp_means(payloads)
+    m = means[("aaron judge", "Player Strikeouts")]
+    assert abs(m["mean"] - 5.5) < 0.05 and m["books"] == 2
+
+
+def test_interpolation_finds_stale_line_edge():
+    # Sharp mean is 6.5 Ks (books quote 6.5). PrizePicks posts 5.5 -> "over 5.5"
+    # is really ~68%, and at 1.73 that's a real +EV over the exact model missed.
+    sharp = {b: _book_stat(b, "Player Strikeouts", 6.5, "-110", "-110")
+             for b in ("draftkings", "betmgm")}
+    means = pm.sharp_means(sharp)
+    dfs = [dict(player="Aaron Judge", player_norm="aaron judge",
+                display_stat="Strikeouts", market="Player Strikeouts",
+                line=5.5, over_decimal=1.73, under_decimal=1.73,
+                title="x", source="prizepicks")]
+    # no exact 5.5 quote in `fair`, so only interpolation can catch it
+    picks = pm.find_value(dfs, {}, means, min_edge_pct=6)
+    assert len(picks) == 1
+    assert picks[0]["side"] == "over" and picks[0]["priced_by"] == "model"
+    assert picks[0]["edge_pct"] > 6
+    # and with interpolation OFF (means=None) the edge is invisible
+    assert pm.find_value(dfs, {}, None, min_edge_pct=6) == []
+
+
+def test_interpolation_respects_offset_gate():
+    # PrizePicks line 12.5 is way beyond MAX_OFFSET_SIGMA of a 6.5 mean -> skip
+    sharp = {b: _book_stat(b, "Player Strikeouts", 6.5, "-110", "-110")
+             for b in ("draftkings", "betmgm")}
+    means = pm.sharp_means(sharp)
+    dfs = [dict(player="Aaron Judge", player_norm="aaron judge",
+                display_stat="Strikeouts", market="Player Strikeouts",
+                line=12.5, over_decimal=1.73, under_decimal=1.73,
+                title="x", source="prizepicks")]
+    assert pm.find_value(dfs, {}, means, min_edge_pct=6) == []
 
 
 def test_find_value_takes_edge_and_skips_thin():
