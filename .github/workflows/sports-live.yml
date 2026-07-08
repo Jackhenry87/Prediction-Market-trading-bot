@@ -1,19 +1,18 @@
 name: sports-live
 
-# The always-on SPORTS runner — the selective sharp-line tracker, 24/7,
-# deliberately separate from the hourly pipeline (like smartmoney-live).
-# Each job polls the sharp sportsbook lines every SPORTS_POLL_SECONDS for
-# ~110 minutes and places only the top few conviction plays a day
-# (SPORTS_MAX_PER_DAY). Hourly cron + queued concurrency = a continuous
-# 24/7 chain. Records are recovered into executed_trades.csv by the hourly
-# runs' fills reconciliation.
+# The always-on SPORTS runner — the selective sharp-line tracker. A LIGHT
+# single-pass every 30 min (minute-frugal; also matches the Odds-API-frugal
+# cadence). Each run scans the sharp lines once and places only the top few
+# conviction plays a day (daily budgets read from the executed ledger, so they
+# hold across runs). Dedup is off the LIVE held/resting book each pass.
+# (Was a 110-min session/hour ~2640 Actions min/day; now ~75/day.)
 #
 # Stop from your phone: repo Variable KILL_SWITCH=true, or DRY_RUN=true to
 # watch without placing.
 
 on:
   schedule:
-    - cron: '45 * * * *'
+    - cron: '*/30 * * * *'
   workflow_dispatch: {}
 
 permissions:
@@ -26,7 +25,7 @@ concurrency:
 jobs:
   sports:
     runs-on: ubuntu-latest
-    timeout-minutes: 125
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -55,12 +54,9 @@ jobs:
           SPORTS_MIN_CONFIDENCE: ${{ vars.SPORTS_MIN_CONFIDENCE || '0.60' }}
           SPORTS_MIN_MOVE: ${{ vars.SPORTS_MIN_MOVE || '0.01' }}
           SPORTS_TOTAL_SIGMA: ${{ vars.SPORTS_TOTAL_SIGMA || '3.0' }}
-          # Odds API credits are the real 24/7 limit (free tier ~500/month).
-          # 30-min polling keeps the free tier alive-ish; drop this once you
-          # have the paid Odds tier for true continuous coverage.
-          SPORTS_POLL_SECONDS: ${{ vars.SPORTS_POLL_SECONDS || '1800' }}
-          SPORTS_RUN_MINUTES: '110'
-        run: python sports_runner.py
+          # one scan per run; the */30 cron sets the cadence (~48 Odds-API
+          # scans/day, easy on the free ~500/month tier).
+        run: python sports_runner.py --once
 
       - name: Persist sports state across sessions
         if: always()

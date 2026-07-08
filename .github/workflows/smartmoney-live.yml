@@ -1,11 +1,11 @@
 name: smartmoney-live
 
 # The always-on smart-money COPY watcher — deliberately separate from the
-# hourly auto-trade pipeline. Each job polls Polymarket's sharp wallets
-# every SM_POLL_SECONDS for ~110 minutes and copies fresh >=3-sharp
-# consensus onto Kalshi IMMEDIATELY, sized 4-8% of bankroll by conviction.
-# Hourly cron + queued concurrency = continuous 24/7 chain (a new session
-# starts as the previous one ends; never two at once).
+# hourly auto-trade pipeline. A LIGHT single-pass every 20 min (minute-frugal):
+# each run scans Polymarket's sharp wallets once and copies fresh >=3-sharp
+# consensus onto Kalshi, sized 4-8% of bankroll by conviction. Dedup is off the
+# LIVE held/resting book each pass, so single-pass never re-copies or double-
+# places. (Was a 110-min session/hour ~2640 Actions min/day; now ~110/day.)
 #
 # Stop it from your phone: repo Variable KILL_SWITCH=true (blocks orders)
 # or SM_DRY_RUN=true (watch without placing). Records are recovered into
@@ -13,7 +13,7 @@ name: smartmoney-live
 
 on:
   schedule:
-    - cron: '15 * * * *'
+    - cron: '*/20 * * * *'
   workflow_dispatch: {}
 
 permissions:
@@ -26,7 +26,7 @@ concurrency:
 jobs:
   copy:
     runs-on: ubuntu-latest
-    timeout-minutes: 125
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -49,8 +49,6 @@ jobs:
           MAX_TOTAL_EXPOSURE: ${{ vars.MAX_TOTAL_EXPOSURE || '20' }}
           SM_COPY_MIN_PCT: ${{ vars.SM_COPY_MIN_PCT || '4' }}
           SM_COPY_MAX_PCT: ${{ vars.SM_COPY_MAX_PCT || '8' }}
-          SM_POLL_SECONDS: ${{ vars.SM_POLL_SECONDS || '600' }}
-          SM_RUN_MINUTES: '110'
           # follow-the-exit is a live SELL surface: OFF unless armed
           SM_FOLLOW_EXITS: ${{ vars.SM_FOLLOW_EXITS || 'false' }}
           # pinned specialists always kept in the sharp pool (comma-separated
@@ -64,7 +62,7 @@ jobs:
           # HARD lockup guard: never buy a market resolving more than this
           # many days out, so capital can't freeze in a far-dated bet. 0 off.
           SM_MAX_DAYS_OUT: ${{ vars.SM_MAX_DAYS_OUT || '60' }}
-        run: python smartmoney_runner.py
+        run: python smartmoney_runner.py --once
 
       - name: Persist copy state + copy scoreboard across sessions
         if: always()
