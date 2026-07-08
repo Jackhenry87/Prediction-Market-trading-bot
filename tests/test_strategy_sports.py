@@ -198,9 +198,10 @@ def test_sports_placed_today_counts(tmp_path, monkeypatch):
     assert ss._sports_placed_today() == 2
 
 
-def test_daily_budget_caps_scan(monkeypatch):
-    monkeypatch.setattr(ss, "SPORTS_MAX_PER_DAY", 2)
-    monkeypatch.setattr(ss, "_sports_placed_today", lambda: 0)
+def test_ml_daily_budget_caps_scan(monkeypatch):
+    monkeypatch.setattr(ss, "SPORTS_MAX_ML_PER_DAY", 2)
+    monkeypatch.setattr(ss, "SPORTS_MAX_TOTALS_PER_DAY", 0)
+    monkeypatch.setattr(ss, "_sports_placed_today", lambda kind="all": 0)
     monkeypatch.setattr(ss, "in_season_sports", lambda k: {"baseball_mlb"})
     monkeypatch.setattr(ss, "fetch_games", lambda k, s: [
         {"id": "g", "home_team": "A A", "away_team": "B B", "bookmakers": []}])
@@ -214,6 +215,9 @@ def test_daily_budget_caps_scan(monkeypatch):
         def __init__(self, *a, **k): pass
         def get_positions(self): return {"market_positions": []}
         def _request(self, method, path, params=None):
+            # moneyline series only; totals series returns nothing
+            if "TOTAL" in str(params.get("series_ticker", "")):
+                return {"events": []}
             return {"events": [{"event_ticker": "E1", "title": "t",
                                 "markets": [{"ticker": f"K{i}",
                                              "status": "active"}
@@ -222,6 +226,44 @@ def test_daily_budget_caps_scan(monkeypatch):
     results = ss.scan("key")
     tickers = [s["ticker"] for r in results for s in r["signals"]]
     assert len(tickers) == 2 and set(tickers) == {"K4", "K3"}   # top 2 by edge
+
+
+def test_fair_total_mean_and_over_prob(monkeypatch):
+    monkeypatch.setattr(ss, "TOTAL_SIGMA", 3.0)
+    # symmetric over/under at 8.5 -> devigged P(over)=0.5 -> mean == line
+    game = {"bookmakers": [{"key": "pinnacle", "markets": [{"key": "totals",
+            "outcomes": [{"name": "Over", "price": 1.95, "point": 8.5},
+                         {"name": "Under", "price": 1.95, "point": 8.5}]}]}]}
+    assert abs(ss.fair_total_mean(game) - 8.5) < 1e-6
+    # at the mean, P(over) is 0.5; well below the mean it's high
+    assert abs(ss.over_prob(8.5, 8.5) - 0.5) < 1e-9
+    assert ss.over_prob(8.5, 5.5) > 0.8
+
+
+def test_total_game_match_fails_closed():
+    games = [{"home_team": "Colorado Rockies", "away_team": "Los Angeles Dodgers"},
+             {"home_team": "New York Yankees", "away_team": "Boston Red Sox"}]
+    g = ss.match_total_game("Colorado vs Los Angeles D: Total Runs", games)
+    assert g and g["home_team"] == "Colorado Rockies"
+    # a doubleheader (same two teams twice) can't be told apart -> refuse
+    dh = [{"home_team": "Colorado Rockies", "away_team": "Los Angeles Dodgers"},
+          {"home_team": "Colorado Rockies", "away_team": "Los Angeles Dodgers"}]
+    assert ss.match_total_game("Colorado vs Los Angeles D: Total Runs", dh) is None
+
+
+def test_evaluate_total_market_gates(monkeypatch):
+    monkeypatch.setattr(ss, "SPORTS_REQUIRE_STEAM", False)
+    monkeypatch.setattr(ss, "TOTAL_SIGMA", 3.0)
+    monkeypatch.setattr(ss, "SPORTS_MIN_CONFIDENCE", 0.60)
+    monkeypatch.setattr(ss, "MIN_EDGE_CENTS", 5.0)
+    # mean 8.5; Over 6.5 (within the 2.5 window) is ~75% -> ask 60c = edge
+    mkt = {"ticker": "T", "yes_sub_title": "Over 6.5", "status": "active",
+           "floor_strike": 6.5, "yes_ask": 60, "yes_bid": 57}
+    sig = ss.evaluate_total_market(mkt, mean=8.5)
+    assert sig and sig[0]["side"] == "yes" and sig[0]["model_prob"] > 0.7
+    # a strike far from the mean is outside the reliable window -> skipped
+    far = dict(mkt, floor_strike=13.5)
+    assert ss.evaluate_total_market(far, mean=8.5) == []
 
 
 def test_leagues_configurable(monkeypatch):

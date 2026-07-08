@@ -49,9 +49,12 @@ jobs:
           MAX_ORDER_SIZE: ${{ vars.MAX_ORDER_SIZE || '2' }}
           MAX_TOTAL_EXPOSURE: ${{ vars.MAX_TOTAL_EXPOSURE || '20' }}
           SPORTS_LEAGUES: ${{ vars.SPORTS_LEAGUES || 'mlb,nba,nfl,nhl,wnba' }}
-          SPORTS_MAX_PER_DAY: ${{ vars.SPORTS_MAX_PER_DAY || '4' }}
+          # separate daily budgets: a few moneylines AND a few over/unders
+          SPORTS_MAX_ML_PER_DAY: ${{ vars.SPORTS_MAX_ML_PER_DAY || '2' }}
+          SPORTS_MAX_TOTALS_PER_DAY: ${{ vars.SPORTS_MAX_TOTALS_PER_DAY || '2' }}
           SPORTS_MIN_CONFIDENCE: ${{ vars.SPORTS_MIN_CONFIDENCE || '0.60' }}
           SPORTS_MIN_MOVE: ${{ vars.SPORTS_MIN_MOVE || '0.01' }}
+          SPORTS_TOTAL_SIGMA: ${{ vars.SPORTS_TOTAL_SIGMA || '3.0' }}
           # Odds API credits are the real 24/7 limit (free tier ~500/month).
           # 30-min polling keeps the free tier alive-ish; drop this once you
           # have the paid Odds tier for true continuous coverage.

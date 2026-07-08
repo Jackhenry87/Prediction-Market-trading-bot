@@ -128,9 +128,10 @@ def main() -> int:
         return 1
     client = KalshiClient(settings.kalshi_api_key_id,
                           settings.kalshi_private_key_path, settings.kalshi_env)
-    log.info("SPORTS RUNNER: env=%s DRY_RUN=%s, <=%d picks/day, poll %ds",
-             settings.kalshi_env, settings.dry_run,
-             strategy_sports.SPORTS_MAX_PER_DAY, POLL_SECONDS)
+    log.info("SPORTS RUNNER: env=%s DRY_RUN=%s, <=%d ML + %d O/U picks/day, "
+             "poll %ds", settings.kalshi_env, settings.dry_run,
+             strategy_sports.SPORTS_MAX_ML_PER_DAY,
+             strategy_sports.SPORTS_MAX_TOTALS_PER_DAY, POLL_SECONDS)
     if not settings.dry_run:
         log.warning("LIVE: real-money sharp plays this session.")
 
