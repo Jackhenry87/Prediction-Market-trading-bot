@@ -52,14 +52,8 @@ jobs:
           ARB_CATEGORIES: ${{ vars.ARB_CATEGORIES || '' }}
           ARB_SERIES: ${{ vars.ARB_SERIES || '' }}
           ARB_MIN_PROFIT_CENTS: ${{ vars.ARB_MIN_PROFIT_CENTS || '2' }}
-          # depth-aware sizing: up to this % of balance, keeping a reserve
-          ARB_MAX_BALANCE_PCT: ${{ vars.ARB_MAX_BALANCE_PCT || '100' }}
-          ARB_RESERVE_USD: ${{ vars.ARB_RESERVE_USD || '0' }}
-          # 24/7 fast-poll: check every ~3 min for ~110 min, then the next
-          # hourly run picks up the chain
-          ARB_POLL_SECONDS: ${{ vars.ARB_POLL_SECONDS || '180' }}
-          ARB_RUN_MINUTES: '110'
-        run: python arb_runner.py
+          ARB_CONTRACTS: ${{ vars.ARB_CONTRACTS || '1' }}
+        run: python arb_runner.py --once
 
       - name: Persist executed arb records
         if: always()

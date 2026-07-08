@@ -48,21 +48,6 @@ ARB_MAX_PAGES = int(os.getenv("ARB_MAX_PAGES", "60"))   # events-feed page cap
 # guaranteed profit must clear this AFTER fees (a buffer for fee rounding and
 # any slippage between scan and fill). Cents per 1-contract basket.
 ARB_MIN_PROFIT_CENTS = float(os.getenv("ARB_MIN_PROFIT_CENTS", "2"))
-# ...and must NOT exceed this. Kalshi's mutually_exclusive flag means AT MOST
-# one YES, NOT exactly one: candidate/nominee fields ("next Pope", "51st
-# state") carry an untradeable "none of the above" outcome, so their YES
-# baskets sum far below $1 and look like a huge "arb" that actually LOSES when
-# the none-outcome hits. A real basket on a truly exhaustive, liquid ladder
-# sits a few cents under par at most — so an implausibly large profit is the
-# signature of a non-exhaustive market and is rejected. (NO baskets are safe on
-# non-exhaustive events, but their yes_bid sum stays far below 100 there, so
-# they never trigger anyway.)
-ARB_MAX_PROFIT_CENTS = float(os.getenv("ARB_MAX_PROFIT_CENTS", "7"))
-# Depth-aware sizing caps. Go as big as the arb genuinely supports, but:
-#   - never commit more than this % of balance to one basket, and
-#   - always keep ARB_RESERVE_USD unlocked (so a thin arb can't strand you).
-ARB_MAX_BALANCE_PCT = float(os.getenv("ARB_MAX_BALANCE_PCT", "100"))
-ARB_RESERVE_USD = float(os.getenv("ARB_RESERVE_USD", "0"))
 
 
 ARB_REQUIRE_EXHAUSTIVE = os.getenv(
@@ -143,107 +128,9 @@ def evaluate_event(event: dict, markets: list) -> dict:
     return max(candidates, key=lambda a: a["profit_cents"], default=None)
 
 
-def _ladder_for_buy(orderbook: dict, want_side: str) -> list:
-    """Ascending (buy_price_cents, qty) you can BUY `want_side` at, cheapest
-    first. On Kalshi's single book, buying YES matches resting NO orders
-    (yes_price = 100 - no_price) and buying NO matches resting YES orders."""
-    opp = orderbook.get("no" if want_side == "yes" else "yes") or []
-    out = []
-    for level in opp:
-        try:
-            price, qty = float(level[0]), float(level[1])
-        except (TypeError, ValueError, IndexError):
-            continue
-        buy = 100.0 - price
-        if 0 < buy < 100 and qty > 0:
-            out.append((buy, qty))
-    out.sort(key=lambda x: x[0])
-    return out
-
-
-def _avg_fill(ladder: list, n: int):
-    """Average cents to buy n contracts, consuming the ladder cheapest-first.
-    None if the ladder can't supply n (insufficient depth)."""
-    filled, cost = 0.0, 0.0
-    for price, qty in ladder:
-        take = min(qty, n - filled)
-        cost += take * price
-        filled += take
-        if filled >= n:
-            return cost / n
-    return None
-
-
-def basket_econ(ladders: list, side: str, n_legs: int, n: int):
-    """(total_cost_cents, profit_per_contract_cents) to buy n on every leg at
-    the achievable average fills. None if any leg lacks depth for n."""
-    avgs = []
-    for lad in ladders:
-        a = _avg_fill(lad, n)
-        if a is None:
-            return None
-        avgs.append(a)
-    fees = sum(taker_fee_cents(a) for a in avgs)
-    payout = 100.0 if side == "yes" else (n_legs - 1) * 100.0
-    profit_per = payout - sum(avgs) - fees
-    return n * sum(avgs), profit_per
-
-
-def size_basket(client: KalshiClient, arb: dict, balance_cents: float,
-                max_pct: float = None, reserve_usd: float = None,
-                buffer_cents: float = None) -> dict:
-    """Largest equal contract count across all legs whose AVERAGE fill still
-    clears the profit buffer, capped by the balance-% and reserve guards. Reads
-    each leg's live order book. Returns the arb enriched with count / real
-    cost / locked profit, or None if size 0 (book too thin, or budget spent)."""
-    max_pct = ARB_MAX_BALANCE_PCT if max_pct is None else max_pct
-    reserve = (ARB_RESERVE_USD if reserve_usd is None else reserve_usd) * 100.0
-    buf = ARB_MIN_PROFIT_CENTS if buffer_cents is None else buffer_cents
-    budget = min(balance_cents * max_pct / 100.0, balance_cents - reserve)
-    if budget <= 0:
-        return None
-
-    ladders = []
-    for ticker, _, side in arb["legs"]:
-        try:
-            book = client.get_orderbook(ticker)
-        except Exception as exc:
-            log.warning("No book for %s (%s) — cannot size safely.", ticker, exc)
-            return None
-        lad = _ladder_for_buy(book, side)
-        if not lad:
-            return None
-        ladders.append(lad)
-    depth_cap = int(min(sum(q for _, q in lad) for lad in ladders))
-    if depth_cap < 1:
-        return None
-
-    # profit_per is monotone-decreasing in n, cost monotone-increasing -> the
-    # feasible set is [1, N*]; binary-search the largest feasible N.
-    def ok(n):
-        econ = basket_econ(ladders, arb["side"], arb["n"], n)
-        if not econ:
-            return False
-        cost, profit_per = econ
-        return profit_per >= buf and cost <= budget
-
-    if not ok(1):
-        return None
-    lo, hi = 1, depth_cap
-    while lo < hi:
-        mid = (lo + hi + 1) // 2
-        if ok(mid):
-            lo = mid
-        else:
-            hi = mid - 1
-    cost, profit_per = basket_econ(ladders, arb["side"], arb["n"], lo)
-    return dict(arb, count=lo, cost_cents=cost, fees_cents=None,
-                profit_cents=profit_per, basket_profit_usd=profit_per * lo / 100.0)
-
-
-def _scan_series(client: KalshiClient, series: list) -> list:
-    """Only the given series (one /events call each) — used when ARB_SERIES is
-    set explicitly, e.g. for testing or to pin the hunt to a few ladders."""
+def scan(client: KalshiClient, series: list = None) -> list:
+    """Every complete, below-$1 mutually-exclusive basket across the series."""
+    series = series or ARB_SERIES
     found = []
     for s in series:
         try:
