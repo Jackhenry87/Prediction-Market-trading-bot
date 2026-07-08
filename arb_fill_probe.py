@@ -1,15 +1,20 @@
-"""DEMO-only probe: capture the RAW shape of a Kalshi create-order response for
-a MARKETABLE order that actually fills, so we can confirm arb_runner._filled_count
-reads real fills correctly before trusting the fill check on real money.
+"""DEMO-only probe: capture the RAW shape of Kalshi order responses so we can
+confirm arb_runner._filled_count reads real fills correctly before trusting the
+partial-fill guard on real money.
 
-The arb runner's partial-fill guard depends on parsing fill_count / remaining_count
-/ status out of whatever POST /portfolio/events/orders returns. The existing smoke
-test only ever places a RESTING order, so it never exercises the filled path. This
-probe deliberately places a small marketable buy (1 contract) into a market that
-has a hittable ask, dumps the entire JSON response, shows what _order_obj /
-_filled_count extract from it, then cleans up (flatten + cancel).
+Demo order books are empty (no external liquidity to take), so this does two
+things:
+  Phase 1 — place a resting order that can't fill, dump the raw create response
+            AND the canonical Order object from get_resting_orders. This pins
+            down the exact field names + nesting (order_id, status,
+            remaining_count, ...).
+  Phase 2 — deliberately SELF-CROSS (a resting YES ask via a NO buy, then a
+            marketable YES buy that hits it, with self-trade-prevention omitted)
+            to produce a genuinely EXECUTED order, then dump that response and
+            show what _order_obj / _filled_count extract from a real fill.
 
-Refuses to run anywhere but demo. Play money only.
+Cleans up after itself (cancel resting + report any residual set). Refuses to
+run anywhere but demo. Play money only.
 
     KALSHI_ENV=demo python arb_fill_probe.py
 """
@@ -24,7 +29,7 @@ from trade_logger import get_logger, setup_logging
 
 log = get_logger("arb_fill_probe")
 
-PROBE_COUNT = 1            # one contract — cents of play money
+X = 50            # self-cross price in cents (both legs; a $1 set, ~break-even)
 
 
 def _dump(label, obj):
@@ -34,118 +39,103 @@ def _dump(label, obj):
         log.info("%s (unserialisable): %r", label, obj)
 
 
-def _find_hittable(client):
-    """A market with resting YES asks we can actually take, cheapest first so
-    the probe spends almost nothing. Returns (ticker, yes_ask_cents) or None."""
-    try:
-        data = client._request("GET", "/markets",
-                               params={"status": "open", "limit": 200})
-    except Exception as exc:
-        log.error("markets list failed: %s", exc)
-        return None
-    markets = data.get("markets", [])
-    # highest-volume first — most likely to have a live two-sided book on demo
-    markets.sort(key=lambda m: float(m.get("volume") or 0), reverse=True)
-    checked = 0
-    for m in markets:
-        ticker = m.get("ticker")
-        if not ticker or m.get("status") not in (None, "active", "open"):
-            continue
-        try:
-            book = client.get_orderbook(ticker)
-        except Exception:
-            continue
-        checked += 1
-        # buying YES matches resting NO orders (yes_ask = 100 - no_price)
-        lad = arb_runner.kalshi_arb._ladder_for_buy(book, "yes")
-        if lad:
-            price, qty = lad[0]
-            if 1 <= price <= 98 and qty >= PROBE_COUNT:
-                log.info("Hittable market %s: %d YES available @ %dc",
-                         ticker, int(qty), int(round(price)))
-                return ticker, int(round(price))
-        if checked >= 60:
-            break
-    return None
+def _report_parse(resp, requested):
+    order = arb_runner._order_obj(resp)
+    _dump("_order_obj(resp)", order)
+    filled = arb_runner._filled_count(order, requested)
+    log.info(">>> _filled_count reads: %r (requested %d) <<<", filled, requested)
+    return order, filled
+
+
+def _find_market(client) -> str:
+    """First open, tradeable market ticker (self-cross needs no liquidity)."""
+    data = client._request("GET", "/markets",
+                           params={"status": "open", "limit": 200})
+    for m in sorted(data.get("markets", []),
+                    key=lambda m: float(m.get("volume") or 0), reverse=True):
+        if m.get("ticker") and m.get("status") in (None, "active", "open"):
+            return m["ticker"]
+    return ""
 
 
 def main() -> int:
     setup_logging()
-    env = os.getenv("KALSHI_ENV", "demo")
-    if env != "demo":
-        log.error("Refusing to run outside demo (KALSHI_ENV=%s) — it places a "
-                  "live marketable order.", env)
+    if os.getenv("KALSHI_ENV", "demo") != "demo":
+        log.error("Refusing to run outside demo — it places live orders.")
         return 1
     client = KalshiClient(os.getenv("KALSHI_API_KEY_ID"),
-                          os.getenv("KALSHI_PRIVATE_KEY_PATH"), env)
-
+                          os.getenv("KALSHI_PRIVATE_KEY_PATH"), "demo")
     log.info("demo balance $%.2f", client.get_balance_cents() / 100.0)
 
-    found = _find_hittable(client)
-    if not found:
-        log.warning("No hittable ask found on demo right now — cannot force a "
-                    "fill. (Demo books are often empty.) Try again later.")
-        return 0
-    ticker, ask = found
+    ticker = _find_market(client)
+    if not ticker:
+        log.error("No open demo market found.")
+        return 1
+    log.info("using market %s", ticker)
 
-    order_id = None
+    to_cancel = []
     try:
-        # marketable: limit AT the ask so the resting size fills immediately
-        resp = client.create_limit_order(ticker, "yes", "buy", PROBE_COUNT, ask)
-        _dump("RAW create_limit_order response", resp)
+        # ---- Phase 1: resting-order schema (can't fill at 1c) --------------
+        log.info("=== PHASE 1: resting order (schema) ===")
+        resp = client.create_limit_order(ticker, "yes", "buy", 1, 1)
+        _dump("RAW create response (resting)", resp)
+        order, _ = _report_parse(resp, 1)
+        oid = order.get("order_id")
+        if oid:
+            to_cancel.append(oid)
+        resting = client.get_resting_orders()
+        _dump("get_resting_orders() [canonical Order objects, up to 3]",
+              resting[:3])
 
-        order = arb_runner._order_obj(resp)
-        _dump("_order_obj(resp)", order)
-        filled = arb_runner._filled_count(order, PROBE_COUNT)
-        log.info(">>> _filled_count reads: %r (requested %d) <<<",
-                 filled, PROBE_COUNT)
-        if filled == PROBE_COUNT:
-            log.info("✅ parser sees a FULL fill — the partial-fill guard is "
-                     "reading real fills correctly.")
-        elif filled == 0:
-            log.warning("parser sees 0 filled — order likely RESTED (no real "
-                        "depth). Envelope still captured above.")
+        # ---- Phase 2: force a real EXECUTED fill via self-cross ------------
+        log.info("=== PHASE 2: self-cross to force a real fill ===")
+        # maker: buy NO @ (100-X) rests as a YES ask at X
+        maker = client.create_limit_order(ticker, "no", "buy", 1, 100 - X)
+        moid = arb_runner._order_obj(maker).get("order_id")
+        if moid:
+            to_cancel.append(moid)
+        log.info("resting maker placed (YES ask @ %dc), order %s", X, moid)
+        # taker: marketable buy YES @ X, self-trade-prevention OMITTED so it
+        # actually matches our own resting ask instead of being cancelled
+        taker = client.create_limit_order(ticker, "yes", "buy", 1, X,
+                                           self_trade_prevention_type=None)
+        _dump("RAW create response (taker — should be FILLED)", taker)
+        torder, filled = _report_parse(taker, 1)
+        toid = torder.get("order_id")
+        if toid:
+            to_cancel.append(toid)
+
+        if filled == 1:
+            log.info("✅ CONFIRMED: _filled_count reads a REAL fill correctly "
+                     "(1/1). The partial-fill guard will work on real money.")
         elif filled is None:
-            log.error("❌ parser could NOT determine fill from this response — "
-                      "_filled_count needs the fields shown in the RAW dump.")
+            log.error("❌ _filled_count could NOT parse the fill — see the RAW "
+                      "taker dump above and extend the parser to those fields.")
         else:
-            log.info("parser sees PARTIAL fill %d/%d.", filled, PROBE_COUNT)
+            log.warning("taker filled=%r (self-cross may have been prevented, "
+                        "or fields differ) — inspect the RAW dump above.", filled)
 
-        order_id = order.get("order_id")
-
-        # cross-check against the authoritative endpoints + capture their shapes
         try:
             _dump("get_fills() [most recent 3]", client.get_fills()[-3:])
         except Exception as exc:
             log.warning("get_fills failed: %s", exc)
-        try:
-            _dump("get_resting_orders() [up to 3]",
-                  client.get_resting_orders()[:3])
-        except Exception as exc:
-            log.warning("get_resting_orders failed: %s", exc)
     finally:
-        # cleanup: cancel any resting remainder, then flatten any position taken
-        if order_id:
+        for oid in to_cancel:
             try:
-                client.cancel_order(str(order_id))
-                log.info("cleanup: cancelled order %s", order_id)
-            except Exception as exc:
-                log.info("cleanup: nothing to cancel for %s (%s)", order_id, exc)
+                client.cancel_order(str(oid))
+            except Exception:
+                pass
         try:
-            pos = {p.get("ticker"): p for p in
-                   client.get_positions().get("market_positions", [])}
-            held = int(float(pos.get(ticker, {}).get("position", 0) or 0))
-            if held:
-                # sell what we bought back at 1c (marketable down) to go flat
-                side = "yes" if held > 0 else "no"
-                client.create_limit_order(ticker, side, "sell", abs(held), 1)
-                log.info("cleanup: flattened %d %s on %s", abs(held),
-                         side.upper(), ticker)
-        except Exception as exc:
-            log.warning("cleanup: could not flatten %s (%s) — check demo "
-                        "manually (play money).", ticker, exc)
+            pos = {p.get("ticker"): int(float(p.get("position", 0) or 0))
+                   for p in client.get_positions().get("market_positions", [])}
+            if pos.get(ticker):
+                log.info("residual demo position on %s: %d (a self-hedged set; "
+                         "settles to $1, harmless play money).", ticker,
+                         pos[ticker])
+        except Exception:
+            pass
 
-    log.info("PROBE DONE — read the RAW dump above to confirm the fill fields.")
+    log.info("PROBE DONE.")
     return 0
 
 
