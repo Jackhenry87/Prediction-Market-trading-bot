@@ -1,11 +1,14 @@
 name: refresh-account
 
-# One-tap authoritative scoreboard refresh from Kalshi's REST API.
-# Run it from the Actions tab (or your phone) whenever you want the Account
-# section marked to your real, live portfolio — no CSV uploads. The hourly
-# pipeline already refreshes this every run; this is the manual "update now".
+# Authoritative scoreboard + spreadsheet refresh from Kalshi's REST API.
+# Runs hourly at :30 (a free slot — autotrade :00, smartmoney :15, sports :45)
+# so kalshi_report.csv / paper_report.csv / trade_history.csv and the Account
+# section stay live from your real portfolio without you tapping anything.
+# You can also run it on demand from the Actions tab (or your phone).
 
 on:
+  schedule:
+    - cron: '30 * * * *'
   workflow_dispatch: {}
 
 permissions:
