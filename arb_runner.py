@@ -30,40 +30,107 @@ POLL_SECONDS = int(os.getenv("ARB_POLL_SECONDS", "300"))
 RUN_MINUTES = float(os.getenv("ARB_RUN_MINUTES", "0"))     # 0 = single pass
 
 
+def _order_obj(resp):
+    """The create-order response is either the order dict itself or wrapped as
+    {'order': {...}}, depending on API vintage. Normalise to the order dict."""
+    if isinstance(resp, dict) and isinstance(resp.get("order"), dict):
+        return resp["order"]
+    return resp if isinstance(resp, dict) else {}
+
+
+def _filled_count(order: dict, requested: int):
+    """Contracts actually filled by a just-placed marketable order, across the
+    fields Kalshi may return. None if it genuinely cannot be determined."""
+    for f in ("fill_count", "filled_count"):
+        if order.get(f) not in (None, ""):
+            try:
+                return int(float(order[f]))
+            except (TypeError, ValueError):
+                pass
+    rem = order.get("remaining_count")
+    if rem not in (None, ""):
+        try:
+            return max(requested - int(float(rem)), 0)
+        except (TypeError, ValueError):
+            pass
+    status = str(order.get("status", "")).lower()
+    if status in ("executed", "filled", "matched"):
+        return requested
+    if status in ("resting", "open", "pending", "canceled", "cancelled"):
+        return 0
+    return None
+
+
 def place_basket(client, settings, arb: dict, exposure: float) -> bool:
     """Buy `arb['count']` of every leg on its side (yes/no) at a marketable
-    limit so it fills now (arb needs the fill, not a better maker price).
-    Returns True only if ALL legs were placed (or dry-run). A mid-basket
-    failure is logged CRITICAL and returns False — the guarantee is void once a
-    leg is missing."""
+    limit (the marginal fill price from size_basket) so the full count fills.
+
+    Two guardrails keep the basket risk-free or nothing:
+      1. PRE-FLIGHT — every leg is run through check_order BEFORE any order is
+         sent, so a leg blocked by the risk gate can never leave a partial,
+         one-sided position resting on the book (it sends nothing instead).
+      2. FILL VERIFY — after each real order we confirm the leg fully filled;
+         a shortfall (book moved between sizing and placement) means the basket
+         is unbalanced and no longer risk-free, so we cancel the remainder, log
+         CRITICAL, and stop — never silently recording a basket that isn't there.
+    Returns True only if ALL legs fully filled (or dry-run)."""
     count = arb["count"]
-    placed = 0
+
+    # (1) PRE-FLIGHT: clear EVERY leg before sending ANY.
+    running = exposure
     for ticker, price_c, side in arb["legs"]:
-        problems = check_order(settings, "BUY", price_c / 100.0, count, exposure)
+        problems = check_order(settings, "BUY", price_c / 100.0, count, running)
         if problems:
             for p in problems:
                 log.warning("BLOCKED leg %s: %s", ticker, p)
-            if placed:
-                log.critical("PARTIAL BASKET %s: %d/%d legs placed then blocked "
-                             "— NOT risk-free, resolve manually.",
-                             arb["event_ticker"], placed, arb["n"])
+            log.info("Basket %s not fully placeable (leg %s blocked) — sending "
+                     "NOTHING; will re-check next poll.",
+                     arb["event_ticker"], ticker)
             return False
-        if settings.dry_run:
-            placed += 1
-            continue
-        price = int(round(price_c))         # marketable limit at the ask
+        running += count * price_c / 100.0
+
+    if settings.dry_run:
+        log.info("[DRY_RUN] basket %s cleared pre-flight: %d x %d-leg %s "
+                 "(guaranteed +%.1fc/contract = $%.2f).", arb["event_ticker"],
+                 count, arb["n"], arb["side"].upper(), arb["profit_cents"],
+                 arb["profit_cents"] * count / 100.0)
+        return True
+
+    # (2) PLACE + VERIFY: all legs pre-cleared; place at the marginal limit.
+    placed = 0
+    for ticker, price_c, side in arb["legs"]:
+        price = int(round(price_c))         # marketable limit at the marginal fill
         try:
-            order = client.create_limit_order(ticker, side, "buy", count, price)
+            resp = client.create_limit_order(ticker, side, "buy", count, price)
         except Exception as exc:
             log.critical("Leg %s FAILED (%s). %d/%d legs already placed — "
                          "PARTIAL BASKET %s, resolve manually.", ticker, exc,
                          placed, arb["n"], arb["event_ticker"])
             return False
+        order = _order_obj(resp)
+        filled = _filled_count(order, count)
+        if filled is None:
+            log.warning("Could not verify fill for %s (unrecognised order "
+                        "response) — assuming full fill of %d.", ticker, count)
+            filled = count
         try:
-            log_execution("arb", ticker, side, count, price,
+            log_execution("arb", ticker, side, filled, price,
                           str(order.get("order_id", "")))
         except Exception as exc:
             log.warning("Execution-log write failed for %s: %s", ticker, exc)
+        if filled < count:
+            oid = order.get("order_id")
+            if oid:
+                try:
+                    client.cancel_order(str(oid))
+                except Exception as exc:
+                    log.warning("Could not cancel remainder of %s: %s",
+                                ticker, exc)
+            log.critical("Leg %s filled %d/%d — PARTIAL BASKET %s (%d prior "
+                         "legs already fully filled). NOT risk-free, resolve "
+                         "manually.", ticker, filled, count,
+                         arb["event_ticker"], placed)
+            return False
         exposure += count * price / 100.0
         placed += 1
     log.info("Basket %s: %d x %d-leg %s (guaranteed +%.1fc/contract = "
