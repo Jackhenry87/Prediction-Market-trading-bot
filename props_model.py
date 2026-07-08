@@ -51,6 +51,38 @@ MIN_EDGE_PCT = float(os.getenv("PROPS_MIN_EDGE_PCT", "6"))   # ROI %, after juic
 MAX_PICKS_PER_DAY = int(os.getenv("PROPS_MAX_PER_DAY", "4"))
 USER_AGENT = "Mozilla/5.0 (compatible; props-model/1.0)"
 
+# --- line-difference model ---
+# The real DFS edge is a STALE LINE: PrizePicks posts a number the sharp market
+# has moved off. Requiring the sharp book to quote PrizePicks' exact line threw
+# all of those away (and left only efficient lines, ~-8% after DFS juice). So we
+# also model each stat's sharp distribution as Normal(mean, sigma): from a
+# book's line + devigged P(over) we back out the implied mean, then price
+# PrizePicks' line off it. Prefer an EXACT sharp quote when one exists (no
+# modeling error); interpolate only otherwise, and only within MAX_OFFSET_SIGMA
+# of the mean (where the Normal approximation is least unreliable).
+PROPS_INTERPOLATE = os.getenv(
+    "PROPS_INTERPOLATE", "true").strip().lower() not in ("false", "0", "no")
+MAX_OFFSET_SIGMA = float(os.getenv("PROPS_MAX_OFFSET_SIGMA", "2.0"))
+# Per-stat spread (contract units). Deliberately on the generous side — a wider
+# sigma UNDERstates the edge, so it errs toward NOT betting rather than toward a
+# false positive. Tune once we have settled results.
+DEFAULT_SIGMA = 1.5
+STAT_SIGMA = {
+    "Player Strikeouts": 2.2,
+    "Player Total Bases": 1.4,
+    "Player Hits": 0.8,
+    "Player Home Runs": 0.6,
+    "Player RBIs": 1.1,
+    "Player Runs": 0.9,
+    "Player Singles": 0.8,
+    "Player Batter Walks": 0.8,
+    "Player Hits + Runs + RBIs": 1.6,
+    "Player Hits Allowed": 2.4,
+    "Player Earned Runs": 1.9,
+    "Player Walks Allowed": 1.4,
+    "Player Outs": 3.5,
+}
+
 
 def norm_name(name: str) -> str:
     """Normalize a player name for cross-book matching: strip accents,
@@ -137,6 +169,42 @@ def sharp_consensus(book_payloads: dict) -> dict:
             for k, a in acc.items() if a["wtot"] > 0}
 
 
+def stat_sigma(market: str) -> float:
+    return STAT_SIGMA.get(market, DEFAULT_SIGMA)
+
+
+def sharp_means(book_payloads: dict) -> dict:
+    """Weighted implied MEAN per (player_norm, market) across the sharp books.
+    From each book's two-way line: P(over line)=p implies, under
+    Normal(mean, sigma), mean = line + sigma·Φ⁻¹(p). Averaged (Pinnacle-weighted)
+    over every line each book quotes. {key: {'mean', 'sigma', 'books': n}}."""
+    from statistics import NormalDist
+    acc = {}
+    for book, payload in book_payloads.items():
+        w = BOOK_WEIGHTS.get(book, 1.0)
+        for (who, market, line), q in parse_book(payload).items():
+            if "over" not in q or "under" not in q:
+                continue
+            p_over = min(max(shin_two_way(q["over"], q["under"]), 1e-4),
+                         1 - 1e-4)
+            sigma = stat_sigma(market)
+            mean = line + sigma * NormalDist().inv_cdf(p_over)
+            a = acc.setdefault((who, market),
+                               {"wsum": 0.0, "wtot": 0.0, "books": set()})
+            a["wsum"] += w * mean
+            a["wtot"] += w
+            a["books"].add(book)
+    return {k: {"mean": a["wsum"] / a["wtot"], "sigma": stat_sigma(k[1]),
+                "books": len(a["books"])}
+            for k, a in acc.items() if a["wtot"] > 0}
+
+
+def over_prob(mean: float, line: float, sigma: float) -> float:
+    """P(stat > line) under Normal(mean, sigma)."""
+    from statistics import NormalDist
+    return 1.0 - NormalDist(mean, sigma).cdf(line)
+
+
 # ---------- live fetch ----------
 def fetch_book(key: str, sportsbook: str, league: str = None) -> dict:
     resp = requests.get(ODDSBLAZE_URL, timeout=25,
@@ -152,19 +220,38 @@ def fetch_book(key: str, sportsbook: str, league: str = None) -> dict:
 
 
 # ---------- value ----------
-def find_value(dfs_lines: list, fair: dict, min_edge_pct: float = None) -> list:
+def sharp_prob_at(d: dict, fair: dict, means: dict):
+    """Sharp P(over) for one DFS line. Prefer an EXACT sharp quote at the same
+    number (no modeling error); else interpolate off the implied mean, but only
+    within MAX_OFFSET_SIGMA of it. Returns (p_over, books, priced_by) or None."""
+    s = fair.get((d["player_norm"], d["market"], d["line"]))
+    if s and s["books"] >= MIN_BOOKS:
+        return s["p"], s["books"], "exact"
+    if not (PROPS_INTERPOLATE and means):
+        return None
+    m = means.get((d["player_norm"], d["market"]))
+    if not m or m["books"] < MIN_BOOKS:
+        return None
+    if abs(d["line"] - m["mean"]) > MAX_OFFSET_SIGMA * m["sigma"]:
+        return None                      # too far out to trust the Normal
+    return over_prob(m["mean"], d["line"], m["sigma"]), m["books"], "model"
+
+
+def find_value(dfs_lines: list, fair: dict, means: dict = None,
+               min_edge_pct: float = None) -> list:
     """Signals where the sharp fair probability beats the DFS payout. For each
-    DFS line we look up the sharp P(over) at the SAME number and take the side
-    whose EV (fair_prob * dfs_decimal - 1) clears the margin. EV is ROI per $1;
-    a 6% edge means +6c expected per $1 staked, after the DFS juice."""
+    DFS line we get the sharp P(over) at that number — an exact sharp quote if
+    one exists, otherwise interpolated off the implied mean (the stale-line
+    case) — and take the side whose EV (fair_prob * dfs_decimal - 1) clears the
+    margin. EV is ROI per $1; a 6% edge means +6c expected per $1, after juice."""
     min_edge = (min_edge_pct if min_edge_pct is not None
                 else MIN_EDGE_PCT) / 100.0
     out = []
     for d in dfs_lines:
-        s = fair.get((d["player_norm"], d["market"], d["line"]))
-        if not s or s["books"] < MIN_BOOKS:
+        got = sharp_prob_at(d, fair, means)
+        if not got:
             continue
-        p_over = s["p"]
+        p_over, books, priced_by = got
         ev_over = p_over * d["over_decimal"] - 1.0
         ev_under = (1.0 - p_over) * d["under_decimal"] - 1.0
         if ev_over >= ev_under:
@@ -177,7 +264,8 @@ def find_value(dfs_lines: list, fair: dict, min_edge_pct: float = None) -> list:
             player=d["player"], display_stat=d["display_stat"],
             market=d["market"], line=d["line"], side=side,
             decimal=dec, sharp_prob=prob, edge_pct=ev * 100.0,
-            books=s["books"], title=d["title"], source=d["source"]))
+            books=books, title=d["title"], source=d["source"],
+            priced_by=priced_by))
     out.sort(key=lambda x: -x["edge_pct"])
     return out
 
@@ -197,9 +285,13 @@ def scan(key: str, league: str = None) -> list:
         if p:
             payloads[book] = p
     fair = sharp_consensus(payloads)
-    log.info("Sharp consensus from %d book(s): %d priced (player, market, line)",
-             len(payloads), len(fair))
-    return find_value(dfs, fair)[:MAX_PICKS_PER_DAY]
+    means = sharp_means(payloads) if PROPS_INTERPOLATE else {}
+    log.info("Sharp consensus from %d book(s): %d exact-line points, %d "
+             "(player, market) means", len(payloads), len(fair), len(means))
+    picks = find_value(dfs, fair, means)
+    n_model = sum(1 for p in picks if p.get("priced_by") == "model")
+    log.info("%d value pick(s) (%d from stale-line model)", len(picks), n_model)
+    return picks[:MAX_PICKS_PER_DAY]
 
 
 def main() -> int:
