@@ -1,15 +1,13 @@
 name: live-bots
 
-# Consolidated live runner: smart-money copier + arb + sports in ONE job, so
-# the ~50s setup tax (checkout + Python + pip) is paid ONCE per cycle instead
-# of three times. Runs every 20 min:
+# Consolidated live runner: smart-money copier + sports in ONE job, so the
+# ~50s setup tax (checkout + Python + pip) is paid once per cycle. Runs every
+# 20 min:
 #   - smart-money copier : every run  (live)
-#   - arb hunter         : every run  (DETECT-ONLY by default)
 #   - sports tracker     : once/hour  (top-of-hour cycle; lines move slowly)
-# Each runner keeps its own gates/budgets/dedup; DRY_RUN is set per-runner so
-# arb stays detect-only while the copier/sports place for real.
-#
-# Replaces the separate smartmoney-live / sports-live / arb-live workflows.
+# (arb runs in its own arb-live workflow at a faster 5-min cadence — arbs are
+# fleeting, so it needs to poll more often than the copier/sports.)
+# Each runner keeps its own gates/budgets/dedup; DRY_RUN is set per-runner.
 # Stop from your phone: repo Variable KILL_SWITCH=true (blocks all orders).
 
 on:
@@ -48,10 +46,9 @@ jobs:
           KILL_SWITCH: ${{ vars.KILL_SWITCH || 'false' }}
           MAX_ORDER_SIZE: ${{ vars.MAX_ORDER_SIZE || '2' }}
           MAX_TOTAL_EXPOSURE: ${{ vars.MAX_TOTAL_EXPOSURE || '20' }}
-          # per-runner dry-run (arb detect-only unless armed)
+          # per-runner dry-run
           SM_DRY_RUN: ${{ vars.SM_DRY_RUN || vars.DRY_RUN || 'false' }}
           SPORTS_DRY_RUN: ${{ vars.SPORTS_DRY_RUN || vars.DRY_RUN || 'false' }}
-          ARB_DRY_RUN: ${{ vars.ARB_DRY_RUN || 'true' }}
           # --- smart-money copier ---
           SM_COPY_MIN_PCT: ${{ vars.SM_COPY_MIN_PCT || '4' }}
           SM_COPY_MAX_PCT: ${{ vars.SM_COPY_MAX_PCT || '8' }}
@@ -66,17 +63,9 @@ jobs:
           SPORTS_MIN_CONFIDENCE: ${{ vars.SPORTS_MIN_CONFIDENCE || '0.60' }}
           SPORTS_MIN_MOVE: ${{ vars.SPORTS_MIN_MOVE || '0.01' }}
           SPORTS_TOTAL_SIGMA: ${{ vars.SPORTS_TOTAL_SIGMA || '3.0' }}
-          # --- arb ---
-          ARB_CATEGORIES: ${{ vars.ARB_CATEGORIES || '' }}
-          ARB_SERIES: ${{ vars.ARB_SERIES || '' }}
-          ARB_MIN_PROFIT_CENTS: ${{ vars.ARB_MIN_PROFIT_CENTS || '2' }}
-          ARB_MAX_BALANCE_PCT: ${{ vars.ARB_MAX_BALANCE_PCT || '100' }}
-          ARB_RESERVE_USD: ${{ vars.ARB_RESERVE_USD || '0' }}
         run: |
           # smart-money copier — every run
           DRY_RUN="$SM_DRY_RUN" python smartmoney_runner.py --once || true
-          # arb hunter — every run, detect-only unless ARB_DRY_RUN=false
-          DRY_RUN="$ARB_DRY_RUN" python arb_runner.py --once || true
           # sports — only the top-of-hour cycle (~hourly); lines move slowly.
           # base-10 forced so 08/09 don't trip octal parsing.
           min=$((10#$(date -u +%M)))
