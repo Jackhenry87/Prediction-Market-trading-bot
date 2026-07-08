@@ -28,18 +28,19 @@ log = get_logger("arb_runner")
 
 POLL_SECONDS = int(os.getenv("ARB_POLL_SECONDS", "300"))
 RUN_MINUTES = float(os.getenv("ARB_RUN_MINUTES", "0"))     # 0 = single pass
+ARB_CONTRACTS = int(os.getenv("ARB_CONTRACTS", "1"))
 
 
 def place_basket(client, settings, arb: dict, exposure: float) -> bool:
-    """Buy `arb['count']` of every leg on its side (yes/no) at a marketable
-    limit so it fills now (arb needs the fill, not a better maker price).
-    Returns True only if ALL legs were placed (or dry-run). A mid-basket
+    """Buy every leg of one basket on its side (yes/no) at the ask — a
+    marketable limit so it fills now (arb needs the fill, not a better maker
+    price). Returns True only if ALL legs were placed (or dry-run). A mid-basket
     failure is logged CRITICAL and returns False — the guarantee is void once a
     leg is missing."""
-    count = arb["count"]
     placed = 0
-    for ticker, price_c, side in arb["legs"]:
-        problems = check_order(settings, "BUY", price_c / 100.0, count, exposure)
+    for ticker, ask, side in arb["legs"]:
+        problems = check_order(settings, "BUY", ask / 100.0, ARB_CONTRACTS,
+                               exposure)
         if problems:
             for p in problems:
                 log.warning("BLOCKED leg %s: %s", ticker, p)
@@ -51,25 +52,24 @@ def place_basket(client, settings, arb: dict, exposure: float) -> bool:
         if settings.dry_run:
             placed += 1
             continue
-        price = int(round(price_c))         # marketable limit at the ask
+        price = int(round(ask))             # marketable limit at the ask
         try:
-            order = client.create_limit_order(ticker, side, "buy", count, price)
+            order = client.create_limit_order(ticker, side, "buy",
+                                              ARB_CONTRACTS, price)
         except Exception as exc:
             log.critical("Leg %s FAILED (%s). %d/%d legs already placed — "
                          "PARTIAL BASKET %s, resolve manually.", ticker, exc,
                          placed, arb["n"], arb["event_ticker"])
             return False
         try:
-            log_execution("arb", ticker, side, count, price,
+            log_execution("arb", ticker, "yes", ARB_CONTRACTS, price,
                           str(order.get("order_id", "")))
         except Exception as exc:
             log.warning("Execution-log write failed for %s: %s", ticker, exc)
-        exposure += count * price / 100.0
+        exposure += ARB_CONTRACTS * price / 100.0
         placed += 1
-    log.info("Basket %s: %d x %d-leg %s (guaranteed +%.1fc/contract = "
-             "$%.2f locked).", arb["event_ticker"], count, arb["n"],
-             arb["side"].upper(), arb["profit_cents"],
-             arb["profit_cents"] * count / 100.0)
+    log.info("Basket %s: %d/%d legs placed (guaranteed +%.1fc/contract).",
+             arb["event_ticker"], placed, arb["n"], arb["profit_cents"])
     return placed == arb["n"]
 
 
@@ -86,35 +86,21 @@ def arb_pass(client, settings, done: set) -> int:
     except ExposureError as exc:
         log.error("REFUSING TO PLACE: %s (failing closed)", exc)
         return 0
-    balance_cents = client.get_balance_cents()
-    bankroll = balance_cents / 100.0 + exposure
+    balance = client.get_balance_cents() / 100.0
+    bankroll = balance + exposure
     from dataclasses import replace
     settings = replace(settings,
                        max_order_size=scaled_order_cap(bankroll, settings),
                        max_total_exposure=scaled_exposure_cap(bankroll, settings))
     placed = 0
-    remaining = float(balance_cents)        # budget shrinks as baskets take it
     for a in arbs:
         if a["event_ticker"] in done:
             continue
-        # depth-aware size: as big as the book + your caps allow, no bigger
-        sized = kalshi_arb.size_basket(client, a, remaining)
-        if not sized or sized["count"] < 1:
-            # too thin / over budget RIGHT NOW — don't mark done, re-check next
-            # poll in case the book deepens (24/7 catch rate).
-            log.info("ARB %s: no size clears the buffer within the book/budget "
-                     "— will re-check next poll.", a["event_ticker"])
-            continue
-        done.add(a["event_ticker"])       # attempted -> never re-leg the basket
-        log.info("ARB %s (%s): buy %s x%d on %d legs -> guaranteed +%.1fc/ea "
-                 "= $%.2f (cost $%.2f)", a["title"], a["event_ticker"],
-                 a["side"].upper(), sized["count"], a["n"], sized["profit_cents"],
-                 sized["basket_profit_usd"], sized["cost_cents"] / 100.0)
-        if place_basket(client, settings, sized, exposure):
+        log.info("ARB %s (%s): %d legs, guaranteed +%.1fc/contract",
+                 a["title"], a["event_ticker"], a["n"], a["profit_cents"])
+        if place_basket(client, settings, a, exposure):
             placed += 1
-            spent = sized["cost_cents"]
-            remaining -= spent
-            exposure += spent / 100.0
+        done.add(a["event_ticker"])
     return placed
 
 
@@ -127,10 +113,9 @@ def main() -> int:
         return 1
     client = KalshiClient(settings.kalshi_api_key_id,
                           settings.kalshi_private_key_path, settings.kalshi_env)
-    log.info("ARB RUNNER: env=%s DRY_RUN=%s, depth-sized up to %.0f%% of "
-             "balance (reserve $%.2f), min +%.1fc/contract",
-             settings.kalshi_env, settings.dry_run, kalshi_arb.ARB_MAX_BALANCE_PCT,
-             kalshi_arb.ARB_RESERVE_USD, kalshi_arb.ARB_MIN_PROFIT_CENTS)
+    log.info("ARB RUNNER: env=%s DRY_RUN=%s, %d contracts/leg, min +%.1fc",
+             settings.kalshi_env, settings.dry_run, ARB_CONTRACTS,
+             kalshi_arb.ARB_MIN_PROFIT_CENTS)
     if not settings.dry_run:
         log.warning("LIVE: will place real risk-free baskets this session.")
     done, once = set(), ("--once" in sys.argv or RUN_MINUTES <= 0)
