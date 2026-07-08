@@ -1,14 +1,14 @@
 # 📊 Trading Scoreboard
 
-_Updated 2026-07-08 21:56 UTC — auto-generated every run; do not edit._
+_Updated 2026-07-08 22:56 UTC — auto-generated every run; do not edit._
 
 Signals are scored against official settlement whether or not a real order was placed. P&L shown is per 1-contract stakes.
 
 ## 💰 Account
 
-**Equity $37.41** = cash $21.29 + open positions $16.12 _(last known — live fetch failed this run)_
+**Equity $35.17** = cash $19.05 + open positions $16.12 _(last known — live fetch failed this run)_
 
-🔴 **Net P&L: -$12.59** ($50.00 deposited → $37.41 now) · 26W / 75L settled
+🔴 **Net P&L: -$14.83** ($50.00 deposited → $35.17 now) · 26W / 75L settled
 
 ## 📑 Spreadsheets
 
@@ -17,10 +17,13 @@ Signals are scored against official settlement whether or not a real order was p
 
 ## 💵 Real orders placed
 
-**59 orders, $44.24 deployed.** Settled: **9 W — 25 L, realized +$1.62**; 25 open.
+**62 orders, $46.29 deployed.** Settled: **9 W — 25 L, realized +$1.62**; 28 open.
 
 | Placed (UTC) | Model | Market | Side | Qty | Price | Confidence | Cost | Result |
 |---|---|---|---|---|---|---|---|---|
+| 07-08 22:56 | nowcast | KXHIGHCHI-26JUL08-B88.5 | NO | 12 | 6¢ | 100% | $0.72 | ⏳ open |
+| 07-08 22:56 | weather | KXHIGHDEN-26JUL09-B90.5 | NO | 1 | 69¢ | 91% | $0.69 | ⏳ open |
+| 07-08 22:56 | weather | KXHIGHCHI-26JUL09-B84.5 | NO | 1 | 64¢ | 77% | $0.64 | ⏳ open |
 | 07-08 21:56 | nowcast | KXHIGHCHI-26JUL08-B88.5 | NO | 11 | 8¢ | 100% | $0.88 | ⏳ open |
 | 07-08 21:56 | weather | KXHIGHAUS-26JUL08-B97.5 | NO | 1 | 78¢ | 100% | $0.78 | ⏳ open |
 | 07-08 21:56 | weather | KXHIGHLAX-26JUL09-B77.5 | NO | 1 | 67¢ | 81% | $0.67 | ⏳ open |
@@ -38,9 +41,6 @@ Signals are scored against official settlement whether or not a real order was p
 | 07-07 19:29 | weather | KXHIGHLAX-26JUL07-B73.5 | NO | 1 | 70¢ | 88% | $0.70 | 🔴 loss (-$0.70) |
 | 07-07 19:29 | weather | KXHIGHLAX-26JUL08-B77.5 | NO | 1 | 59¢ | 85% | $0.59 | ⏳ open |
 | 07-07 19:29 | weather | KXHIGHDEN-26JUL08-B92.5 | NO | 1 | 62¢ | 84% | $0.62 | ⏳ open |
-| 07-07 19:29 | weather | KXHIGHCHI-26JUL08-B88.5 | NO | 1 | 61¢ | 100% | $0.61 | ⏳ open |
-| 07-07 19:29 | weather | KXHIGHNY-26JUL08-B82.5 | NO | 1 | 66¢ | 88% | $0.66 | ⏳ open |
-| 07-07 15:27 | untracked | KXWTAMATCH-26JUL07OSAMUC-OSA | YES | 1 | 61¢ | — | $0.61 | 🔴 loss (-$0.61) |
 
 ## 🌡️ Weather by city (real settled P&L since 2026-07-01)
 
@@ -55,12 +55,14 @@ Signals are scored against official settlement whether or not a real order was p
 
 ## 🌡️ Weather model
 
-### 🟢 7 W — 🔴 4 L — ⏳ 27 pending — net **-125¢**
+### 🟢 7 W — 🔴 4 L — ⏳ 29 pending — net **-125¢**
 
 _Brier **0.308** (coin flip 0.25) over 11 settled · avg CLV **-11.6¢** over 11 sampled_
 
 | Scanned (UTC) | Market | Side | Price | Model | Result |
 |---|---|---|---|---|---|
+| 07-08 22:56 | KXHIGHAUS-26JUL09-B100.5 | NO | 89¢ | 95% | ⏳ pending |
+| 07-08 22:56 | KXHIGHMIA-26JUL09-B90.5 | NO | 90¢ | 98% | ⏳ pending |
 | 07-08 21:56 | KXHIGHLAX-26JUL09-B73.5 | NO | 86¢ | 96% | ⏳ pending |
 | 07-08 20:53 | KXHIGHAUS-26JUL09-B96.5 | NO | 63¢ | 90% | ⏳ pending |
 | 07-08 20:53 | KXHIGHLAX-26JUL09-B77.5 | NO | 63¢ | 81% | ⏳ pending |
@@ -79,9 +81,7 @@ _Brier **0.308** (coin flip 0.25) over 11 settled · avg CLV **-11.6¢** over 11
 | 07-07 19:29 | KXHIGHLAX-26JUL08-B77.5 | NO | 60¢ | 85% | ⏳ pending |
 | 07-07 19:29 | KXHIGHDEN-26JUL08-B92.5 | NO | 63¢ | 84% | ⏳ pending |
 | 07-07 19:29 | KXHIGHCHI-26JUL08-B90.5 | NO | 89¢ | 95% | ⏳ pending |
-| 07-07 19:29 | KXHIGHNY-26JUL08-T83 | NO | 80¢ | 92% | ⏳ pending |
-| 07-07 17:03 | KXHIGHAUS-26JUL08-B99.5 | NO | 74¢ | 94% | ⏳ pending |
-| … | _18 older rows in the CSV_ | | | | |
+| … | _20 older rows in the CSV_ | | | | |
 
 ## ₿ Crypto model
 
