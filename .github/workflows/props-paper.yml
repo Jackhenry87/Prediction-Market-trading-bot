@@ -4,10 +4,10 @@ name: props-paper
 # NO real money, NO Kalshi — it records value picks to paper_trades_props.csv
 # and, if PAPERBOOK_URL is set, auto-places them on the paperbook site.
 #
-# MANUAL-DISPATCH ONLY, on purpose: the sharp side uses The Odds API player-
-# props add-on, which costs premium credits per event. No cron means it never
-# burns credits on its own — run it from the Actions tab when you want a scan.
-# Add a `schedule:` block once you're on the paid Odds tier and want it daily.
+# MANUAL-DISPATCH ONLY, on purpose: it reads OddsBlaze (soft DFS board +
+# sharp books). No cron means it never spends your quota on its own — run it
+# from the Actions tab when you want a scan. Add a `schedule:` block if you
+# move to a plan where continuous scanning makes sense.
 
 on:
   workflow_dispatch: {}
@@ -32,11 +32,13 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Scan DFS vs sharp and paper-place
         env:
-          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          ODDSBLAZE_KEY: ${{ secrets.ODDSBLAZE_KEY }}
           # optional: auto-place onto a hosted paperbook site
           PAPERBOOK_URL: ${{ vars.PAPERBOOK_URL || '' }}
           PAPERBOOK_API_KEY: ${{ secrets.PAPERBOOK_API_KEY }}
-          PROPS_SOURCE: ${{ vars.PROPS_SOURCE || 'underdog' }}
+          PROPS_SOURCE: ${{ vars.PROPS_SOURCE || 'prizepicks' }}
+          PROPS_SHARP_BOOKS: ${{ vars.PROPS_SHARP_BOOKS || 'draftkings,betmgm,caesars,fanatics' }}
+          PROPS_LEAGUE: ${{ vars.PROPS_LEAGUE || 'mlb' }}
           PROPS_MIN_EDGE_PCT: ${{ vars.PROPS_MIN_EDGE_PCT || '6' }}
           PROPS_MAX_PER_DAY: ${{ vars.PROPS_MAX_PER_DAY || '4' }}
           PROPS_STAKE_DOLLARS: ${{ vars.PROPS_STAKE_DOLLARS || '50' }}

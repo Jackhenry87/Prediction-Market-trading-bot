@@ -42,9 +42,9 @@ SPORT = os.getenv("PROPS_SPORT", "MLB")
 
 def market_id(pick: dict) -> str:
     """Deterministic id so re-posting refreshes odds instead of duplicating."""
-    who = props_model.norm_name(pick["player"]).replace(" ", "_")
+    who = props_model.norm_name(pick["player"])
     raw = f"{pick['source']}_{pick['market']}_{who}_{pick['line']}"
-    return re.sub(r"[^a-z0-9_.]+", "", raw.lower())
+    return re.sub(r"[^a-z0-9_.]+", "_", raw.lower()).strip("_")
 
 
 def _post(path: str, body: dict):
@@ -94,7 +94,7 @@ def append_ledger(picks: list) -> None:
 
 def props_pass(api_key: str, session: set) -> int:
     try:
-        picks = props_model.scan(api_key, SPORT)
+        picks = props_model.scan(api_key)
     except Exception as exc:
         log.error("Props scan failed: %s", exc)
         return 0
@@ -121,9 +121,9 @@ def props_pass(api_key: str, session: set) -> int:
 
 def main() -> int:
     setup_logging()
-    api_key = os.getenv("ODDS_API_KEY", "").strip()
+    api_key = os.getenv("ODDSBLAZE_KEY", "").strip()
     if not api_key:
-        log.error("ODDS_API_KEY not set (needs the player-props add-on).")
+        log.error("ODDSBLAZE_KEY not set. Add your OddsBlaze key to repo secrets.")
         return 1
     if PAPERBOOK_URL and PAPERBOOK_API_KEY:
         log.info("PROPS PAPER: posting to %s + ledger %s", PAPERBOOK_URL,

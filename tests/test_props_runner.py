@@ -5,14 +5,14 @@ import props_paper_runner as runner
 
 
 PICK = dict(player="Aaron Judge", display_stat="Total Bases",
-            market="batter_total_bases", line=1.5, side="over",
-            decimal=1.80, sharp_prob=0.65, edge_pct=17.0, books=3,
-            title="Aaron Judge Total Bases O/U", source="underdog")
+            market="Player Total Bases", line=1.5, side="over",
+            decimal=1.73, sharp_prob=0.65, edge_pct=12.0, books=3,
+            title="Aaron Judge Player Total Bases", source="prizepicks")
 
 
 def test_market_id_stable_and_sanitized():
     mid = runner.market_id(PICK)
-    assert mid == "underdog_batter_total_bases_aaron_judge_1.5"
+    assert mid == "prizepicks_player_total_bases_aaron_judge_1.5"
     assert runner.market_id(PICK) == mid  # deterministic
 
 

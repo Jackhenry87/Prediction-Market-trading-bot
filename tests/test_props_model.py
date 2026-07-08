@@ -1,4 +1,4 @@
-"""Tests for the player-props model: Underdog parsing, sharp devig, value."""
+"""Tests for the player-props model: OddsBlaze parsing, devig, value."""
 
 import props_model as pm
 
@@ -9,106 +9,70 @@ def test_norm_name_strips_accents_suffix_punct():
     assert pm.norm_name("Shohei Ohtani") == "shohei ohtani"
 
 
-UNDERDOG_FIXTURE = {
-    "players": [
-        {"id": "p1", "first_name": "Aaron", "last_name": "Judge",
-         "sport_id": "MLB"},
-        {"id": "p2", "first_name": "Kylian", "last_name": "Mbappe",
-         "sport_id": "FIFA"},
-    ],
-    "appearances": [
-        {"id": "a1", "player_id": "p1"},
-        {"id": "a2", "player_id": "p2"},
-    ],
-    "over_under_lines": [
-        {   # MLB, mapped stat, active -> should parse
-            "id": "l1", "status": "active", "stat_value": "1.5",
-            "over_under": {"category": "player_prop",
-                           "title": "Aaron Judge Total Bases O/U",
-                           "appearance_stat": {"appearance_id": "a1",
-                                               "display_stat": "Total Bases"}},
-            "options": [
-                {"choice": "higher", "status": "active", "decimal_price": "1.80"},
-                {"choice": "lower", "status": "active", "decimal_price": "1.95"},
-            ],
-        },
-        {   # soccer -> filtered out for MLB
-            "id": "l2", "status": "active", "stat_value": "1.5",
-            "over_under": {"category": "player_prop",
-                           "title": "Mbappe Shots O/U",
-                           "appearance_stat": {"appearance_id": "a2",
-                                               "display_stat": "Shots on Target"}},
-            "options": [
-                {"choice": "higher", "status": "active", "decimal_price": "1.5"},
-                {"choice": "lower", "status": "active", "decimal_price": "2.5"},
-            ],
-        },
-        {   # suspended line -> skipped
-            "id": "l3", "status": "suspended", "stat_value": "0.5",
-            "over_under": {"category": "player_prop",
-                           "title": "Aaron Judge HR O/U",
-                           "appearance_stat": {"appearance_id": "a1",
-                                               "display_stat": "Home Runs"}},
-            "options": [
-                {"choice": "higher", "status": "active", "decimal_price": "3.0"},
-                {"choice": "lower", "status": "active", "decimal_price": "1.3"},
-            ],
-        },
-    ],
-}
+def test_american_to_decimal():
+    assert abs(pm.american_to_decimal("+100") - 2.0) < 1e-9
+    assert abs(pm.american_to_decimal("-137") - 1.7299) < 1e-3
+    assert abs(pm.american_to_decimal(-200) - 1.5) < 1e-9
+    assert pm.american_to_decimal(0) is None
+    assert pm.american_to_decimal("x") is None
 
 
-def test_parse_underdog_filters_and_maps():
-    lines = pm.parse_underdog(UNDERDOG_FIXTURE, "MLB")
+def _book(sportsbook, judge_over, judge_under, line=1.5):
+    """One OddsBlaze payload: Aaron Judge Total Bases over/under at `line`."""
+    def odd(side, price):
+        return {"market": "Player Total Bases",
+                "name": f"Aaron Judge {side} {line}", "price": price,
+                "selection": {"name": "Aaron Judge", "side": side, "line": line}}
+    return {"sportsbook": {"id": sportsbook},
+            "events": [{"odds": [odd("Over", judge_over),
+                                 odd("Under", judge_under),
+                                 # a non-two-way market that must be ignored
+                                 {"market": "1st PA Result 8-Way",
+                                  "name": "Single", "price": "+400",
+                                  "selection": {"name": "x"}}]}]}
+
+
+def test_parse_book_two_way_only():
+    q = pm.parse_book(_book("draftkings", "-110", "-110"))
+    key = ("aaron judge", "Player Total Bases", 1.5)
+    assert key in q
+    assert "over" in q[key] and "under" in q[key]
+    # the 8-way junk market was skipped
+    assert len(q) == 1
+
+
+def test_board_lines_needs_both_sides():
+    lines = pm.board_lines(_book("prizepicks", "-137", "-137"))
     assert len(lines) == 1
     d = lines[0]
-    assert d["player"] == "Aaron Judge"
-    assert d["market"] == "batter_total_bases"
-    assert d["line"] == 1.5
-    assert d["over_decimal"] == 1.80 and d["under_decimal"] == 1.95
+    assert d["player"] == "Aaron Judge" and d["market"] == "Player Total Bases"
+    assert d["display_stat"] == "Total Bases" and d["line"] == 1.5
+    # a payload missing the under side yields no bettable line
+    half = _book("prizepicks", "-137", "-137")
+    half["events"][0]["odds"] = half["events"][0]["odds"][:1]  # over only
+    assert pm.board_lines(half) == []
 
 
-def _event_odds(over_price, under_price, pinnacle_over, pinnacle_under):
-    """Two books quoting Aaron Judge total bases 1.5 over/under."""
-    def book(key, ov, un):
-        return {"key": key, "markets": [{"key": "batter_total_bases",
-                "outcomes": [
-                    {"name": "Over", "description": "Aaron Judge",
-                     "point": 1.5, "price": ov},
-                    {"name": "Under", "description": "Aaron Judge",
-                     "point": 1.5, "price": un}]}]}
-    return {"bookmakers": [book("draftkings", over_price, under_price),
-                           book("pinnacle", pinnacle_over, pinnacle_under)]}
-
-
-def test_sharp_over_probs_pinnacle_weighted():
-    # both books ~ even money -> fair ~0.5, and it counts 2 books
-    fair = pm.sharp_over_probs(_event_odds(1.95, 1.95, 2.0, 2.0))
-    key = ("aaron judge", "batter_total_bases", 1.5)
+def test_sharp_consensus_averages_books():
+    # three books all ~ even money -> fair ~0.5 over, counts 3 books
+    payloads = {b: _book(b, "-110", "-110")
+                for b in ("draftkings", "betmgm", "caesars")}
+    fair = pm.sharp_consensus(payloads)
+    key = ("aaron judge", "Player Total Bases", 1.5)
     assert key in fair
-    assert 0.45 < fair[key]["p"] < 0.55 and fair[key]["books"] == 2
+    assert 0.45 < fair[key]["p"] < 0.55 and fair[key]["books"] == 3
 
 
-def test_find_value_takes_the_edge_side():
-    # sharp says over is ~65% likely; Underdog pays 1.80 on the over.
-    # EV_over = 0.65*1.80 - 1 = +0.17 -> a clear over value pick.
-    fair = {("aaron judge", "batter_total_bases", 1.5): {"p": 0.65, "books": 3}}
-    dfs = pm.parse_underdog(UNDERDOG_FIXTURE, "MLB")
-    picks = pm.find_value(dfs, fair, min_edge_pct=6)
-    assert len(picks) == 1
-    p = picks[0]
-    assert p["side"] == "over" and p["player"] == "Aaron Judge"
-    assert p["edge_pct"] > 6
-
-
-def test_find_value_skips_thin_and_underbooked():
-    dfs = pm.parse_underdog(UNDERDOG_FIXTURE, "MLB")
-    # a coin-flip fair (0.52) at 1.80/1.95 -> EV_over=-0.064, EV_under=+0.014,
-    # both under the 6% floor -> no pick
-    assert pm.find_value(
-        dfs, {("aaron judge", "batter_total_bases", 1.5):
-              {"p": 0.52, "books": 3}}, min_edge_pct=6) == []
-    # even a juicy edge is skipped when too few books agree
-    assert pm.find_value(
-        dfs, {("aaron judge", "batter_total_bases", 1.5):
-              {"p": 0.80, "books": 1}}, min_edge_pct=6) == []
+def test_find_value_takes_edge_and_skips_thin():
+    dfs = pm.board_lines(_book("prizepicks", "-137", "-137"))  # 1.73 each side
+    key = ("aaron judge", "Player Total Bases", 1.5)
+    # sharp 65% over vs 1.73 payout: EV = 0.65*1.73-1 = +0.12 -> value over
+    picks = pm.find_value(dfs, {key: {"p": 0.65, "books": 3}}, min_edge_pct=6)
+    assert len(picks) == 1 and picks[0]["side"] == "over"
+    assert picks[0]["edge_pct"] > 6
+    # coin-flip 52% -> both EV under the floor -> no pick
+    assert pm.find_value(dfs, {key: {"p": 0.52, "books": 3}},
+                         min_edge_pct=6) == []
+    # juicy edge but only 1 book agrees -> skipped
+    assert pm.find_value(dfs, {key: {"p": 0.80, "books": 1}},
+                         min_edge_pct=6) == []
