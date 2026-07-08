@@ -48,9 +48,7 @@ jobs:
           KILL_SWITCH: ${{ vars.KILL_SWITCH || 'false' }}
           MAX_ORDER_SIZE: ${{ vars.MAX_ORDER_SIZE || '2' }}
           MAX_TOTAL_EXPOSURE: ${{ vars.MAX_TOTAL_EXPOSURE || '20' }}
-          # discovery scans the whole exchange; optionally pin categories/series
-          ARB_CATEGORIES: ${{ vars.ARB_CATEGORIES || '' }}
-          ARB_SERIES: ${{ vars.ARB_SERIES || '' }}
+          ARB_SERIES: ${{ vars.ARB_SERIES || 'KXHIGHNY,KXHIGHCHI,KXHIGHMIA,KXHIGHDEN,KXHIGHLAX,KXHIGHAUS,KXNEXTSTATE,KXNEXTAG,KXNEXTLABORSEC,KXNEXTDEF,KXDNC28HOST,KXCABOUT,KXNEXTSPEAKER,KXG7LEADEROUT,KXNEXTODNI,KXSCOURT' }}
           ARB_MIN_PROFIT_CENTS: ${{ vars.ARB_MIN_PROFIT_CENTS || '2' }}
           # depth-aware sizing: up to this % of balance, keeping a reserve
           ARB_MAX_BALANCE_PCT: ${{ vars.ARB_MAX_BALANCE_PCT || '100' }}

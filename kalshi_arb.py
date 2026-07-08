@@ -33,18 +33,19 @@ from trade_logger import get_logger, setup_logging
 log = get_logger("kalshi_arb")
 
 ROOT = Path(__file__).resolve().parent
-# Discovery: by default the scanner pages the WHOLE open-events feed and checks
-# every mutually-exclusive ladder exchange-wide (~1000+: sports futures,
-# elections, econ ranges, entertainment, weather...). One pass is ~30-40 API
-# calls and needs no maintained list — new ladders appear automatically, settled
-# ones drop off. Optionally restrict:
-#   ARB_CATEGORIES=Elections,Economics   only these categories
-#   ARB_SERIES=KXNEXTAG,KXHIGHNY         only these series (skips discovery)
-ARB_CATEGORIES = [c.strip() for c in os.getenv("ARB_CATEGORIES", "").split(",")
-                  if c.strip()]
-ARB_SERIES = [s.strip() for s in os.getenv("ARB_SERIES", "").split(",")
+# Series to scan. Weather temperature ladders are textbook MECE baskets. The
+# politics ladders were confirmed MECE + multi-leg from a live scan and trade
+# MUCH tighter to $1 than weather (KXNEXTSTATE sat at 100.0c, KXNEXTAG 100.2c) —
+# i.e. dislocations into a real arb are far likelier there. All are checked
+# fail-closed, so an unquoted-leg ladder is simply skipped until complete.
+DEFAULT_SERIES = (
+    # weather (highest-temp buckets)
+    "KXHIGHNY,KXHIGHCHI,KXHIGHMIA,KXHIGHDEN,KXHIGHLAX,KXHIGHAUS,"
+    # politics (mutually-exclusive candidate fields)
+    "KXNEXTSTATE,KXNEXTAG,KXNEXTLABORSEC,KXNEXTDEF,KXDNC28HOST,KXCABOUT,"
+    "KXNEXTSPEAKER,KXG7LEADEROUT,KXNEXTODNI,KXSCOURT")
+ARB_SERIES = [s.strip() for s in os.getenv("ARB_SERIES", DEFAULT_SERIES).split(",")
               if s.strip()]
-ARB_MAX_PAGES = int(os.getenv("ARB_MAX_PAGES", "60"))   # events-feed page cap
 # guaranteed profit must clear this AFTER fees (a buffer for fee rounding and
 # any slippage between scan and fill). Cents per 1-contract basket.
 ARB_MIN_PROFIT_CENTS = float(os.getenv("ARB_MIN_PROFIT_CENTS", "2"))
