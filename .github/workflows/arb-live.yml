@@ -1,13 +1,15 @@
 name: arb-live
 
-# Within-Kalshi risk-free basket hunter (kalshi_arb + arb_runner). Scans the
-# mutually-exclusive ladders for baskets trading below their $1 payout and —
-# when armed — buys every leg to lock the guaranteed margin.
+# Within-Kalshi risk-free basket hunter (kalshi_arb + arb_runner), 24/7.
+# DISCOVERS every mutually-exclusive ladder exchange-wide (~1000+: sports
+# futures, elections, econ ranges, entertainment, weather) each pass and buys
+# every leg of any basket trading below its $1 payout. Fast-polls every few
+# minutes for ~110 min; hourly cron + queued concurrency = a continuous chain
+# (arbs live for seconds, so poll speed IS catch rate).
 #
-# SAFE BY DEFAULT: DRY_RUN=true here, so it only DETECTS and logs baskets. To
-# let it actually place real risk-free baskets, set repo Variable
-# ARB_DRY_RUN=false (and KILL_SWITCH=false). Arbs are rare — most passes will
-# find nothing, which is the tool working, not failing.
+# SAFE BY DEFAULT: DRY_RUN=true, so it only DETECTS and logs. To place real
+# risk-free baskets set repo Variable ARB_DRY_RUN=false (and KILL_SWITCH=false).
+# Most passes find nothing — that's the tool working, not failing.
 
 on:
   schedule:
@@ -24,7 +26,7 @@ concurrency:
 jobs:
   arb:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 125
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -46,12 +48,18 @@ jobs:
           KILL_SWITCH: ${{ vars.KILL_SWITCH || 'false' }}
           MAX_ORDER_SIZE: ${{ vars.MAX_ORDER_SIZE || '2' }}
           MAX_TOTAL_EXPOSURE: ${{ vars.MAX_TOTAL_EXPOSURE || '20' }}
-          ARB_SERIES: ${{ vars.ARB_SERIES || 'KXHIGHNY,KXHIGHCHI,KXHIGHMIA,KXHIGHDEN,KXHIGHLAX,KXHIGHAUS,KXNEXTSTATE,KXNEXTAG,KXNEXTLABORSEC,KXNEXTDEF,KXDNC28HOST,KXCABOUT,KXNEXTSPEAKER,KXG7LEADEROUT,KXNEXTODNI,KXSCOURT' }}
+          # discovery scans the whole exchange; optionally pin categories/series
+          ARB_CATEGORIES: ${{ vars.ARB_CATEGORIES || '' }}
+          ARB_SERIES: ${{ vars.ARB_SERIES || '' }}
           ARB_MIN_PROFIT_CENTS: ${{ vars.ARB_MIN_PROFIT_CENTS || '2' }}
           # depth-aware sizing: up to this % of balance, keeping a reserve
           ARB_MAX_BALANCE_PCT: ${{ vars.ARB_MAX_BALANCE_PCT || '100' }}
           ARB_RESERVE_USD: ${{ vars.ARB_RESERVE_USD || '0' }}
-        run: python arb_runner.py --once
+          # 24/7 fast-poll: check every ~3 min for ~110 min, then the next
+          # hourly run picks up the chain
+          ARB_POLL_SECONDS: ${{ vars.ARB_POLL_SECONDS || '180' }}
+          ARB_RUN_MINUTES: '110'
+        run: python arb_runner.py
 
       - name: Persist executed arb records
         if: always()

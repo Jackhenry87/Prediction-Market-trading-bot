@@ -33,27 +33,63 @@ from trade_logger import get_logger, setup_logging
 log = get_logger("kalshi_arb")
 
 ROOT = Path(__file__).resolve().parent
-# Series to scan. Weather temperature ladders are textbook MECE baskets. The
-# politics ladders were confirmed MECE + multi-leg from a live scan and trade
-# MUCH tighter to $1 than weather (KXNEXTSTATE sat at 100.0c, KXNEXTAG 100.2c) —
-# i.e. dislocations into a real arb are far likelier there. All are checked
-# fail-closed, so an unquoted-leg ladder is simply skipped until complete.
-DEFAULT_SERIES = (
-    # weather (highest-temp buckets)
-    "KXHIGHNY,KXHIGHCHI,KXHIGHMIA,KXHIGHDEN,KXHIGHLAX,KXHIGHAUS,"
-    # politics (mutually-exclusive candidate fields)
-    "KXNEXTSTATE,KXNEXTAG,KXNEXTLABORSEC,KXNEXTDEF,KXDNC28HOST,KXCABOUT,"
-    "KXNEXTSPEAKER,KXG7LEADEROUT,KXNEXTODNI,KXSCOURT")
-ARB_SERIES = [s.strip() for s in os.getenv("ARB_SERIES", DEFAULT_SERIES).split(",")
+# Discovery: by default the scanner pages the WHOLE open-events feed and checks
+# every mutually-exclusive ladder exchange-wide (~1000+: sports futures,
+# elections, econ ranges, entertainment, weather...). One pass is ~30-40 API
+# calls and needs no maintained list — new ladders appear automatically, settled
+# ones drop off. Optionally restrict:
+#   ARB_CATEGORIES=Elections,Economics   only these categories
+#   ARB_SERIES=KXNEXTAG,KXHIGHNY         only these series (skips discovery)
+ARB_CATEGORIES = [c.strip() for c in os.getenv("ARB_CATEGORIES", "").split(",")
+                  if c.strip()]
+ARB_SERIES = [s.strip() for s in os.getenv("ARB_SERIES", "").split(",")
               if s.strip()]
+ARB_MAX_PAGES = int(os.getenv("ARB_MAX_PAGES", "60"))   # events-feed page cap
 # guaranteed profit must clear this AFTER fees (a buffer for fee rounding and
 # any slippage between scan and fill). Cents per 1-contract basket.
 ARB_MIN_PROFIT_CENTS = float(os.getenv("ARB_MIN_PROFIT_CENTS", "2"))
+# ...and must NOT exceed this. Kalshi's mutually_exclusive flag means AT MOST
+# one YES, NOT exactly one: candidate/nominee fields ("next Pope", "51st
+# state") carry an untradeable "none of the above" outcome, so their YES
+# baskets sum far below $1 and look like a huge "arb" that actually LOSES when
+# the none-outcome hits. A real basket on a truly exhaustive, liquid ladder
+# sits a few cents under par at most — so an implausibly large profit is the
+# signature of a non-exhaustive market and is rejected. (NO baskets are safe on
+# non-exhaustive events, but their yes_bid sum stays far below 100 there, so
+# they never trigger anyway.)
+ARB_MAX_PROFIT_CENTS = float(os.getenv("ARB_MAX_PROFIT_CENTS", "7"))
 # Depth-aware sizing caps. Go as big as the arb genuinely supports, but:
 #   - never commit more than this % of balance to one basket, and
 #   - always keep ARB_RESERVE_USD unlocked (so a thin arb can't strand you).
 ARB_MAX_BALANCE_PCT = float(os.getenv("ARB_MAX_BALANCE_PCT", "100"))
 ARB_RESERVE_USD = float(os.getenv("ARB_RESERVE_USD", "0"))
+
+
+ARB_REQUIRE_EXHAUSTIVE = os.getenv(
+    "ARB_REQUIRE_EXHAUSTIVE", "true").strip().lower() not in ("false", "0", "no")
+
+
+def _exhaustive_numeric(markets: list) -> bool:
+    """True only if the markets form a NUMERIC partition with both open tails —
+    a 'less' bottom (≤X), a 'greater' top (≥Y), and 'between' buckets — which
+    provably covers every outcome (collectively exhaustive). Any categorical
+    leg (a candidate/entity name, no numeric strike) means an untradeable 'none
+    of the above' outcome exists, so the basket is NOT risk-free -> reject.
+    This is what separates a real temperature/econ-range arb from a bogus
+    'next Pope' / 'election winner' one that loses when the field candidate wins."""
+    low = high = 0
+    for m in markets:
+        st = m.get("strike_type")
+        if st == "less":
+            low += 1
+        elif st == "greater":
+            high += 1
+        elif st == "between":
+            if m.get("floor_strike") is None or m.get("cap_strike") is None:
+                return False
+        else:
+            return False        # categorical / unknown strike -> not provable
+    return low == 1 and high == 1
 
 
 def evaluate_event(event: dict, markets: list) -> dict:
@@ -65,7 +101,9 @@ def evaluate_event(event: dict, markets: list) -> dict:
         Profit when sum(yes_bid) > 100 (the book is rich on the bid side).
     Fails closed on every ambiguity (not MECE, a closed leg, any unquoted leg)."""
     if not event.get("mutually_exclusive"):
-        return None                      # can't prove exactly-one-YES -> skip
+        return None                      # can't prove at-most-one-YES -> skip
+    if ARB_REQUIRE_EXHAUSTIVE and not _exhaustive_numeric(markets):
+        return None                      # not provably collectively exhaustive
     tickers, yes_asks, yes_bids = [], [], []
     for m in markets:
         if m.get("status") not in (None, "active", "open"):
@@ -85,7 +123,7 @@ def evaluate_event(event: dict, markets: list) -> dict:
         cost = sum(yes_asks)
         fees = sum(taker_fee_cents(a) for a in yes_asks)
         profit = 100.0 - cost - fees     # exactly one leg pays $1
-        if profit >= ARB_MIN_PROFIT_CENTS:
+        if ARB_MIN_PROFIT_CENTS <= profit <= ARB_MAX_PROFIT_CENTS:
             candidates.append(dict(meta, side="yes", payout_cents=100.0,
                 cost_cents=cost, fees_cents=fees, profit_cents=profit,
                 legs=[(t, a, "yes") for t, a in zip(tickers, yes_asks)]))
@@ -97,7 +135,7 @@ def evaluate_event(event: dict, markets: list) -> dict:
         fees = sum(taker_fee_cents(x) for x in no_asks)
         payout = (n - 1) * 100.0         # all but the single winner pay $1
         profit = payout - cost - fees    # == sum(yes_bid) - 100 - fees
-        if profit >= ARB_MIN_PROFIT_CENTS:
+        if ARB_MIN_PROFIT_CENTS <= profit <= ARB_MAX_PROFIT_CENTS:
             candidates.append(dict(meta, side="no", payout_cents=payout,
                 cost_cents=cost, fees_cents=fees, profit_cents=profit,
                 legs=[(t, x, "no") for t, x in zip(tickers, no_asks)]))
@@ -203,9 +241,9 @@ def size_basket(client: KalshiClient, arb: dict, balance_cents: float,
                 profit_cents=profit_per, basket_profit_usd=profit_per * lo / 100.0)
 
 
-def scan(client: KalshiClient, series: list = None) -> list:
-    """Every complete, below-$1 mutually-exclusive basket across the series."""
-    series = series or ARB_SERIES
+def _scan_series(client: KalshiClient, series: list) -> list:
+    """Only the given series (one /events call each) — used when ARB_SERIES is
+    set explicitly, e.g. for testing or to pin the hunt to a few ladders."""
     found = []
     for s in series:
         try:
@@ -220,6 +258,50 @@ def scan(client: KalshiClient, series: list = None) -> list:
             arb = evaluate_event(event, event.get("markets") or [])
             if arb:
                 found.append(arb)
+    return found
+
+
+def _scan_discover(client: KalshiClient, categories: list) -> list:
+    """Page the whole open-events feed and check EVERY mutually-exclusive ladder
+    exchange-wide. Optional category allow-list. Order books for sizing are only
+    fetched later for the few detected arbs, so a pass is just the paging cost."""
+    catset = {c.lower() for c in categories} if categories else None
+    found, cursor, seen = [], None, 0
+    for _ in range(ARB_MAX_PAGES):
+        params = {"status": "open", "with_nested_markets": "true", "limit": 200}
+        if cursor:
+            params["cursor"] = cursor
+        try:
+            data = client._request("GET", "/events", params=params)
+        except Exception as exc:
+            log.warning("Events page failed: %s", exc)
+            break
+        events = data.get("events", [])
+        seen += len(events)
+        for event in events:
+            if catset and str(event.get("category", "")).lower() not in catset:
+                continue
+            arb = evaluate_event(event, event.get("markets") or [])
+            if arb:
+                found.append(arb)
+        cursor = data.get("cursor")
+        if not cursor or not events:
+            break
+    log.info("Scanned %d open events -> %d risk-free basket(s)", seen, len(found))
+    return found
+
+
+def scan(client: KalshiClient, series: list = None,
+         categories: list = None) -> list:
+    """All complete, below-$1 mutually-exclusive baskets. Discovers across the
+    whole exchange by default; restricts to `series` (or ARB_SERIES) when given.
+    Sorted best-profit first."""
+    series = series if series is not None else ARB_SERIES
+    if series:
+        found = _scan_series(client, series)
+    else:
+        found = _scan_discover(
+            client, categories if categories is not None else ARB_CATEGORIES)
     found.sort(key=lambda a: -a["profit_cents"])
     return found
 
