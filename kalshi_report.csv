@@ -1,39 +1,29 @@
-market,model,copyTrade,city,status,side,count,avgPrice_cents,exposure_usd,lastPrice_cents,unrealized_usd,realized_usd,total_usd,categoryTotal_usd,cityTotal_usd,result,closeDate,ticker
-"Highest temperature in Miami on Jul 7, 2026? · 90° to 91°",weather,,Miami,open,no,2,71,1.40,99,+0.55,0.00,+0.55,-32.20,-0.97,,"Jul 7, 2026 at 11:59pm CDT",KXHIGHMIA-26JUL07-B90.5
-"Highest temperature in Miami on Jul 7, 2026? · 94° to 95°",weather,,Miami,open,no,1,87,0.87,99,+0.12,0.00,+0.12,-32.20,-0.97,,"Jul 7, 2026 at 11:59pm CDT",KXHIGHMIA-26JUL07-B94.5
-"Highest temperature in NYC on Jul 7, 2026? · 74° or below",weather,,New York,open,yes,1,83,0.82,99,+0.16,0.00,+0.16,-32.20,-27.82,,"Jul 7, 2026 at 11:59pm CDT",KXHIGHNY-26JUL07-T75
-"Highest temperature in Austin on Jul 7, 2026? · 96° to 97°",weather,,Austin,open,no,1,61,0.61,99,+0.38,0.00,+0.38,-32.20,-1.73,,"Jul 8, 2026 at 12:59am CDT",KXHIGHAUS-26JUL07-B96.5
-"Highest temperature in Austin on Jul 7, 2026? · 98° to 99°",weather,,Austin,open,no,2,71,1.40,1,-1.39,0.00,-1.39,-32.20,-1.73,,"Jul 8, 2026 at 12:59am CDT",KXHIGHAUS-26JUL07-B98.5
-"Highest temperature in Chicago on Jul 7, 2026? · 83° to 84°",weather,,Chicago,open,no,2,67,1.33,1,-1.33,0.00,-1.33,-32.20,-3.82,,"Jul 8, 2026 at 12:59am CDT",KXHIGHCHI-26JUL07-B83.5
-"Highest temperature in Chicago on Jul 7, 2026? · 85° to 86°",weather,,Chicago,open,no,1,79,0.79,99,+0.20,0.00,+0.20,-32.20,-3.82,,"Jul 8, 2026 at 12:59am CDT",KXHIGHCHI-26JUL07-B85.5
-"Highest temperature in Denver on Jul 7, 2026? · 93° to 94°",weather,,Denver,open,no,2,72,1.42,99,+0.53,0.00,+0.53,-32.20,+3.21,,"Jul 8, 2026 at 1:59am CDT",KXHIGHDEN-26JUL07-B93.5
-"Highest temperature in Denver on Jul 7, 2026? · 95° to 96°",weather,,Denver,open,no,1,62,0.60,99,+0.37,0.00,+0.37,-32.20,+3.21,,"Jul 8, 2026 at 1:59am CDT",KXHIGHDEN-26JUL07-B95.5
-"Highest temperature in LA on Jul 7, 2026? · 73° to 74°",weather,,Los Angeles,open,no,1,70,0.70,1,-0.69,0.00,-0.69,-32.20,-1.07,,"Jul 8, 2026 at 2:59am CDT",KXHIGHLAX-26JUL07-B73.5
-Highest temperature in Miami today? · 93° to 94°,weather,,Miami,open,no,1,64,0.64,43,-0.21,0.00,-0.21,-32.20,-0.97,,"Jul 8, 2026 at 11:59pm CDT",KXHIGHMIA-26JUL08-B93.5
-Highest temperature in Miami today? · 95° to 96°,weather,,Miami,open,no,1,87,0.87,80,-0.07,0.00,-0.07,-32.20,-0.97,,"Jul 8, 2026 at 11:59pm CDT",KXHIGHMIA-26JUL08-B95.5
-Highest temperature in NYC today? · 82° to 83°,weather,,New York,open,no,2,65,1.30,65,+0.00,0.00,+0.00,-32.20,-27.82,,"Jul 8, 2026 at 11:59pm CDT",KXHIGHNY-26JUL08-B82.5
-Highest temperature in Austin today? · 99° to 100°,weather,,Austin,open,no,1,73,0.73,44,-0.29,0.00,-0.29,-32.20,-1.73,,"Jul 9, 2026 at 12:59am CDT",KXHIGHAUS-26JUL08-B99.5
-Highest temperature in Chicago today? · 88° to 89°,weather,,Chicago,open,no,2,62,1.23,45,-0.33,0.00,-0.33,-32.20,-3.82,,"Jul 9, 2026 at 12:59am CDT",KXHIGHCHI-26JUL08-B88.5
-Highest temperature in Denver today? · 92° to 93°,weather,,Denver,open,no,1,62,0.62,68,+0.06,0.00,+0.06,-32.20,+3.21,,"Jul 9, 2026 at 1:59am CDT",KXHIGHDEN-26JUL08-B92.5
-Highest temperature in LA today? · 75° to 76°,weather,,Los Angeles,open,no,1,62,0.62,53,-0.09,0.00,-0.09,-32.20,-1.07,,"Jul 9, 2026 at 2:59am CDT",KXHIGHLAX-26JUL08-B75.5
-Highest temperature in LA today? · 77° to 78°,weather,,Los Angeles,open,no,1,59,0.59,63,+0.04,0.00,+0.04,-32.20,-1.07,,"Jul 9, 2026 at 2:59am CDT",KXHIGHLAX-26JUL08-B77.5
-Colorado vs Los Angeles D · Colorado,sports,,,open,yes,1,37,0.35,99,+0.62,0.00,+0.62,+0.63,,,"Jul 10, 2026 at 9:10pm CDT",KXMLBGAME-26JUL072210COLLAD-COL
-Colorado vs San Francisco · Colorado,sports,,,open,no,1,59,0.59,60,+0.01,0.00,+0.01,+0.63,,,"Jul 12, 2026 at 8:45pm CDT",KXMLBGAME-26JUL092145COLSF-COL
-KXATPMATCH-26JUL07AUGDJO-AUG,smartmoney,yes,,settled,yes,1,44,0.44,0,0.00,-0.44,-0.44,+0.16,,no,2026-07-07T17:06:09Z,KXATPMATCH-26JUL07AUGDJO-AUG
-KXATPMATCH-26JUL07AUGDJO-DJO,smartmoney,yes,,settled,yes,1,40,0.40,100,0.00,+0.60,+0.60,+0.16,,yes,2026-07-07T18:54:19Z,KXATPMATCH-26JUL07AUGDJO-DJO
-Weather settled total — Denver (5W-3L),weather,,Denver,settled-city-total,,8,,,,0.00,+2.25,+2.25,-32.20,+3.21,5W-3L,,
-Weather settled total — Los Angeles (2W-4L),weather,,Los Angeles,settled-city-total,,6,,,,0.00,-0.33,-0.33,-32.20,-1.07,2W-4L,,
-Weather settled total — Austin (2W-5L),weather,,Austin,settled-city-total,,7,,,,0.00,-0.43,-0.43,-32.20,-1.73,2W-5L,,
-Weather settled total — Miami (3W-4L),weather,,Miami,settled-city-total,,7,,,,0.00,-1.36,-1.36,-32.20,-0.97,3W-4L,,
-Weather settled total — Chicago (3W-6L),weather,,Chicago,settled-city-total,,9,,,,0.00,-2.36,-2.36,-32.20,-3.82,3W-6L,,
-Weather settled total — New York (0W-5L),weather,,New York,settled-city-total,,5,,,,0.00,-27.98,-27.98,-32.20,-27.82,0W-5L,,
-═══ GRAND TOTAL (sum of positions) ═══,,,,TOTAL,,,,,,,,-31.41,,,,,
-TOTAL · category: sports,sports,,,TOTAL,,,,,,,,+0.63,+0.63,,,,
-TOTAL · category: smartmoney,smartmoney,,,TOTAL,,,,,,,,+0.16,+0.16,,,,
-TOTAL · category: weather,weather,,,TOTAL,,,,,,,,-32.20,-32.20,,,,
-TOTAL · weather city: Denver,,,Denver,TOTAL,,,,,,,,+3.21,,+3.21,,,
-TOTAL · weather city: Miami,,,Miami,TOTAL,,,,,,,,-0.97,,-0.97,,,
-TOTAL · weather city: Los Angeles,,,Los Angeles,TOTAL,,,,,,,,-1.07,,-1.07,,,
-TOTAL · weather city: Austin,,,Austin,TOTAL,,,,,,,,-1.73,,-1.73,,,
-TOTAL · weather city: Chicago,,,Chicago,TOTAL,,,,,,,,-3.82,,-3.82,,,
-TOTAL · weather city: New York,,,New York,TOTAL,,,,,,,,-27.82,,-27.82,,,
+marketTicker,eventTitle,marketTitle,closeDate,model,copyTrade,city,status,side,count,avgPrice_cents,exposure_usd,lastPrice_cents,unrealized_usd,realized_usd,total_usd,result
+KXHIGHMIA-26JUL07-B90.5,"Highest temperature in Miami on Jul 7, 2026?",90° to 91°,"Jul 7, 2026 at 11:59pm CDT",weather,,Miami,open,no,2,71,1.40,99,+0.55,0.00,+0.55,
+KXHIGHMIA-26JUL07-B94.5,"Highest temperature in Miami on Jul 7, 2026?",94° to 95°,"Jul 7, 2026 at 11:59pm CDT",weather,,Miami,open,no,1,87,0.87,99,+0.12,0.00,+0.12,
+KXHIGHNY-26JUL07-T75,"Highest temperature in NYC on Jul 7, 2026?",74° or below,"Jul 7, 2026 at 11:59pm CDT",untracked,,New York,open,yes,1,83,0.82,99,+0.16,0.00,+0.16,
+KXHIGHAUS-26JUL07-B96.5,"Highest temperature in Austin on Jul 7, 2026?",96° to 97°,"Jul 8, 2026 at 12:59am CDT",weather,,Austin,open,no,1,61,0.61,99,+0.38,0.00,+0.38,
+KXHIGHAUS-26JUL07-B98.5,"Highest temperature in Austin on Jul 7, 2026?",98° to 99°,"Jul 8, 2026 at 12:59am CDT",weather,,Austin,open,no,2,71,1.40,1,-1.39,0.00,-1.39,
+KXHIGHCHI-26JUL07-B83.5,"Highest temperature in Chicago on Jul 7, 2026?",83° to 84°,"Jul 8, 2026 at 12:59am CDT",weather,,Chicago,open,no,2,67,1.33,1,-1.33,0.00,-1.33,
+KXHIGHCHI-26JUL07-B85.5,"Highest temperature in Chicago on Jul 7, 2026?",85° to 86°,"Jul 8, 2026 at 12:59am CDT",weather,,Chicago,open,no,1,79,0.79,99,+0.20,0.00,+0.20,
+KXHIGHDEN-26JUL07-B93.5,"Highest temperature in Denver on Jul 7, 2026?",93° to 94°,"Jul 8, 2026 at 1:59am CDT",weather,,Denver,open,no,2,72,1.42,99,+0.53,0.00,+0.53,
+KXHIGHDEN-26JUL07-B95.5,"Highest temperature in Denver on Jul 7, 2026?",95° to 96°,"Jul 8, 2026 at 1:59am CDT",weather,,Denver,open,no,1,62,0.60,99,+0.37,0.00,+0.37,
+KXHIGHLAX-26JUL07-B73.5,"Highest temperature in LA on Jul 7, 2026?",73° to 74°,"Jul 8, 2026 at 2:59am CDT",weather,,Los Angeles,open,no,1,70,0.70,1,-0.69,0.00,-0.69,
+KXHIGHMIA-26JUL08-B93.5,Highest temperature in Miami today?,93° to 94°,"Jul 8, 2026 at 11:59pm CDT",weather,,Miami,open,no,1,64,0.64,43,-0.21,0.00,-0.21,
+KXHIGHMIA-26JUL08-B95.5,Highest temperature in Miami today?,95° to 96°,"Jul 8, 2026 at 11:59pm CDT",weather,,Miami,open,no,1,87,0.87,80,-0.07,0.00,-0.07,
+KXHIGHNY-26JUL08-B82.5,Highest temperature in NYC today?,82° to 83°,"Jul 8, 2026 at 11:59pm CDT",weather,,New York,open,no,2,65,1.30,65,+0.00,0.00,+0.00,
+KXHIGHAUS-26JUL08-B99.5,Highest temperature in Austin today?,99° to 100°,"Jul 9, 2026 at 12:59am CDT",weather,,Austin,open,no,1,73,0.73,44,-0.29,0.00,-0.29,
+KXHIGHCHI-26JUL08-B88.5,Highest temperature in Chicago today?,88° to 89°,"Jul 9, 2026 at 12:59am CDT",weather,,Chicago,open,no,2,62,1.23,45,-0.33,0.00,-0.33,
+KXHIGHDEN-26JUL08-B92.5,Highest temperature in Denver today?,92° to 93°,"Jul 9, 2026 at 1:59am CDT",weather,,Denver,open,no,1,62,0.62,68,+0.06,0.00,+0.06,
+KXHIGHLAX-26JUL08-B75.5,Highest temperature in LA today?,75° to 76°,"Jul 9, 2026 at 2:59am CDT",weather,,Los Angeles,open,no,1,62,0.62,53,-0.09,0.00,-0.09,
+KXHIGHLAX-26JUL08-B77.5,Highest temperature in LA today?,77° to 78°,"Jul 9, 2026 at 2:59am CDT",weather,,Los Angeles,open,no,1,59,0.59,63,+0.04,0.00,+0.04,
+KXMLBGAME-26JUL072210COLLAD-COL,Colorado vs Los Angeles D,Colorado,"Jul 10, 2026 at 9:10pm CDT",untracked,,,open,yes,1,37,0.35,99,+0.62,0.00,+0.62,
+KXMLBGAME-26JUL092145COLSF-COL,Colorado vs San Francisco,Colorado,"Jul 12, 2026 at 8:45pm CDT",sports,,,open,no,1,59,0.59,60,+0.01,0.00,+0.01,
+KXATPMATCH-26JUL07AUGDJO-AUG,,,2026-07-07T17:06:09Z,smartmoney,yes,,settled,yes,1,44,0.44,0,0.00,-0.44,-0.44,no
+KXATPMATCH-26JUL07AUGDJO-DJO,,,2026-07-07T18:54:19Z,smartmoney,yes,,settled,yes,1,40,0.40,100,0.00,+0.60,+0.60,yes
+(weather settled total),,5W-3L since 2026-07-01,,weather,,Denver,settled-city-total,,8,,,,0.00,+2.25,+2.25,
+(weather settled total),,2W-4L since 2026-07-01,,weather,,Los Angeles,settled-city-total,,6,,,,0.00,-0.33,-0.33,
+(weather settled total),,2W-5L since 2026-07-01,,weather,,Austin,settled-city-total,,7,,,,0.00,-0.43,-0.43,
+(weather settled total),,3W-4L since 2026-07-01,,weather,,Miami,settled-city-total,,7,,,,0.00,-1.36,-1.36,
+(weather settled total),,3W-6L since 2026-07-01,,weather,,Chicago,settled-city-total,,9,,,,0.00,-2.36,-2.36,
+(weather settled total),,0W-5L since 2026-07-01,,weather,,New York,settled-city-total,,5,,,,0.00,-27.98,-27.98,
