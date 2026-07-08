@@ -1,1 +1,3 @@
 scanned_at_utc,event,ticker,side,price_cents,model_prob,ev_cents,outcome,clv_cents
+2026-07-08T21:56:26+00:00,KXHIGHCHI-26JUL08,KXHIGHCHI-26JUL08-B88.5,no,8,1.000,91.5,,
+2026-07-08T21:56:26+00:00,KXHIGHAUS-26JUL08,KXHIGHAUS-26JUL08-B97.5,no,79,1.000,19.8,,
