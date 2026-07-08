@@ -213,6 +213,7 @@ def check_exits(client, settings) -> int:
         return 0
     try:
         positions = client.get_positions()
+        resting = {o.get("ticker") for o in client.get_resting_orders() or []}
     except Exception as exc:
         log.warning("Exit check skipped (positions unavailable): %s", exc)
         return 0
@@ -221,7 +222,13 @@ def check_exits(client, settings) -> int:
     now = datetime.now(timezone.utc).timestamp()
     still_open, sold = [], 0
     for c in copies:
-        pos = held.get(c.get("ticker"), 0)
+        ticker = c.get("ticker")
+        pos = held.get(ticker, 0)
+        if pos != 0 and ticker in resting:
+            # a sell is already resting (e.g. take-profit) — don't stack a
+            # second and over-sell the position
+            still_open.append(c)
+            continue
         if pos == 0:                     # settled or already exited -> forget
             continue
         frac = sharp_exit_fraction(c["slug"], c["outcome"],

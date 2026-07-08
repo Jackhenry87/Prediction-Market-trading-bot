@@ -77,6 +77,14 @@ jobs:
           done
           if ! git diff --cached --quiet; then
             git commit -m "copy state + scoreboard [skip ci]"
-            git pull --rebase
-            git push
+            # conflict-proof: main moves during the ~110-min session (merges,
+            # the hourly run), so a plain rebase hits content conflicts in
+            # these generated files and fails the whole job. Keep OUR fresh
+            # copy (-X theirs = the rebased commit's version) and never fail.
+            for i in 1 2 3 4 5; do
+              git fetch -q origin main || true
+              git rebase -X theirs origin/main || git rebase --abort || true
+              if git push origin HEAD:main; then break; fi
+              sleep $((i * 3))
+            done
           fi
