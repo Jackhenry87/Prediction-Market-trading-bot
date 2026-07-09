@@ -1,0 +1,2 @@
+order_id,ticker,model,side,entry_price,entry_ts,last_price,last_ts,closing_price,clv_cents,status,result
+541aac71-d80f-4368-98a0-3060ccaa3126,KXMLBGAME-26JUL092145COLSF-COL,sports,no,59,2026-07-07T14:01:34+00:00,,,,,open,
