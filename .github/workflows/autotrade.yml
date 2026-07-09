@@ -1,10 +1,13 @@
 name: auto-trade
 
 # Runs the trading bot on GitHub's servers — no laptop needed.
-# Hourly during trading hours: 12:00-23:00 and 00:00-01:00 UTC
-# = 7am-8pm US Central. Each run scans, exits winners, and buys new
+# Hourly during trading hours: 09:00-23:00 and 00:00 UTC
+# = 4am-7pm US Central. Each run scans, exits winners, and buys new
 # edges; between runs nothing executes (GitHub cron can also lag by
 # several minutes — that's normal).
+# NB: GitHub cron is UTC-only and can't follow DST. These UTC times assume
+# CDT (UTC-5, summer); during CST (winter) the window shifts to 3am-6pm
+# Central. Adjust the crons by +1h in November if you want to hold 4am-7pm.
 # Also triggerable manually from the Actions tab (works from the phone app).
 #
 # Control knobs WITHOUT code changes (repo Settings -> Secrets and
@@ -15,8 +18,8 @@ name: auto-trade
 
 on:
   schedule:
-    - cron: '0 12-23 * * *'
-    - cron: '0 0-1 * * *'
+    - cron: '0 9-23 * * *'   # 09:00-23:00 UTC = 4am-6pm CDT
+    - cron: '0 0 * * *'      # 00:00 UTC       = 7pm CDT
   workflow_dispatch: {}
 
 permissions:
