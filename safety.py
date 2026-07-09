@@ -11,6 +11,13 @@ log = get_logger("safety")
 
 VALID_SIDES = ("BUY", "SELL")
 
+# Longshot floor: refuse to BUY any directional contract the market prices below
+# this (a sub-N% outcome — a lottery ticket / the "implausibly large edge means
+# your model is wrong" trap that put 98 NO on a 1-8c bucket). Risk-free arb legs
+# opt out (they pass min_price_cents=0) because a cheap HEDGED leg isn't a bet on
+# a longshot. Raise MIN_PRICE_CENTS to ban a wider band of near-longshots.
+MIN_PRICE_CENTS = float(os.getenv("MIN_PRICE_CENTS", "5"))
+
 
 def order_notional_usdc(price: float, size_shares: float) -> float:
     return price * size_shares
@@ -38,14 +45,18 @@ def scaled_exposure_cap(bankroll_usd: float, settings) -> float:
 
 
 def check_order(settings, side: str, price: float, size_shares: float,
-                current_exposure_usdc: float) -> list:
-    """Apply kill switch, sanity checks, and both USDC limits.
+                current_exposure_usdc: float, min_price_cents: float = None) -> list:
+    """Apply kill switch, sanity checks, the longshot floor, and both USDC limits.
 
     current_exposure_usdc: USDC already committed (open BUY orders + value of
     held positions). Computed by exposure.py; the caller must fail closed if
     it cannot be determined.
+
+    min_price_cents: the longshot floor for BUYs (defaults to MIN_PRICE_CENTS).
+    Risk-free arb legs pass 0 to opt out — a cheap hedged leg is not a longshot.
     """
     problems = []
+    floor_cents = MIN_PRICE_CENTS if min_price_cents is None else min_price_cents
 
     if settings.kill_switch:
         problems.append("KILL_SWITCH is on — bot refuses to place any order")
@@ -55,6 +66,13 @@ def check_order(settings, side: str, price: float, size_shares: float,
 
     if not 0 < price < 1:
         problems.append(f"price must be between 0 and 1 (exclusive), got {price}")
+
+    if side == "BUY" and 0 < price < 1 and price * 100 < floor_cents:
+        problems.append(
+            f"price {price * 100:.0f}c is below the longshot floor "
+            f"{floor_cents:.0f}c — refusing a bet on a sub-{floor_cents:.0f}% "
+            f"outcome (an implausibly large edge means the model is wrong)"
+        )
 
     if size_shares <= 0:
         problems.append(f"size must be > 0 shares, got {size_shares}")

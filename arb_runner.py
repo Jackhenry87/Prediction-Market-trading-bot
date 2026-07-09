@@ -79,7 +79,11 @@ def place_basket(client, settings, arb: dict, exposure: float) -> bool:
     # (1) PRE-FLIGHT: clear EVERY leg before sending ANY.
     running = exposure
     for ticker, price_c, side in arb["legs"]:
-        problems = check_order(settings, "BUY", price_c / 100.0, count, running)
+        # min_price_cents=0: a risk-free hedged basket leg can be cheap (a wide
+        # numeric ladder has legs well under the directional longshot floor) and
+        # is NOT a longshot — the basket as a whole is guaranteed.
+        problems = check_order(settings, "BUY", price_c / 100.0, count, running,
+                               min_price_cents=0)
         if problems:
             for p in problems:
                 log.warning("BLOCKED leg %s: %s", ticker, p)
