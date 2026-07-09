@@ -41,6 +41,17 @@ from trade_logger import get_logger, setup_logging
 
 log = get_logger("auto_trade")
 
+# Resolution-lag models (macro/nowcast) buy the NEAR-CERTAIN WINNER, which is
+# always HIGH-priced (converging up toward 100c). They get their own HIGH band
+# — NOT an exemption from all bands. A lag capture at 92-98c is the edge; a buy
+# at 1-8c is the near-certain LOSER (an "8c sure thing" is the implausible-edge
+# sucker trap), and must be blocked. Never buy a directional longshot.
+LAG_MIN_PRICE = float(os.getenv("LAG_MIN_PRICE", "85"))
+LAG_MAX_PRICE = float(os.getenv("LAG_MAX_PRICE", "99"))
+# Hard ceiling on contracts per order so a cheap price can't balloon the unit
+# count (a 1c contract on a $2 budget would otherwise size to 200 units).
+MAX_CONTRACTS_PER_ORDER = int(os.getenv("MAX_CONTRACTS_PER_ORDER", "50"))
+
 
 def pick_best_per_event(results: list) -> list:
     """One signal per event: same-event signals are the same underlying bet."""
@@ -170,7 +181,8 @@ def size_order(price_cents: float, exposure_usd: float, settings,
     budget = min(per_order, settings.max_total_exposure - exposure_usd)
     if budget <= 0 or price_cents <= 0:
         return 0
-    return int(budget * 100 // price_cents)
+    # cap the raw dollar-budget count so a cheap contract can't balloon units
+    return min(int(budget * 100 // price_cents), MAX_CONTRACTS_PER_ORDER)
 
 
 def manage_exits(client, settings, positions: dict, resting_orders: list) -> None:
@@ -278,10 +290,11 @@ def main() -> int:
     for res, path, name in per_model:
         if name in ("macro", "nowcast"):
             # Known-outcome (resolution-lag) trades: the correct side is
-            # ~certain to pay 100c, so buying it at 92-98c is exactly the
-            # edge. Do NOT apply the 60-90c band that's meant for uncertain
-            # bets — it would discard the best lag captures.
-            banded = res
+            # ~certain to pay 100c, so buying it at 92-98c is exactly the edge.
+            # Apply a HIGH band (not the 60-90c one, and NOT no band): this
+            # keeps the lag captures but BLOCKS buying the near-certain loser at
+            # a longshot price — the exact bug that put 98 NO on a 1-8c bucket.
+            banded = apply_price_band(res, LAG_MIN_PRICE, LAG_MAX_PRICE)
         else:
             banded = apply_price_band(res, settings.trade_min_price,
                                       settings.trade_max_price)
