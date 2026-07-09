@@ -14,8 +14,11 @@ name: arb-live
 # prod secrets + KALSHI_ENV=prod and re-add a persist step.
 
 on:
-  schedule:
-    - cron: '*/5 * * * *'
+  # PAUSED: refocused on sports. Genuine arbs are rare + fleeting and unreachable
+  # on a 5-min cron anyway; revive this (uncomment) only alongside a real-time
+  # WS execution engine. Still runnable on demand via the Actions tab.
+  # schedule:
+  #   - cron: '*/5 * * * *'
   workflow_dispatch: {}
 
 permissions:

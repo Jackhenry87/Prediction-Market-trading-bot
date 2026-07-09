@@ -17,9 +17,12 @@ name: auto-trade
 # Setting KILL_SWITCH=true from your phone stops all trading.
 
 on:
-  schedule:
-    - cron: '0 9-23 * * *'   # 09:00-23:00 UTC = 4am-6pm CDT
-    - cron: '0 0 * * *'      # 00:00 UTC       = 7pm CDT
+  # PAUSED: weather/nowcast trading is turned off — the setup is refocused on
+  # sports (the one reachable edge) while its CLV is validated. Re-enable by
+  # uncommenting the crons. Still runnable on demand via the Actions tab.
+  # schedule:
+  #   - cron: '0 9-23 * * *'   # 09:00-23:00 UTC = 4am-6pm CDT
+  #   - cron: '0 0 * * *'      # 00:00 UTC       = 7pm CDT
   workflow_dispatch: {}
 
 permissions:

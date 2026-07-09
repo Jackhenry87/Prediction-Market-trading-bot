@@ -17,8 +17,11 @@ name: demo-all-models
 # DEMO_MAX_TOTAL_EXPOSURE, DEMO_MAX_ORDER_PCT, DEMO_MIN_ORDER_PCT.
 
 on:
-  schedule:
-    - cron: '*/30 * * * *'
+  # PAUSED: the demo unit-size experiment is superseded — we're validating the
+  # sports edge with small REAL money (demo fills lag/misprice, so CLV on demo
+  # would be meaningless). Re-enable by uncommenting if needed. Still on-demand.
+  # schedule:
+  #   - cron: '*/30 * * * *'
   workflow_dispatch: {}
 
 permissions:
