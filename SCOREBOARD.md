@@ -1,14 +1,14 @@
 # 📊 Trading Scoreboard
 
-_Updated 2026-07-09 00:11 UTC — auto-generated every run; do not edit._
+_Updated 2026-07-09 04:29 UTC — auto-generated every run; do not edit._
 
 Signals are scored against official settlement whether or not a real order was placed. P&L shown is per 1-contract stakes.
 
 ## 💰 Account
 
-**Equity $33.70** = cash $17.58 + open positions $16.12 _(last known — live fetch failed this run)_
+**Equity $31.78** = cash $15.66 + open positions $16.12 _(last known — live fetch failed this run)_
 
-🔴 **Net P&L: -$16.30** ($50.00 deposited → $33.70 now) · 26W / 75L settled
+🔴 **Net P&L: -$18.22** ($50.00 deposited → $31.78 now) · 26W / 75L settled
 
 ## 📑 Spreadsheets
 
@@ -89,10 +89,11 @@ _No signals recorded yet._
 
 ## ⚾ Sports model
 
-### 🟢 0 W — 🔴 0 L — ⏳ 1 pending — net **+0¢**
+### 🟢 0 W — 🔴 0 L — ⏳ 2 pending — net **+0¢**
 
 | Scanned (UTC) | Market | Side | Price | Model | Result |
 |---|---|---|---|---|---|
+| 07-09 01:06 | KXMLBTOTAL-26JUL082210COLLAD-8 | YES | 71¢ | 80% | ⏳ pending |
 | 07-07 14:01 | KXMLBGAME-26JUL092145COLSF-COL | NO | 60¢ | 71% | ⏳ pending |
 
 ## 🛢️ Commodities model
