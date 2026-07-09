@@ -52,7 +52,11 @@ jobs:
           SPORTS_MAX_ML_PER_DAY: ${{ vars.SPORTS_MAX_ML_PER_DAY || '2' }}
           SPORTS_MAX_TOTALS_PER_DAY: ${{ vars.SPORTS_MAX_TOTALS_PER_DAY || '2' }}
           SPORTS_MIN_CONFIDENCE: ${{ vars.SPORTS_MIN_CONFIDENCE || '0.60' }}
-          SPORTS_MIN_MOVE: ${{ vars.SPORTS_MIN_MOVE || '0.01' }}
+          # Higher-conviction only: require a BIGGER steam move (real sharp
+          # confirmation, not noise). Moneyline 0.03 = 3 win-prob points;
+          # totals 0.5 = half a point of line movement toward our side.
+          SPORTS_MIN_MOVE: ${{ vars.SPORTS_MIN_MOVE || '0.03' }}
+          SPORTS_TOTAL_MIN_MOVE: ${{ vars.SPORTS_TOTAL_MIN_MOVE || '0.5' }}
           SPORTS_TOTAL_SIGMA: ${{ vars.SPORTS_TOTAL_SIGMA || '3.0' }}
         run: |
           python sports_runner.py --once || true
