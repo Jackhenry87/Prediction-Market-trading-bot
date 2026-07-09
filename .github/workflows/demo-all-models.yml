@@ -43,6 +43,12 @@ jobs:
         env:
           KALSHI_PEM: ${{ secrets.KALSHI_DEMO_PRIVATE_KEY_PEM }}
         run: printf '%s\n' "$KALSHI_PEM" > kalshi_demo.pem
+      - name: Cancel all resting demo orders (clean slate before trading)
+        env:
+          KALSHI_ENV: demo
+          KALSHI_API_KEY_ID: ${{ secrets.KALSHI_DEMO_API_KEY_ID }}
+          KALSHI_PRIVATE_KEY_PATH: kalshi_demo.pem
+        run: python cancel_resting.py
       - name: Run ALL models on demo ($1000, bigger units)
         env:
           # --- demo account (play money) ---
@@ -51,6 +57,10 @@ jobs:
           KALSHI_PRIVATE_KEY_PATH: kalshi_demo.pem
           DRY_RUN: 'false'                       # actually place on demo
           KILL_SWITCH: ${{ vars.KILL_SWITCH || 'false' }}
+          # TAKER on demo: cross the spread so orders actually FILL (demo books
+          # are thin — resting maker orders just sit). On play money we care
+          # about seeing real fills/results, not saving the maker fee.
+          MAKER_MODE: 'false'
           # --- BIGGER unit sizes (the thing under test) — DEMO_-prefixed so
           #     they never touch prod. Prod is ~$2/order; demo defaults ~$25. ---
           MAX_ORDER_SIZE: ${{ vars.DEMO_MAX_ORDER_SIZE || '25' }}
