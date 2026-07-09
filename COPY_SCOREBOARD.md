@@ -1,6 +1,6 @@
 # 🦈 Copy-Trade Scoreboard
 
-_Updated 2026-07-08 23:15 UTC — the smart-money copier's real orders only._
+_Updated 2026-07-09 01:06 UTC — the smart-money copier's real orders only._
 
 **2 copies · $0.84 deployed · 0 open**
 
