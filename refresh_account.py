@@ -27,7 +27,9 @@ log = get_logger("refresh_account")
 def main() -> int:
     setup_logging()
     try:
-        settings = load_kalshi_settings(require_market=False)
+        # read-only: only needs credentials, not the trading caps
+        settings = load_kalshi_settings(require_market=False,
+                                        require_trading=False)
     except ConfigError as exc:
         log.error("Configuration error: %s", exc)
         return 1

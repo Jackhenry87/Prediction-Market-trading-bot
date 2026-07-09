@@ -73,9 +73,14 @@ class Settings:
     #                               oversized wager
 
 
-def load_kalshi_settings(require_market: bool = True) -> Settings:
+def load_kalshi_settings(require_market: bool = True,
+                         require_trading: bool = True) -> Settings:
     """Settings for the Kalshi scripts: API credentials plus the shared
-    safety rails (DRY_RUN, KILL_SWITCH, exposure caps)."""
+    safety rails (DRY_RUN, KILL_SWITCH, exposure caps).
+
+    require_trading=False is for READ-ONLY scripts (account refresh, reports):
+    they only need the credentials, so the trading caps MAX_ORDER_SIZE /
+    MAX_TOTAL_EXPOSURE are not required (default to 0 — never used to place)."""
     env = os.getenv("KALSHI_ENV", "demo").strip().lower()
     if env not in ("demo", "prod"):
         raise ConfigError("KALSHI_ENV must be 'demo' or 'prod'")
@@ -115,6 +120,10 @@ def load_kalshi_settings(require_market: bool = True) -> Settings:
         else os.getenv("MARKET_TICKER", "").strip(),
         dry_run=_bool("DRY_RUN", default=True),
         kill_switch=_bool("KILL_SWITCH", default=False),
-        max_order_size=_positive_float("MAX_ORDER_SIZE"),
-        max_total_exposure=_positive_float("MAX_TOTAL_EXPOSURE"),
+        max_order_size=(_positive_float("MAX_ORDER_SIZE") if require_trading
+                        else float(os.getenv("MAX_ORDER_SIZE", "0") or "0")),
+        max_total_exposure=(_positive_float("MAX_TOTAL_EXPOSURE")
+                            if require_trading
+                            else float(os.getenv("MAX_TOTAL_EXPOSURE", "0")
+                                       or "0")),
     )
