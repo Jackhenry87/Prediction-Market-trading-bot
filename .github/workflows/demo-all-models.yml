@@ -1,0 +1,90 @@
+name: demo-all-models
+
+# PARALLEL DEMO of every prod trading model on the $1000 Kalshi DEMO account,
+# to test the hypothesis that UNIT SIZES (not the models) are the reason the
+# real account is losing. Runs the exact same models — weather, nowcast, sports,
+# smartmoney — with the same signals, but with BIGGER unit sizes on demo's
+# $1000 (vs prod's ~$2/order). Real orders on demo-api.kalshi.co (play money).
+#
+# ISOLATION: this NEVER touches prod. It uses the demo secrets + KALSHI_ENV=demo,
+# and it COMMITS NOTHING (contents: read) so it can't clobber the prod scoreboard
+# or ledgers. Watch results directly in the Kalshi demo account (balance +
+# positions + settlements). Prod keeps running unchanged in autotrade.yml /
+# live-bots.yml.
+#
+# Tune the demo unit sizing WITHOUT code changes via repo Variables (all
+# DEMO_-prefixed so they can't affect prod): DEMO_MAX_ORDER_SIZE,
+# DEMO_MAX_TOTAL_EXPOSURE, DEMO_MAX_ORDER_PCT, DEMO_MIN_ORDER_PCT.
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: demo-all-models
+  cancel-in-progress: false
+
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Write demo Kalshi key
+        env:
+          KALSHI_PEM: ${{ secrets.KALSHI_DEMO_PRIVATE_KEY_PEM }}
+        run: printf '%s\n' "$KALSHI_PEM" > kalshi_demo.pem
+      - name: Run ALL models on demo ($1000, bigger units)
+        env:
+          # --- demo account (play money) ---
+          KALSHI_ENV: demo
+          KALSHI_API_KEY_ID: ${{ secrets.KALSHI_DEMO_API_KEY_ID }}
+          KALSHI_PRIVATE_KEY_PATH: kalshi_demo.pem
+          DRY_RUN: 'false'                       # actually place on demo
+          KILL_SWITCH: ${{ vars.KILL_SWITCH || 'false' }}
+          # --- BIGGER unit sizes (the thing under test) — DEMO_-prefixed so
+          #     they never touch prod. Prod is ~$2/order; demo defaults ~$25. ---
+          MAX_ORDER_SIZE: ${{ vars.DEMO_MAX_ORDER_SIZE || '25' }}
+          MAX_TOTAL_EXPOSURE: ${{ vars.DEMO_MAX_TOTAL_EXPOSURE || '500' }}
+          MAX_ORDER_PCT: ${{ vars.DEMO_MAX_ORDER_PCT || '3' }}
+          MIN_ORDER_PCT: ${{ vars.DEMO_MIN_ORDER_PCT || '0.5' }}
+          KALSHI_DEPOSITS_USD: '1000'
+          # --- everything else mirrors prod so ONLY sizing differs ---
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          TAKE_PROFIT_PCT: ${{ vars.TAKE_PROFIT_PCT || '50' }}
+          TRADE_MIN_PRICE: ${{ vars.TRADE_MIN_PRICE || '60' }}
+          TRADE_MAX_PRICE: ${{ vars.TRADE_MAX_PRICE || '90' }}
+          MAX_THEME_PCT: ${{ vars.MAX_THEME_PCT || '40' }}
+          ENABLED_MODELS: 'weather,nowcast'
+          WEATHER_CITIES: ${{ vars.WEATHER_CITIES || 'CHI,MIA,DEN,LAX,AUS' }}
+          # smart-money copier (same params as live-bots)
+          SM_COPY_MIN_PCT: ${{ vars.SM_COPY_MIN_PCT || '4' }}
+          SM_COPY_MAX_PCT: ${{ vars.SM_COPY_MAX_PCT || '8' }}
+          SM_FOLLOW_EXITS: ${{ vars.SM_FOLLOW_EXITS || 'false' }}
+          SM_PINNED_WALLETS: ${{ vars.SM_PINNED_WALLETS || '0xa4b366ad22fc0d06f1e934ff468e8922431a87b8' }}
+          SM_TAKE_PROFIT_PCT: ${{ vars.SM_TAKE_PROFIT_PCT || '75' }}
+          SM_MAX_DAYS_OUT: ${{ vars.SM_MAX_DAYS_OUT || '60' }}
+          # sports (same params as live-bots)
+          SPORTS_LEAGUES: ${{ vars.SPORTS_LEAGUES || 'mlb,nba,nfl,nhl,wnba' }}
+          SPORTS_MAX_ML_PER_DAY: ${{ vars.SPORTS_MAX_ML_PER_DAY || '2' }}
+          SPORTS_MAX_TOTALS_PER_DAY: ${{ vars.SPORTS_MAX_TOTALS_PER_DAY || '2' }}
+          SPORTS_MIN_CONFIDENCE: ${{ vars.SPORTS_MIN_CONFIDENCE || '0.60' }}
+          SPORTS_MIN_MOVE: ${{ vars.SPORTS_MIN_MOVE || '0.01' }}
+          SPORTS_TOTAL_SIGMA: ${{ vars.SPORTS_TOTAL_SIGMA || '3.0' }}
+        run: |
+          echo "=== weather + nowcast (auto_trade) ==="
+          python auto_trade.py || true
+          echo "=== sports ==="
+          python sports_runner.py --once || true
+          echo "=== smart-money copier ==="
+          python smartmoney_runner.py --once || true
