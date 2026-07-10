@@ -1,0 +1,24 @@
+{
+  "date": "2026-07-10",
+  "direction": "no",
+  "legs": [
+    {
+      "ticker": "KXMLBRFI-26JUL101905KCBAL",
+      "commence": 1783724760,
+      "order_id": null,
+      "entry_price": null,
+      "count": null,
+      "result": null
+    },
+    {
+      "ticker": "KXMLBRFI-26JUL102005HOUTEX",
+      "commence": 1783728360,
+      "order_id": null,
+      "entry_price": null,
+      "count": null,
+      "result": null
+    }
+  ],
+  "step": 0,
+  "status": "active"
+}
