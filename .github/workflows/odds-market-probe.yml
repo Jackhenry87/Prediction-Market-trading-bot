@@ -1,0 +1,27 @@
+name: odds-market-probe
+
+# One-tap probe: does the-odds-api plan behind ODDS_API_KEY expose FIRST-INNING
+# (NRFI/YRFI) markets for MLB? Read-only, a couple of API credits. Decides
+# whether the sharp-vs-Kalshi NRFI model is buildable before we build it.
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Probe first-inning market availability
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        run: python odds_market_probe.py
