@@ -1,14 +1,14 @@
 # 📊 Trading Scoreboard
 
-_Updated 2026-07-10 09:59 UTC — auto-generated every run; do not edit._
+_Updated 2026-07-10 12:40 UTC — auto-generated every run; do not edit._
 
 Signals are scored against official settlement whether or not a real order was placed. P&L shown is per 1-contract stakes.
 
 ## 💰 Account
 
-**Equity $36.78** = cash $20.66 + open positions $16.12 _(last known — live fetch failed this run)_
+**Equity $40.78** = cash $24.66 + open positions $16.12 _(last known — live fetch failed this run)_
 
-🔴 **Net P&L: -$13.22** ($50.00 deposited → $36.78 now) · 34W / 78L settled
+🔴 **Net P&L: -$9.22** ($50.00 deposited → $40.78 now) · 37W / 79L settled
 
 ## 📑 Spreadsheets
 
