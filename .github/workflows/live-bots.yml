@@ -58,10 +58,20 @@ jobs:
           SPORTS_MIN_MOVE: ${{ vars.SPORTS_MIN_MOVE || '0.03' }}
           SPORTS_TOTAL_MIN_MOVE: ${{ vars.SPORTS_TOTAL_MIN_MOVE || '0.5' }}
           SPORTS_TOTAL_SIGMA: ${{ vars.SPORTS_TOTAL_SIGMA || '3.0' }}
+          # --- NRFI/YRFI Martingale (real money, tiny) ---
+          # Decides ONE direction/day from sharp first-inning odds vs KXMLBRFI,
+          # plays up to 3 staggered legs as 1-2-4 (stop on first win). $1 base.
+          # Odds fetched once/day (credit-frugal) after the decision hour.
+          NRFI_BASE_USD: ${{ vars.NRFI_BASE_USD || '1' }}
+          NRFI_MIN_EDGE_CENTS: ${{ vars.NRFI_MIN_EDGE_CENTS || '3' }}
+          NRFI_DECISION_UTC_HOUR: ${{ vars.NRFI_DECISION_UTC_HOUR || '15' }}
         run: |
           python sports_runner.py --once || true
-          # CLV: snapshot each open sports bet's price; freeze the closing line
-          # on settlement; refresh CLV_SCOREBOARD.md.
+          # NRFI/YRFI: daily decision (once) then Martingale execution off Kalshi
+          # settlements. Places real orders through the shared safety gate.
+          python nrfi_runner.py --once || true
+          # CLV: snapshot each open sports/NRFI bet's price; freeze the closing
+          # line on settlement; refresh CLV_SCOREBOARD.md.
           python clv_tracker.py || true
       - name: Persist sports + CLV state
         if: always()
@@ -69,7 +79,8 @@ jobs:
           git config user.name "sports-bot"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           for f in sports_line_history.json paper_trades_sports.csv \
-                   executed_trades.csv clv_sports.csv CLV_SCOREBOARD.md; do
+                   executed_trades.csv clv_sports.csv CLV_SCOREBOARD.md \
+                   nrfi_state.json; do
             git add -f "$f" 2>/dev/null || true
           done
           if ! git diff --cached --quiet; then

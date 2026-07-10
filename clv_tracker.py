@@ -33,7 +33,7 @@ ROOT = Path(__file__).resolve().parent
 EXECUTED = ROOT / "executed_trades.csv"
 CLV_CSV = ROOT / "clv_sports.csv"
 SCOREBOARD = ROOT / "CLV_SCOREBOARD.md"
-SPORTS_MODELS = {"sports", "tennis"}
+SPORTS_MODELS = {"sports", "tennis", "nrfi"}
 OPEN_STATUS = (None, "", "active", "open", "initialized")
 CLV_FIELDS = ["order_id", "ticker", "model", "side", "entry_price", "entry_ts",
               "last_price", "last_ts", "closing_price", "clv_cents",
