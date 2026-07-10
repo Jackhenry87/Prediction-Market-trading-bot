@@ -1,14 +1,14 @@
 # 📊 Trading Scoreboard
 
-_Updated 2026-07-10 21:34 UTC — auto-generated every run; do not edit._
+_Updated 2026-07-10 23:27 UTC — auto-generated every run; do not edit._
 
 Signals are scored against official settlement whether or not a real order was placed. P&L shown is per 1-contract stakes.
 
 ## 💰 Account
 
-**Equity $40.78** = cash $24.66 + open positions $16.12 _(last known — live fetch failed this run)_
+**Equity $41.23** = cash $25.11 + open positions $16.12 _(last known — live fetch failed this run)_
 
-🔴 **Net P&L: -$9.22** ($50.00 deposited → $40.78 now) · 37W / 79L settled
+🔴 **Net P&L: -$8.77** ($50.00 deposited → $41.23 now) · 38W / 79L settled
 
 ## 📑 Spreadsheets
 
@@ -17,10 +17,11 @@ Signals are scored against official settlement whether or not a real order was p
 
 ## 💵 Real orders placed
 
-**66 orders, $48.97 deployed.** Settled: **9 W — 25 L, realized +$1.62**; 32 open.
+**67 orders, $49.87 deployed.** Settled: **9 W — 25 L, realized +$1.62**; 33 open.
 
 | Placed (UTC) | Model | Market | Side | Qty | Price | Confidence | Cost | Result |
 |---|---|---|---|---|---|---|---|---|
+| 07-10 22:22 | nrfi | KXMLBRFI-26JUL101905KCBAL | NO | 2 | 45¢ | — | $0.90 | ⏳ open |
 | 07-10 12:58 | sports | KXMLBTOTAL-26JUL102005HOUTEX-7 | YES | 1 | 65¢ | 74% | $0.65 | ⏳ open |
 | 07-10 12:58 | sports | KXMLBTOTAL-26JUL101905KCBAL-9 | YES | 1 | 62¢ | 72% | $0.62 | ⏳ open |
 | 07-08 23:59 | nowcast | KXHIGHCHI-26JUL08-B88.5 | NO | 73 | 1¢ | 100% | $0.73 | ⏳ open |
@@ -40,7 +41,6 @@ Signals are scored against official settlement whether or not a real order was p
 | 07-08 20:53 | weather | KXHIGHDEN-26JUL09-B90.5 | NO | 1 | 68¢ | 91% | $0.68 | ⏳ open |
 | 07-08 20:53 | weather | KXHIGHMIA-26JUL09-B94.5 | NO | 1 | 60¢ | 80% | $0.60 | ⏳ open |
 | 07-08 20:53 | weather | KXHIGHCHI-26JUL09-B84.5 | NO | 1 | 64¢ | 77% | $0.64 | ⏳ open |
-| 07-07 18:54 | untracked | KXATPMATCH-26JUL07AUGDJO-DJO | YES | 1 | 40¢ | — | $0.40 | 🟢 win (+$0.60) |
 
 ## 🌡️ Weather by city (real settled P&L since 2026-07-01)
 
@@ -89,12 +89,13 @@ _No signals recorded yet._
 
 ## ⚾ Sports model
 
-### 🟢 1 W — 🔴 1 L — ⏳ 2 pending — net **-31¢**
+### 🟢 1 W — 🔴 1 L — ⏳ 3 pending — net **-31¢**
 
 _Brier **0.357** (coin flip 0.25) over 2 settled · avg CLV **-15.5¢** over 2 sampled_
 
 | Scanned (UTC) | Market | Side | Price | Model | Result |
 |---|---|---|---|---|---|
+| 07-10 22:14 | KXWNBA-26-MIN | YES | 36¢ | 62% | ⏳ pending |
 | 07-10 12:58 | KXMLBTOTAL-26JUL102005HOUTEX-7 | YES | 66¢ | 74% | ⏳ pending |
 | 07-10 12:58 | KXMLBTOTAL-26JUL101905KCBAL-9 | YES | 63¢ | 72% | ⏳ pending |
 | 07-09 01:06 | KXMLBTOTAL-26JUL082210COLLAD-8 | YES | 71¢ | 80% | 🔴 loss (-71c) |

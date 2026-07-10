@@ -1,4 +1,5 @@
 market,model,copyTrade,city,status,side,count,avgPrice_cents,exposure_usd,lastPrice_cents,unrealized_usd,realized_usd,total_usd,categoryTotal_usd,cityTotal_usd,result,closeDate,ticker
+Kansas City vs Baltimore First Inning Run? · Yes,nrfi,,,settled,yes,0,0,0.90,0,0.00,+1.10,+1.10,+1.10,,no,2026-07-10T23:24:32Z,KXMLBRFI-26JUL101905KCBAL
 "Will the high temp in Chicago be 84-85° on Jul 9, 2026? · 84° to 85°",weather,,Chicago,settled,yes,0,0,1.28,0,0.00,+0.72,+0.72,-31.73,-5.61,no,2026-07-10T05:59:00Z,KXHIGHCHI-26JUL09-B84.5
 "Will the **high temp in Miami** be 94-95° on Jul 9, 2026? · 94° to 95°",weather,,Miami,settled,yes,0,0,0.60,0,0.00,+0.40,+0.40,-31.73,+0.26,no,2026-07-10T04:59:00Z,KXHIGHMIA-26JUL09-B94.5
 "Will the **high temp in LA** be 77-78° on Jul 9, 2026? · 77° to 78°",weather,,Los Angeles,settled,yes,0,0,0.62,0,0.00,+0.38,+0.38,-31.73,+0.14,no,2026-07-10T07:59:00Z,KXHIGHLAX-26JUL09-B77.5
@@ -115,7 +116,8 @@ Minnesota vs New York Y Winner? · New York Y,sports,,,settled,yes,0,0,0.38,0,0.
 "Bitcoin price on Jul 2, 2026? · $62,000 or above",other,,,settled,yes,0,0,0.14,0,0.00,-0.14,-0.14,-11.50,,no,2026-07-02T21:00:00Z,KXBTCD-26JUL0217-T61999.99
 "Ethereum price at Jul 2, 2026 at 4pm EDT? · $1,710 or above",other,,,settled,yes,0,0,0.16,0,0.00,-0.16,-0.16,-11.50,,no,2026-07-02T20:00:00Z,KXETHD-26JUL0216-T1709.99
 "Bitcoin price on Jul 2, 2026? · $61,900 or above",other,,,settled,yes,0,0,0.16,0,0.00,-0.16,-0.16,-11.50,,no,2026-07-02T20:00:00Z,KXBTCD-26JUL0216-T61899.99
-═══ GRAND TOTAL (sum of positions) ═══,,,,TOTAL,,,,,,,,-48.10,,,,,
+═══ GRAND TOTAL (sum of positions) ═══,,,,TOTAL,,,,,,,,-47.00,,,,,
+TOTAL · category: nrfi,nrfi,,,TOTAL,,,,,,,,+1.10,+1.10,,,,
 TOTAL · category: tennis,tennis,,,TOTAL,,,,,,,,+0.21,+0.21,,,,
 TOTAL · category: sports,sports,,,TOTAL,,,,,,,,-2.23,-2.23,,,,
 TOTAL · category: nowcast,nowcast,,,TOTAL,,,,,,,,-2.85,-2.85,,,,
