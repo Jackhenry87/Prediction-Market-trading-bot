@@ -34,13 +34,20 @@ def _order_cost_cents(order: dict):
     0 for non-buying orders."""
     action = order.get("action")
     side = order.get("side")
-    buying = action == "buy" if action else side == "bid"
+    book_side = order.get("book_side")
+    buying = (action == "buy" if action
+              else (book_side or side) == "bid")
     if not buying:
         return 0
 
-    remaining = order.get("remaining_count")
-    if remaining is None:
-        remaining = order.get("count")
+    # count across vintages: remaining_count / count (V1) and the fixed-point
+    # *_fp variants Kalshi now returns (remaining_count_fp / count_fp / initial).
+    remaining = None
+    for f in ("remaining_count", "count", "remaining_count_fp", "count_fp",
+              "initial_count_fp"):
+        if order.get(f) not in (None, ""):
+            remaining = order.get(f)
+            break
     try:
         remaining = float(remaining)
     except (TypeError, ValueError):
@@ -53,11 +60,17 @@ def _order_cost_cents(order: dict):
         value = float(price)
         cents = value * 100 if value <= 1 else value  # dollars vs cents
         return cents * remaining
-    if side in ("yes", "no") and order.get(f"{side}_price") not in (None, ""):
-        return float(order[f"{side}_price"]) * remaining
-    for field in ("yes_price", "no_price"):
-        if order.get(field) not in (None, ""):
-            return float(order[field]) * remaining
+    # the outcome side we're buying (V2 orders carry side='yes'/'no' plus a
+    # book_side='bid'/'ask'); price is in cents (<side>_price) or dollar strings
+    # (<side>_price_dollars, the current vintage).
+    outcome = side if side in ("yes", "no") else None
+    for base in ([outcome] if outcome else []) + ["yes", "no"]:
+        c = order.get(f"{base}_price")
+        if c not in (None, ""):
+            return float(c) * remaining                 # already cents
+        d = order.get(f"{base}_price_dollars")
+        if d not in (None, ""):
+            return float(d) * 100.0 * remaining         # dollars -> cents
     return None
 
 
