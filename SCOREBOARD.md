@@ -1,6 +1,6 @@
 # 📊 Trading Scoreboard
 
-_Updated 2026-07-10 05:32 UTC — auto-generated every run; do not edit._
+_Updated 2026-07-10 09:59 UTC — auto-generated every run; do not edit._
 
 Signals are scored against official settlement whether or not a real order was placed. P&L shown is per 1-contract stakes.
 
@@ -89,14 +89,14 @@ _No signals recorded yet._
 
 ## ⚾ Sports model
 
-### 🟢 0 W — 🔴 1 L — ⏳ 1 pending — net **-71¢**
+### 🟢 1 W — 🔴 1 L — ⏳ 0 pending — net **-31¢**
 
-_Brier **0.632** (coin flip 0.25) over 1 settled · avg CLV **-70.0¢** over 1 sampled_
+_Brier **0.357** (coin flip 0.25) over 2 settled · avg CLV **-15.5¢** over 2 sampled_
 
 | Scanned (UTC) | Market | Side | Price | Model | Result |
 |---|---|---|---|---|---|
 | 07-09 01:06 | KXMLBTOTAL-26JUL082210COLLAD-8 | YES | 71¢ | 80% | 🔴 loss (-71c) |
-| 07-07 14:01 | KXMLBGAME-26JUL092145COLSF-COL | NO | 60¢ | 71% | ⏳ pending |
+| 07-07 14:01 | KXMLBGAME-26JUL092145COLSF-COL | NO | 60¢ | 71% | 🟢 **win (+40c)** |
 
 ## 🛢️ Commodities model
 
