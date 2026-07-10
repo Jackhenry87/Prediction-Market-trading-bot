@@ -2,7 +2,7 @@
 
 Closing-Line Value = (market price of our side at close) − (price we paid). Positive = we beat the close = edge. The honest test.
 
-- **Settled bets scored:** 0   (open/pending: 3)
+- **Settled bets scored:** 0   (open/pending: 2)
 - **Mean CLV:** +0.0c per bet
 - **Beat the close:** 0% of bets
 

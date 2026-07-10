@@ -8,7 +8,7 @@
       "order_id": "5c318c38-5f72-4aaa-abba-5b7d411680af",
       "entry_price": 45,
       "count": 2,
-      "result": null
+      "result": "win"
     },
     {
       "ticker": "KXMLBRFI-26JUL102005HOUTEX",
@@ -20,5 +20,5 @@
     }
   ],
   "step": 0,
-  "status": "active"
+  "status": "done_win"
 }
