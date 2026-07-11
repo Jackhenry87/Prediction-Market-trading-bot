@@ -28,6 +28,16 @@ def test_side_value_yes_and_no():
     assert clv.side_value_cents(m, "no") == 60
 
 
+def test_side_value_reads_dollars_vintage():
+    # Kalshi's newer fields — the raw-key reader returned None here and silently
+    # killed CLV (no snapshot -> no closing line). price_cents must handle it.
+    m = {"yes_bid_dollars": "0.38", "yes_ask_dollars": "0.42"}   # yes mid = 40
+    assert round(clv.side_value_cents(m, "yes"), 1) == 40.0
+    assert round(clv.side_value_cents(m, "no"), 1) == 60.0
+    # falls back to last_price_dollars when no book quote
+    assert round(clv.side_value_cents({"last_price_dollars": "0.55"}, "yes"), 1) == 55.0
+
+
 def test_snapshot_then_freeze_gives_clv():
     # entry 40c on YES. While open the yes mid rises to 55 (market moved our
     # way). Then it settles YES. Closing line must be the last OPEN price (55),

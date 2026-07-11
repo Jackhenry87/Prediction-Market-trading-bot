@@ -25,6 +25,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from kalshi_client import KalshiClient
+from strategy_weather import price_cents
 from trade_logger import get_logger, setup_logging
 
 log = get_logger("clv_tracker")
@@ -49,13 +50,15 @@ def _num(x):
 
 def side_value_cents(market: dict, side: str):
     """Current cents value of the side we HOLD: yes -> the yes mid (or last),
-    no -> 100 - that. None if the market has no usable quote."""
-    yb, ya = _num(market.get("yes_bid")), _num(market.get("yes_ask"))
-    if yb is not None and ya is not None and 0 < yb and ya < 100:
+    no -> 100 - that. None if the market has no usable quote. Uses price_cents
+    so it reads BOTH the cents fields and Kalshi's newer *_dollars vintage —
+    reading the raw yes_bid keys alone returned None and silently killed CLV."""
+    yb, ya = price_cents(market, "yes_bid"), price_cents(market, "yes_ask")
+    if yb and ya and 0 < yb and ya < 100:
         yes = (yb + ya) / 2.0
     else:
-        last = _num(market.get("last_price"))
-        if last is None or not 0 < last < 100:
+        last = price_cents(market, "last_price")
+        if not last or not 0 < last < 100:
             return None
         yes = last
     return yes if side == "yes" else 100.0 - yes
