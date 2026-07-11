@@ -1,5 +1,5 @@
 order_id,ticker,model,side,entry_price,entry_ts,last_price,last_ts,closing_price,clv_cents,status,result
 541aac71-d80f-4368-98a0-3060ccaa3126,KXMLBGAME-26JUL092145COLSF-COL,sports,no,59,2026-07-07T14:01:34+00:00,,,,,closed,no
-cd7e25d7-aa2d-4c42-a5b5-649cc172e8c6,KXMLBTOTAL-26JUL101905KCBAL-9,sports,yes,62,2026-07-10T12:58:37+00:00,,,,,open,
-529e73da-d338-4fec-8cc2-fdba4c63d5b8,KXMLBTOTAL-26JUL102005HOUTEX-7,sports,yes,65,2026-07-10T12:58:37+00:00,,,,,open,
+cd7e25d7-aa2d-4c42-a5b5-649cc172e8c6,KXMLBTOTAL-26JUL101905KCBAL-9,sports,yes,62,2026-07-10T12:58:37+00:00,,,,,closed,no
+529e73da-d338-4fec-8cc2-fdba4c63d5b8,KXMLBTOTAL-26JUL102005HOUTEX-7,sports,yes,65,2026-07-10T12:58:37+00:00,,,,,closed,yes
 5c318c38-5f72-4aaa-abba-5b7d411680af,KXMLBRFI-26JUL101905KCBAL,nrfi,no,45,2026-07-10T22:22:13+00:00,,,,,closed,no
