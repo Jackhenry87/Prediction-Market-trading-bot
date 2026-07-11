@@ -1,12 +1,12 @@
 {
-  "balance_usd": 24.46,
+  "balance_usd": 25.46,
   "positions_value_usd": 16.12,
-  "equity_usd": 40.58,
+  "equity_usd": 41.58,
   "deposits_usd": 50.0,
-  "net_pnl_usd": -9.42,
-  "settled_wins": 38,
-  "settled_losses": 79,
+  "net_pnl_usd": -8.42,
+  "settled_wins": 39,
+  "settled_losses": 80,
   "since": "2026-07-02",
   "positions_stale": true,
-  "updated": "2026-07-11T00:57:50+00:00"
+  "updated": "2026-07-11T04:39:47+00:00"
 }

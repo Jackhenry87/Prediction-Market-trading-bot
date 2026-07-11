@@ -1,10 +1,12 @@
 market,model,copyTrade,city,status,side,count,avgPrice_cents,exposure_usd,lastPrice_cents,unrealized_usd,realized_usd,total_usd,categoryTotal_usd,cityTotal_usd,result,closeDate,ticker
+Houston vs Texas Total Runs? · Over 6.5 runs scored,sports,,,settled,yes,0,0,0.65,100,0.00,+0.35,+0.35,-2.50,,yes,2026-07-11T02:44:27Z,KXMLBTOTAL-26JUL102005HOUTEX-7
+Kansas City vs Baltimore Total Runs? · Over 8.5 runs scored,sports,,,settled,yes,0,0,0.62,0,0.00,-0.62,-0.62,-2.50,,no,2026-07-11T01:29:39Z,KXMLBTOTAL-26JUL101905KCBAL-9
 Kansas City vs Baltimore First Inning Run? · Yes,nrfi,,,settled,yes,0,0,0.90,0,0.00,+1.10,+1.10,+1.10,,no,2026-07-10T23:24:32Z,KXMLBRFI-26JUL101905KCBAL
 "Will the high temp in Chicago be 84-85° on Jul 9, 2026? · 84° to 85°",weather,,Chicago,settled,yes,0,0,1.28,0,0.00,+0.72,+0.72,-31.73,-5.61,no,2026-07-10T05:59:00Z,KXHIGHCHI-26JUL09-B84.5
 "Will the **high temp in Miami** be 94-95° on Jul 9, 2026? · 94° to 95°",weather,,Miami,settled,yes,0,0,0.60,0,0.00,+0.40,+0.40,-31.73,+0.26,no,2026-07-10T04:59:00Z,KXHIGHMIA-26JUL09-B94.5
 "Will the **high temp in LA** be 77-78° on Jul 9, 2026? · 77° to 78°",weather,,Los Angeles,settled,yes,0,0,0.62,0,0.00,+0.38,+0.38,-31.73,+0.14,no,2026-07-10T07:59:00Z,KXHIGHLAX-26JUL09-B77.5
 "Will the **high temp in Denver** be 90-91° on Jul 9, 2026? · 90° to 91°",weather,,Denver,settled,yes,0,0,2.74,100,0.00,-2.74,-2.74,-31.73,-0.57,yes,2026-07-10T06:59:00Z,KXHIGHDEN-26JUL09-B90.5
-Colorado vs San Francisco Winner? · Colorado,sports,,,settled,yes,0,0,0.59,0,0.00,+0.41,+0.41,-2.23,,no,2026-07-10T04:39:29Z,KXMLBGAME-26JUL092145COLSF-COL
+Colorado vs San Francisco Winner? · Colorado,sports,,,settled,yes,0,0,0.59,0,0.00,+0.41,+0.41,-2.50,,no,2026-07-10T04:39:29Z,KXMLBGAME-26JUL092145COLSF-COL
 "Will the **high temp in Miami** be 95-96° on Jul 8, 2026? · 95° to 96°",weather,,Miami,settled,yes,0,0,0.87,0,0.00,+0.13,+0.13,-31.73,+0.26,no,2026-07-09T04:59:00Z,KXHIGHMIA-26JUL08-B95.5
 "Will the **high temp in Miami** be 93-94° on Jul 8, 2026? · 93° to 94°",weather,,Miami,settled,yes,0,0,0.64,0,0.00,+0.36,+0.36,-31.73,+0.26,no,2026-07-09T04:59:00Z,KXHIGHMIA-26JUL08-B93.5
 "Will the **high temp in Austin** be 99-100° on Jul 8, 2026? · 99° to 100°",weather,,Austin,settled,yes,0,0,0.73,100,0.00,-0.73,-0.73,-31.73,-1.70,yes,2026-07-09T05:59:00Z,KXHIGHAUS-26JUL08-B99.5
@@ -25,16 +27,16 @@ Colorado vs San Francisco Winner? · Colorado,sports,,,settled,yes,0,0,0.59,0,0.
 "Will the **high temp in LA** be 73-74° on Jul 7, 2026? · 73° to 74°",weather,,Los Angeles,settled,yes,0,0,0.70,100,0.00,-0.70,-0.70,-31.73,+0.14,yes,2026-07-08T07:59:00Z,KXHIGHLAX-26JUL07-B73.5
 "Will the **high temp in Denver** be 95-96° on Jul 7, 2026? · 95° to 96°",weather,,Denver,settled,yes,0,0,0.60,0,0.00,+0.40,+0.40,-31.73,-0.57,no,2026-07-08T06:59:00Z,KXHIGHDEN-26JUL07-B95.5
 "Will the **high temp in Denver** be 93-94° on Jul 7, 2026? · 93° to 94°",weather,,Denver,settled,yes,0,0,1.42,0,0.00,+0.58,+0.58,-31.73,-0.57,no,2026-07-08T06:59:00Z,KXHIGHDEN-26JUL07-B93.5
-Colorado vs Los Angeles D Winner? · Colorado,sports,,,settled,yes,0,0,0.35,100,0.00,+0.65,+0.65,-2.23,,yes,2026-07-08T04:54:23Z,KXMLBGAME-26JUL072210COLLAD-COL
-Arizona vs San Diego Winner? · San Diego,sports,,,settled,yes,0,0,0.47,100,0.00,-0.47,-0.47,-2.23,,yes,2026-07-08T04:14:30Z,KXMLBGAME-26JUL072140AZSD-SD
-Los Angeles A vs Texas Winner? · Texas,sports,,,settled,yes,0,0,0.41,100,0.00,-0.41,-0.41,-2.23,,yes,2026-07-08T02:59:39Z,KXMLBGAME-26JUL072005LAATEX-TEX
-Boston vs Chicago WS Winner? · Boston,sports,,,settled,yes,0,0,0.52,100,0.00,+0.48,+0.48,-2.23,,yes,2026-07-08T02:39:38Z,KXMLBGAME-26JUL071940BOSCWS-BOS
-Philadelphia vs Cincinnati Winner? · Cincinnati,sports,,,settled,yes,0,0,0.43,0,0.00,-0.43,-0.43,-2.23,,no,2026-07-08T02:29:38Z,KXMLBGAME-26JUL071910PHICIN-CIN
-Atlanta vs Pittsburgh Winner? · Pittsburgh,sports,,,settled,yes,0,0,0.48,100,0.00,-0.48,-0.48,-2.23,,yes,2026-07-08T01:29:46Z,KXMLBGAME-26JUL071840ATLPIT-PIT
-A's vs Detroit Winner? · Detroit,sports,,,settled,yes,0,0,0.40,100,0.00,-0.40,-0.40,-2.23,,yes,2026-07-08T01:29:45Z,KXMLBGAME-26JUL071840ATHDET-DET
+Colorado vs Los Angeles D Winner? · Colorado,sports,,,settled,yes,0,0,0.35,100,0.00,+0.65,+0.65,-2.50,,yes,2026-07-08T04:54:23Z,KXMLBGAME-26JUL072210COLLAD-COL
+Arizona vs San Diego Winner? · San Diego,sports,,,settled,yes,0,0,0.47,100,0.00,-0.47,-0.47,-2.50,,yes,2026-07-08T04:14:30Z,KXMLBGAME-26JUL072140AZSD-SD
+Los Angeles A vs Texas Winner? · Texas,sports,,,settled,yes,0,0,0.41,100,0.00,-0.41,-0.41,-2.50,,yes,2026-07-08T02:59:39Z,KXMLBGAME-26JUL072005LAATEX-TEX
+Boston vs Chicago WS Winner? · Boston,sports,,,settled,yes,0,0,0.52,100,0.00,+0.48,+0.48,-2.50,,yes,2026-07-08T02:39:38Z,KXMLBGAME-26JUL071940BOSCWS-BOS
+Philadelphia vs Cincinnati Winner? · Cincinnati,sports,,,settled,yes,0,0,0.43,0,0.00,-0.43,-0.43,-2.50,,no,2026-07-08T02:29:38Z,KXMLBGAME-26JUL071910PHICIN-CIN
+Atlanta vs Pittsburgh Winner? · Pittsburgh,sports,,,settled,yes,0,0,0.48,100,0.00,-0.48,-0.48,-2.50,,yes,2026-07-08T01:29:46Z,KXMLBGAME-26JUL071840ATLPIT-PIT
+A's vs Detroit Winner? · Detroit,sports,,,settled,yes,0,0,0.40,100,0.00,-0.40,-0.40,-2.50,,yes,2026-07-08T01:29:45Z,KXMLBGAME-26JUL071840ATHDET-DET
 Will Novak Djokovic win the Auger-Aliassime vs Djokovic: Quarterfinal match? · Novak Djokovic,tennis,yes,,settled,yes,0,0,0.92,100,0.00,-0.92,-0.92,+0.21,,yes,2026-07-07T21:55:07Z,KXATPMATCH-26JUL07AUGDJO-DJO
 Will Felix Auger-Aliassime win the Auger-Aliassime vs Djokovic: Quarterfinal match? · Felix Auger-Aliassime,tennis,yes,,settled,yes,0,0,0.44,0,0.00,-0.44,-0.44,+0.21,,no,2026-07-07T21:55:07Z,KXATPMATCH-26JUL07AUGDJO-AUG
-Milwaukee vs St. Louis Winner? · Milwaukee,sports,,,settled,yes,0,0,0.35,100,0.00,-0.35,-0.35,-2.23,,yes,2026-07-07T20:59:52Z,KXMLBGAME-26JUL071415MILSTLG1-MIL
+Milwaukee vs St. Louis Winner? · Milwaukee,sports,,,settled,yes,0,0,0.35,100,0.00,-0.35,-0.35,-2.50,,yes,2026-07-07T20:59:52Z,KXMLBGAME-26JUL071415MILSTLG1-MIL
 Will Naomi Osaka win the Osaka vs Muchova: Quarterfinal match? · Naomi Osaka,tennis,,,settled,yes,0,0,0.61,0,0.00,-0.61,-0.61,+0.21,,no,2026-07-07T16:55:06Z,KXWTAMATCH-26JUL07OSAMUC-OSA
 Will Jessica Pegula win the Pegula vs Gauff: Quarterfinal match? · Jessica Pegula,tennis,,,settled,yes,0,0,0.78,0,0.00,-0.78,-0.78,+0.21,,no,2026-07-07T14:32:52Z,KXWTAMATCH-26JUL07PEGGAU-PEG
 Will Coco Gauff win the Pegula vs Gauff: Quarterfinal match? · Coco Gauff,tennis,,,settled,yes,0,0,1.04,100,0.00,+2.96,+2.96,+0.21,,yes,2026-07-07T14:32:52Z,KXWTAMATCH-26JUL07PEGGAU-GAU
@@ -45,8 +47,8 @@ Will Coco Gauff win the Pegula vs Gauff: Quarterfinal match? · Coco Gauff,tenni
 "Will the **high temp in LA** be 76-77° on Jul 6, 2026? · 76° to 77°",weather,,Los Angeles,settled,yes,0,0,2.11,0,0.00,+0.89,+0.89,-31.73,+0.14,no,2026-07-07T07:59:00Z,KXHIGHLAX-26JUL06-B76.5
 "Will the **high temp in Denver** be 98-99° on Jul 6, 2026? · 98° to 99°",weather,,Denver,settled,yes,0,0,0.73,0,0.00,+0.27,+0.27,-31.73,-0.57,no,2026-07-07T06:59:00Z,KXHIGHDEN-26JUL06-B98.5
 "Will the **high temp in Denver** be 94-95° on Jul 6, 2026? · 94° to 95°",weather,,Denver,settled,yes,0,0,1.54,0,0.00,+0.46,+0.46,-31.73,-0.57,no,2026-07-07T06:59:00Z,KXHIGHDEN-26JUL06-B94.5
-Colorado vs Los Angeles D Winner? · Colorado,sports,,,settled,yes,0,0,0.82,0,0.00,-0.82,-0.82,-2.23,,no,2026-07-07T05:39:28Z,KXMLBGAME-26JUL062210COLLAD-COL
-Arizona vs San Diego Winner? · San Diego,sports,,,settled,yes,0,0,0.52,0,0.00,+0.48,+0.48,-2.23,,no,2026-07-07T04:09:28Z,KXMLBGAME-26JUL062140AZSD-SD
+Colorado vs Los Angeles D Winner? · Colorado,sports,,,settled,yes,0,0,0.82,0,0.00,-0.82,-0.82,-2.50,,no,2026-07-07T05:39:28Z,KXMLBGAME-26JUL062210COLLAD-COL
+Arizona vs San Diego Winner? · San Diego,sports,,,settled,yes,0,0,0.52,0,0.00,+0.48,+0.48,-2.50,,no,2026-07-07T04:09:28Z,KXMLBGAME-26JUL062140AZSD-SD
 "Will the **high temp in Miami** be 93-94° on Jul 5, 2026? · 93° to 94°",weather,,Miami,settled,yes,0,0,0.74,100,0.00,-0.74,-0.74,-31.73,+0.26,yes,2026-07-06T04:59:00Z,KXHIGHMIA-26JUL05-B93.5
 "Will the **high temp in Miami** be 91-92° on Jul 5, 2026? · 91° to 92°",weather,,Miami,settled,yes,0,0,0.92,0,0.00,+1.08,+1.08,-31.73,+0.26,no,2026-07-06T04:59:00Z,KXHIGHMIA-26JUL05-B91.5
 "Will the **high temp in Austin** be 98-99° on Jul 5, 2026? · 98° to 99°",weather,,Austin,settled,yes,0,0,0.93,0,0.00,+1.07,+1.07,-31.73,-1.70,no,2026-07-06T05:59:00Z,KXHIGHAUS-26JUL05-B98.5
@@ -56,7 +58,7 @@ Arizona vs San Diego Winner? · San Diego,sports,,,settled,yes,0,0,0.52,0,0.00,+
 "Will the **high temp in LA** be 74-75° on Jul 5, 2026? · 74° to 75°",weather,,Los Angeles,settled,yes,0,0,1.11,100,0.00,-1.11,-1.11,-31.73,+0.14,yes,2026-07-06T07:59:00Z,KXHIGHLAX-26JUL05-B74.5
 "Will the **high temp in Denver** be >94° on Jul 5, 2026? · 95° or above",weather,,Denver,settled,yes,0,0,0.12,100,0.00,-0.12,-0.12,-31.73,-0.57,yes,2026-07-06T06:59:00Z,KXHIGHDEN-26JUL05-T94
 "Will the **high temp in Denver** be 93-94° on Jul 5, 2026? · 93° to 94°",weather,,Denver,settled,yes,0,0,0.54,0,0.00,+0.46,+0.46,-31.73,-0.57,no,2026-07-06T06:59:00Z,KXHIGHDEN-26JUL05-B93.5
-Toronto vs Seattle Winner? · Toronto,sports,,,settled,yes,0,0,0.05,0,0.00,-0.05,-0.05,-2.23,,no,2026-07-05T23:24:23Z,KXMLBGAME-26JUL051700TORSEA-TOR
+Toronto vs Seattle Winner? · Toronto,sports,,,settled,yes,0,0,0.05,0,0.00,-0.05,-0.05,-2.50,,no,2026-07-05T23:24:23Z,KXMLBGAME-26JUL051700TORSEA-TOR
 "Bitcoin price on Jul 5, 2026? · $62,500 or above",other,,,settled,yes,0,0,0.24,100,0.00,-0.24,-0.24,-11.50,,yes,2026-07-05T21:00:00Z,KXBTCD-26JUL0517-T62499.99
 "Bitcoin price on Jul 5, 2026? · $62,250 or above",other,,,settled,yes,0,0,0.54,100,0.00,-0.54,-0.54,-11.50,,yes,2026-07-05T21:00:00Z,KXBTCD-26JUL0517-T62249.99
 "Bitcoin price on Jul 5, 2026? · $62,000 or above",other,,,settled,yes,0,0,0.73,100,0.00,-0.73,-0.73,-11.50,,yes,2026-07-05T21:00:00Z,KXBTCD-26JUL0517-T61999.99
@@ -64,7 +66,7 @@ Toronto vs Seattle Winner? · Toronto,sports,,,settled,yes,0,0,0.05,0,0.00,-0.05
 "Ethereum price at Jul 5, 2026 at 5pm EDT? · $1,790 or above",other,,,settled,yes,0,0,0.12,0,0.00,-0.12,-0.12,-11.50,,no,2026-07-05T21:00:00Z,KXETHD-26JUL0517-T1789.99
 "Ethereum price at Jul 5, 2026 at 5pm EDT? · $1,750 or above",other,,,settled,yes,0,0,0.90,100,0.00,-0.90,-0.90,-11.50,,yes,2026-07-05T21:00:00Z,KXETHD-26JUL0517-T1749.99
 "Ethereum price at Jul 5, 2026 at 5pm EDT? · $1,710 or above",other,,,settled,yes,0,0,0.07,100,0.00,-0.07,-0.07,-11.50,,yes,2026-07-05T21:00:00Z,KXETHD-26JUL0517-T1709.99
-Pittsburgh vs Washington Winner? · Washington,sports,,,settled,yes,0,0,0.12,0,0.00,-0.12,-0.12,-2.23,,no,2026-07-05T20:39:40Z,KXMLBGAME-26JUL051300PITWSH-WSH
+Pittsburgh vs Washington Winner? · Washington,sports,,,settled,yes,0,0,0.12,0,0.00,-0.12,-0.12,-2.50,,no,2026-07-05T20:39:40Z,KXMLBGAME-26JUL051300PITWSH-WSH
 "Bitcoin price on Jul 5, 2026? · $62,600 or above",other,,,settled,yes,0,0,0.18,100,0.00,-0.18,-0.18,-11.50,,yes,2026-07-05T16:00:00Z,KXBTCD-26JUL0512-T62599.99
 "Bitcoin price on Jul 5, 2026? · $62,900 or above",other,,,settled,yes,0,0,0.54,0,0.00,-0.54,-0.54,-11.50,,no,2026-07-05T14:00:00Z,KXBTCD-26JUL0510-T62899.99
 "Ethereum price at Jul 5, 2026 at 10am EDT? · $1,770 or above",other,,,settled,yes,0,0,0.48,0,0.00,-0.48,-0.48,-11.50,,no,2026-07-05T14:00:00Z,KXETHD-26JUL0510-T1769.99
@@ -78,11 +80,11 @@ Pittsburgh vs Washington Winner? · Washington,sports,,,settled,yes,0,0,0.12,0,0
 "Will the **high temp in LA** be 73-74° on Jul 4, 2026? · 73° to 74°",weather,,Los Angeles,settled,yes,0,0,1.50,0,0.00,+4.50,+4.50,-31.73,+0.14,no,2026-07-05T07:59:00Z,KXHIGHLAX-26JUL04-B73.5
 "Will the **high temp in Denver** be 91-92° on Jul 4, 2026? · 91° to 92°",weather,,Denver,settled,yes,0,0,0.13,100,0.00,-0.13,-0.13,-31.73,-0.57,yes,2026-07-05T06:59:00Z,KXHIGHDEN-26JUL04-B91.5
 "Will the **high temp in Denver** be 89-90° on Jul 4, 2026? · 89° to 90°",weather,,Denver,settled,yes,0,0,0.91,0,0.00,+1.09,+1.09,-31.73,-0.57,no,2026-07-05T06:59:00Z,KXHIGHDEN-26JUL04-B89.5
-Miami vs A's Winner? · Miami,sports,,,settled,yes,0,0,0.08,100,0.00,-0.08,-0.08,-2.23,,yes,2026-07-05T04:39:35Z,KXMLBGAME-26JUL042140MIAATH-MIA
-Boston vs Los Angeles A Winner? · Boston,sports,,,settled,yes,0,0,0.08,100,0.00,-0.08,-0.08,-2.23,,yes,2026-07-05T04:24:22Z,KXMLBGAME-26JUL042138BOSLAA-BOS
-San Francisco vs Colorado Winner? · San Francisco,sports,,,settled,yes,0,0,0.08,100,0.00,-0.08,-0.08,-2.23,,yes,2026-07-05T03:54:24Z,KXMLBGAME-26JUL042010SFCOL-SF
-Detroit vs Texas Winner? · Detroit,sports,,,settled,yes,0,0,0.10,100,0.00,-0.10,-0.10,-2.23,,yes,2026-07-04T22:34:36Z,KXMLBGAME-26JUL041605DETTEX-DET
-Minnesota vs New York Y Winner? · New York Y,sports,,,settled,yes,0,0,0.38,0,0.00,-0.38,-0.38,-2.23,,no,2026-07-04T21:04:26Z,KXMLBGAME-26JUL041335MINNYY-NYY
+Miami vs A's Winner? · Miami,sports,,,settled,yes,0,0,0.08,100,0.00,-0.08,-0.08,-2.50,,yes,2026-07-05T04:39:35Z,KXMLBGAME-26JUL042140MIAATH-MIA
+Boston vs Los Angeles A Winner? · Boston,sports,,,settled,yes,0,0,0.08,100,0.00,-0.08,-0.08,-2.50,,yes,2026-07-05T04:24:22Z,KXMLBGAME-26JUL042138BOSLAA-BOS
+San Francisco vs Colorado Winner? · San Francisco,sports,,,settled,yes,0,0,0.08,100,0.00,-0.08,-0.08,-2.50,,yes,2026-07-05T03:54:24Z,KXMLBGAME-26JUL042010SFCOL-SF
+Detroit vs Texas Winner? · Detroit,sports,,,settled,yes,0,0,0.10,100,0.00,-0.10,-0.10,-2.50,,yes,2026-07-04T22:34:36Z,KXMLBGAME-26JUL041605DETTEX-DET
+Minnesota vs New York Y Winner? · New York Y,sports,,,settled,yes,0,0,0.38,0,0.00,-0.38,-0.38,-2.50,,no,2026-07-04T21:04:26Z,KXMLBGAME-26JUL041335MINNYY-NYY
 "Bitcoin price on Jul 4, 2026? · $63,750 or above",other,,,settled,yes,0,0,0.27,0,0.00,-0.27,-0.27,-11.50,,no,2026-07-04T21:00:00Z,KXBTCD-26JUL0417-T63749.99
 "Bitcoin price on Jul 4, 2026? · $63,000 or above",other,,,settled,yes,0,0,0.14,100,0.00,-0.14,-0.14,-11.50,,yes,2026-07-04T21:00:00Z,KXBTCD-26JUL0417-T62999.99
 "Bitcoin price on Jul 4, 2026? · $62,750 or above",other,,,settled,yes,0,0,0.22,100,0.00,-0.22,-0.22,-11.50,,yes,2026-07-04T21:00:00Z,KXBTCD-26JUL0417-T62749.99
@@ -116,10 +118,10 @@ Minnesota vs New York Y Winner? · New York Y,sports,,,settled,yes,0,0,0.38,0,0.
 "Bitcoin price on Jul 2, 2026? · $62,000 or above",other,,,settled,yes,0,0,0.14,0,0.00,-0.14,-0.14,-11.50,,no,2026-07-02T21:00:00Z,KXBTCD-26JUL0217-T61999.99
 "Ethereum price at Jul 2, 2026 at 4pm EDT? · $1,710 or above",other,,,settled,yes,0,0,0.16,0,0.00,-0.16,-0.16,-11.50,,no,2026-07-02T20:00:00Z,KXETHD-26JUL0216-T1709.99
 "Bitcoin price on Jul 2, 2026? · $61,900 or above",other,,,settled,yes,0,0,0.16,0,0.00,-0.16,-0.16,-11.50,,no,2026-07-02T20:00:00Z,KXBTCD-26JUL0216-T61899.99
-═══ GRAND TOTAL (sum of positions) ═══,,,,TOTAL,,,,,,,,-47.00,,,,,
+═══ GRAND TOTAL (sum of positions) ═══,,,,TOTAL,,,,,,,,-47.27,,,,,
 TOTAL · category: nrfi,nrfi,,,TOTAL,,,,,,,,+1.10,+1.10,,,,
 TOTAL · category: tennis,tennis,,,TOTAL,,,,,,,,+0.21,+0.21,,,,
-TOTAL · category: sports,sports,,,TOTAL,,,,,,,,-2.23,-2.23,,,,
+TOTAL · category: sports,sports,,,TOTAL,,,,,,,,-2.50,-2.50,,,,
 TOTAL · category: nowcast,nowcast,,,TOTAL,,,,,,,,-2.85,-2.85,,,,
 TOTAL · category: other,other,,,TOTAL,,,,,,,,-11.50,-11.50,,,,
 TOTAL · category: weather,weather,,,TOTAL,,,,,,,,-31.73,-31.73,,,,

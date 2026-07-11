@@ -1,14 +1,14 @@
 # 📊 Trading Scoreboard
 
-_Updated 2026-07-11 00:57 UTC — auto-generated every run; do not edit._
+_Updated 2026-07-11 04:39 UTC — auto-generated every run; do not edit._
 
 Signals are scored against official settlement whether or not a real order was placed. P&L shown is per 1-contract stakes.
 
 ## 💰 Account
 
-**Equity $40.58** = cash $24.46 + open positions $16.12 _(last known — live fetch failed this run)_
+**Equity $41.58** = cash $25.46 + open positions $16.12 _(last known — live fetch failed this run)_
 
-🔴 **Net P&L: -$9.42** ($50.00 deposited → $40.58 now) · 38W / 79L settled
+🔴 **Net P&L: -$8.42** ($50.00 deposited → $41.58 now) · 39W / 80L settled
 
 ## 📑 Spreadsheets
 
@@ -89,15 +89,15 @@ _No signals recorded yet._
 
 ## ⚾ Sports model
 
-### 🟢 1 W — 🔴 1 L — ⏳ 3 pending — net **-31¢**
+### 🟢 2 W — 🔴 2 L — ⏳ 1 pending — net **-60¢**
 
-_Brier **0.357** (coin flip 0.25) over 2 settled · avg CLV **-15.5¢** over 2 sampled_
+_Brier **0.326** (coin flip 0.25) over 4 settled · avg CLV **-15.0¢** over 4 sampled_
 
 | Scanned (UTC) | Market | Side | Price | Model | Result |
 |---|---|---|---|---|---|
 | 07-10 22:14 | KXWNBA-26-MIN | YES | 36¢ | 62% | ⏳ pending |
-| 07-10 12:58 | KXMLBTOTAL-26JUL102005HOUTEX-7 | YES | 66¢ | 74% | ⏳ pending |
-| 07-10 12:58 | KXMLBTOTAL-26JUL101905KCBAL-9 | YES | 63¢ | 72% | ⏳ pending |
+| 07-10 12:58 | KXMLBTOTAL-26JUL102005HOUTEX-7 | YES | 66¢ | 74% | 🟢 **win (+34c)** |
+| 07-10 12:58 | KXMLBTOTAL-26JUL101905KCBAL-9 | YES | 63¢ | 72% | 🔴 loss (-63c) |
 | 07-09 01:06 | KXMLBTOTAL-26JUL082210COLLAD-8 | YES | 71¢ | 80% | 🔴 loss (-71c) |
 | 07-07 14:01 | KXMLBGAME-26JUL092145COLSF-COL | NO | 60¢ | 71% | 🟢 **win (+40c)** |
 
