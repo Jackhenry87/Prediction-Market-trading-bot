@@ -1,4 +1,8 @@
 market,model,copyTrade,city,status,side,count,avgPrice_cents,exposure_usd,lastPrice_cents,unrealized_usd,realized_usd,total_usd,categoryTotal_usd,cityTotal_usd,result,closeDate,ticker
+Will Conor McGregor win the Conor McGregor vs. Max Holloway 329 fight by KO/TKO/DQ? · Conor McGregor by KO/TKO/DQ,other,,,settled,yes,0,0,9.47,0,0.00,-9.47,-9.47,-39.97,,no,2026-07-12T03:54:33Z,KXUFCMOV-26JUL11MCGHOL-MCGKOTKODQ
+"yes Conor McGregor,yes Argentina advances,yes England advances · yes Conor McGregor,yes Argentina advances,yes England advances",other,,,settled,yes,0,0,4.72,0,0.00,-4.73,-4.73,-39.97,,no,2026-07-12T03:50:37Z,KXMVESPORTSMULTIGAMEEXTENDED-S2026197FFEE63B5-1C2620EBAEC
+Argentina wins by more than 1.5 goals? · Goal Diff Reg Time: Argentina wins by more than 1.5 goals,other,,,settled,yes,0,0,9.53,0,0.00,-9.54,-9.54,-39.97,,no,2026-07-12T03:00:34Z,KXWCSPREAD-26JUL11ARGSUI-ARG2
+"yes Max Holloway,yes Paddy Pimblett,yes Cory Sandhagen · yes Max Holloway,yes Paddy Pimblett,yes Cory Sandhagen",other,,,settled,yes,0,0,4.73,0,0.00,-4.73,-4.73,-39.97,,no,2026-07-12T02:56:06Z,KXMVESPORTSMULTIGAMEEXTENDED-S2026736973D26BD-BC7AA438D55
 Houston vs Texas Total Runs? · Over 6.5 runs scored,sports,,,settled,yes,0,0,0.65,100,0.00,+0.35,+0.35,-2.50,,yes,2026-07-11T02:44:27Z,KXMLBTOTAL-26JUL102005HOUTEX-7
 Kansas City vs Baltimore Total Runs? · Over 8.5 runs scored,sports,,,settled,yes,0,0,0.62,0,0.00,-0.62,-0.62,-2.50,,no,2026-07-11T01:29:39Z,KXMLBTOTAL-26JUL101905KCBAL-9
 Kansas City vs Baltimore First Inning Run? · Yes,nrfi,,,settled,yes,0,0,0.90,0,0.00,+1.10,+1.10,+1.10,,no,2026-07-10T23:24:32Z,KXMLBRFI-26JUL101905KCBAL
@@ -59,17 +63,17 @@ Arizona vs San Diego Winner? · San Diego,sports,,,settled,yes,0,0,0.52,0,0.00,+
 "Will the **high temp in Denver** be >94° on Jul 5, 2026? · 95° or above",weather,,Denver,settled,yes,0,0,0.12,100,0.00,-0.12,-0.12,-31.73,-0.57,yes,2026-07-06T06:59:00Z,KXHIGHDEN-26JUL05-T94
 "Will the **high temp in Denver** be 93-94° on Jul 5, 2026? · 93° to 94°",weather,,Denver,settled,yes,0,0,0.54,0,0.00,+0.46,+0.46,-31.73,-0.57,no,2026-07-06T06:59:00Z,KXHIGHDEN-26JUL05-B93.5
 Toronto vs Seattle Winner? · Toronto,sports,,,settled,yes,0,0,0.05,0,0.00,-0.05,-0.05,-2.50,,no,2026-07-05T23:24:23Z,KXMLBGAME-26JUL051700TORSEA-TOR
-"Bitcoin price on Jul 5, 2026? · $62,500 or above",other,,,settled,yes,0,0,0.24,100,0.00,-0.24,-0.24,-11.50,,yes,2026-07-05T21:00:00Z,KXBTCD-26JUL0517-T62499.99
-"Bitcoin price on Jul 5, 2026? · $62,250 or above",other,,,settled,yes,0,0,0.54,100,0.00,-0.54,-0.54,-11.50,,yes,2026-07-05T21:00:00Z,KXBTCD-26JUL0517-T62249.99
-"Bitcoin price on Jul 5, 2026? · $62,000 or above",other,,,settled,yes,0,0,0.73,100,0.00,-0.73,-0.73,-11.50,,yes,2026-07-05T21:00:00Z,KXBTCD-26JUL0517-T61999.99
-"Bitcoin price on Jul 5, 2026? · $61,500 or above",other,,,settled,yes,0,0,0.07,100,0.00,-0.07,-0.07,-11.50,,yes,2026-07-05T21:00:00Z,KXBTCD-26JUL0517-T61499.99
-"Ethereum price at Jul 5, 2026 at 5pm EDT? · $1,790 or above",other,,,settled,yes,0,0,0.12,0,0.00,-0.12,-0.12,-11.50,,no,2026-07-05T21:00:00Z,KXETHD-26JUL0517-T1789.99
-"Ethereum price at Jul 5, 2026 at 5pm EDT? · $1,750 or above",other,,,settled,yes,0,0,0.90,100,0.00,-0.90,-0.90,-11.50,,yes,2026-07-05T21:00:00Z,KXETHD-26JUL0517-T1749.99
-"Ethereum price at Jul 5, 2026 at 5pm EDT? · $1,710 or above",other,,,settled,yes,0,0,0.07,100,0.00,-0.07,-0.07,-11.50,,yes,2026-07-05T21:00:00Z,KXETHD-26JUL0517-T1709.99
+"Bitcoin price on Jul 5, 2026? · $62,500 or above",other,,,settled,yes,0,0,0.24,100,0.00,-0.24,-0.24,-39.97,,yes,2026-07-05T21:00:00Z,KXBTCD-26JUL0517-T62499.99
+"Bitcoin price on Jul 5, 2026? · $62,250 or above",other,,,settled,yes,0,0,0.54,100,0.00,-0.54,-0.54,-39.97,,yes,2026-07-05T21:00:00Z,KXBTCD-26JUL0517-T62249.99
+"Bitcoin price on Jul 5, 2026? · $62,000 or above",other,,,settled,yes,0,0,0.73,100,0.00,-0.73,-0.73,-39.97,,yes,2026-07-05T21:00:00Z,KXBTCD-26JUL0517-T61999.99
+"Bitcoin price on Jul 5, 2026? · $61,500 or above",other,,,settled,yes,0,0,0.07,100,0.00,-0.07,-0.07,-39.97,,yes,2026-07-05T21:00:00Z,KXBTCD-26JUL0517-T61499.99
+"Ethereum price at Jul 5, 2026 at 5pm EDT? · $1,790 or above",other,,,settled,yes,0,0,0.12,0,0.00,-0.12,-0.12,-39.97,,no,2026-07-05T21:00:00Z,KXETHD-26JUL0517-T1789.99
+"Ethereum price at Jul 5, 2026 at 5pm EDT? · $1,750 or above",other,,,settled,yes,0,0,0.90,100,0.00,-0.90,-0.90,-39.97,,yes,2026-07-05T21:00:00Z,KXETHD-26JUL0517-T1749.99
+"Ethereum price at Jul 5, 2026 at 5pm EDT? · $1,710 or above",other,,,settled,yes,0,0,0.07,100,0.00,-0.07,-0.07,-39.97,,yes,2026-07-05T21:00:00Z,KXETHD-26JUL0517-T1709.99
 Pittsburgh vs Washington Winner? · Washington,sports,,,settled,yes,0,0,0.12,0,0.00,-0.12,-0.12,-2.50,,no,2026-07-05T20:39:40Z,KXMLBGAME-26JUL051300PITWSH-WSH
-"Bitcoin price on Jul 5, 2026? · $62,600 or above",other,,,settled,yes,0,0,0.18,100,0.00,-0.18,-0.18,-11.50,,yes,2026-07-05T16:00:00Z,KXBTCD-26JUL0512-T62599.99
-"Bitcoin price on Jul 5, 2026? · $62,900 or above",other,,,settled,yes,0,0,0.54,0,0.00,-0.54,-0.54,-11.50,,no,2026-07-05T14:00:00Z,KXBTCD-26JUL0510-T62899.99
-"Ethereum price at Jul 5, 2026 at 10am EDT? · $1,770 or above",other,,,settled,yes,0,0,0.48,0,0.00,-0.48,-0.48,-11.50,,no,2026-07-05T14:00:00Z,KXETHD-26JUL0510-T1769.99
+"Bitcoin price on Jul 5, 2026? · $62,600 or above",other,,,settled,yes,0,0,0.18,100,0.00,-0.18,-0.18,-39.97,,yes,2026-07-05T16:00:00Z,KXBTCD-26JUL0512-T62599.99
+"Bitcoin price on Jul 5, 2026? · $62,900 or above",other,,,settled,yes,0,0,0.54,0,0.00,-0.54,-0.54,-39.97,,no,2026-07-05T14:00:00Z,KXBTCD-26JUL0510-T62899.99
+"Ethereum price at Jul 5, 2026 at 10am EDT? · $1,770 or above",other,,,settled,yes,0,0,0.48,0,0.00,-0.48,-0.48,-39.97,,no,2026-07-05T14:00:00Z,KXETHD-26JUL0510-T1769.99
 "Will the **high temp in Miami** be 92-93° on Jul 4, 2026? · 92° to 93°",weather,,Miami,settled,yes,0,0,1.08,100,0.00,-1.08,-1.08,-31.73,+0.26,yes,2026-07-05T04:59:00Z,KXHIGHMIA-26JUL04-B92.5
 "Will the **high temp in Miami** be 90-91° on Jul 4, 2026? · 90° to 91°",weather,,Miami,settled,yes,0,0,0.51,0,0.00,+0.49,+0.49,-31.73,+0.26,no,2026-07-05T04:59:00Z,KXHIGHMIA-26JUL04-B90.5
 "Will the **high temp in Austin** be 97-98° on Jul 4, 2026? · 97° to 98°",weather,,Austin,settled,yes,0,0,1.27,100,0.00,-1.27,-1.27,-31.73,-1.70,yes,2026-07-05T05:59:00Z,KXHIGHAUS-26JUL04-B97.5
@@ -85,17 +89,17 @@ Boston vs Los Angeles A Winner? · Boston,sports,,,settled,yes,0,0,0.08,100,0.00
 San Francisco vs Colorado Winner? · San Francisco,sports,,,settled,yes,0,0,0.08,100,0.00,-0.08,-0.08,-2.50,,yes,2026-07-05T03:54:24Z,KXMLBGAME-26JUL042010SFCOL-SF
 Detroit vs Texas Winner? · Detroit,sports,,,settled,yes,0,0,0.10,100,0.00,-0.10,-0.10,-2.50,,yes,2026-07-04T22:34:36Z,KXMLBGAME-26JUL041605DETTEX-DET
 Minnesota vs New York Y Winner? · New York Y,sports,,,settled,yes,0,0,0.38,0,0.00,-0.38,-0.38,-2.50,,no,2026-07-04T21:04:26Z,KXMLBGAME-26JUL041335MINNYY-NYY
-"Bitcoin price on Jul 4, 2026? · $63,750 or above",other,,,settled,yes,0,0,0.27,0,0.00,-0.27,-0.27,-11.50,,no,2026-07-04T21:00:00Z,KXBTCD-26JUL0417-T63749.99
-"Bitcoin price on Jul 4, 2026? · $63,000 or above",other,,,settled,yes,0,0,0.14,100,0.00,-0.14,-0.14,-11.50,,yes,2026-07-04T21:00:00Z,KXBTCD-26JUL0417-T62999.99
-"Bitcoin price on Jul 4, 2026? · $62,750 or above",other,,,settled,yes,0,0,0.22,100,0.00,-0.22,-0.22,-11.50,,yes,2026-07-04T21:00:00Z,KXBTCD-26JUL0417-T62749.99
-"Bitcoin price on Jul 4, 2026? · $62,250 or above",other,,,settled,yes,0,0,0.65,100,0.00,-0.65,-0.65,-11.50,,yes,2026-07-04T21:00:00Z,KXBTCD-26JUL0417-T62249.99
-"Bitcoin price on Jul 4, 2026? · $62,000 or above",other,,,settled,yes,0,0,1.40,100,0.00,-1.40,-1.40,-11.50,,yes,2026-07-04T21:00:00Z,KXBTCD-26JUL0417-T61999.99
-"Ethereum price at Jul 4, 2026 at 5pm EDT? · $1,820 or above",other,,,settled,yes,0,0,0.60,0,0.00,-0.60,-0.60,-11.50,,no,2026-07-04T21:00:00Z,KXETHD-26JUL0417-T1819.99
-"Ethereum price at Jul 4, 2026 at 5pm EDT? · $1,780 or above",other,,,settled,yes,0,0,0.59,100,0.00,-0.59,-0.59,-11.50,,yes,2026-07-04T21:00:00Z,KXETHD-26JUL0417-T1779.99
-"Ethereum price at Jul 4, 2026 at 5pm EDT? · $1,740 or above",other,,,settled,yes,0,0,1.28,100,0.00,-1.28,-1.28,-11.50,,yes,2026-07-04T21:00:00Z,KXETHD-26JUL0417-T1739.99
-"Ethereum price at Jul 4, 2026 at 5pm EDT? · $1,700 or above",other,,,settled,yes,0,0,0.16,100,0.00,-0.16,-0.16,-11.50,,yes,2026-07-04T21:00:00Z,KXETHD-26JUL0417-T1699.99
-"Bitcoin price on Jul 4, 2026? · $62,800 or above",other,,,settled,yes,0,0,0.60,0,0.00,-0.60,-0.60,-11.50,,no,2026-07-04T15:00:00Z,KXBTCD-26JUL0411-T62799.99
-"Ethereum price at Jul 4, 2026 at 11am EDT? · $1,780 or above",other,,,settled,yes,0,0,0.60,0,0.00,-0.60,-0.60,-11.50,,no,2026-07-04T15:00:00Z,KXETHD-26JUL0411-T1779.99
+"Bitcoin price on Jul 4, 2026? · $63,750 or above",other,,,settled,yes,0,0,0.27,0,0.00,-0.27,-0.27,-39.97,,no,2026-07-04T21:00:00Z,KXBTCD-26JUL0417-T63749.99
+"Bitcoin price on Jul 4, 2026? · $63,000 or above",other,,,settled,yes,0,0,0.14,100,0.00,-0.14,-0.14,-39.97,,yes,2026-07-04T21:00:00Z,KXBTCD-26JUL0417-T62999.99
+"Bitcoin price on Jul 4, 2026? · $62,750 or above",other,,,settled,yes,0,0,0.22,100,0.00,-0.22,-0.22,-39.97,,yes,2026-07-04T21:00:00Z,KXBTCD-26JUL0417-T62749.99
+"Bitcoin price on Jul 4, 2026? · $62,250 or above",other,,,settled,yes,0,0,0.65,100,0.00,-0.65,-0.65,-39.97,,yes,2026-07-04T21:00:00Z,KXBTCD-26JUL0417-T62249.99
+"Bitcoin price on Jul 4, 2026? · $62,000 or above",other,,,settled,yes,0,0,1.40,100,0.00,-1.40,-1.40,-39.97,,yes,2026-07-04T21:00:00Z,KXBTCD-26JUL0417-T61999.99
+"Ethereum price at Jul 4, 2026 at 5pm EDT? · $1,820 or above",other,,,settled,yes,0,0,0.60,0,0.00,-0.60,-0.60,-39.97,,no,2026-07-04T21:00:00Z,KXETHD-26JUL0417-T1819.99
+"Ethereum price at Jul 4, 2026 at 5pm EDT? · $1,780 or above",other,,,settled,yes,0,0,0.59,100,0.00,-0.59,-0.59,-39.97,,yes,2026-07-04T21:00:00Z,KXETHD-26JUL0417-T1779.99
+"Ethereum price at Jul 4, 2026 at 5pm EDT? · $1,740 or above",other,,,settled,yes,0,0,1.28,100,0.00,-1.28,-1.28,-39.97,,yes,2026-07-04T21:00:00Z,KXETHD-26JUL0417-T1739.99
+"Ethereum price at Jul 4, 2026 at 5pm EDT? · $1,700 or above",other,,,settled,yes,0,0,0.16,100,0.00,-0.16,-0.16,-39.97,,yes,2026-07-04T21:00:00Z,KXETHD-26JUL0417-T1699.99
+"Bitcoin price on Jul 4, 2026? · $62,800 or above",other,,,settled,yes,0,0,0.60,0,0.00,-0.60,-0.60,-39.97,,no,2026-07-04T15:00:00Z,KXBTCD-26JUL0411-T62799.99
+"Ethereum price at Jul 4, 2026 at 11am EDT? · $1,780 or above",other,,,settled,yes,0,0,0.60,0,0.00,-0.60,-0.60,-39.97,,no,2026-07-04T15:00:00Z,KXETHD-26JUL0411-T1779.99
 "Will the **high temp in Austin** be 98-99° on Jul 3, 2026? · 98° to 99°",weather,,Austin,settled,yes,0,0,0.05,100,0.00,-0.05,-0.05,-31.73,-1.70,yes,2026-07-04T05:59:00Z,KXHIGHAUS-26JUL03-B98.5
 "Will the **high temp in Austin** be 96-97° on Jul 3, 2026? · 96° to 97°",weather,,Austin,settled,yes,0,0,1.56,0,0.00,+1.44,+1.44,-31.73,-1.70,no,2026-07-04T05:59:00Z,KXHIGHAUS-26JUL03-B96.5
 "Will the **high temp in NYC** be 98-99° on Jul 3, 2026? · 98° to 99°",weather,,New York,settled,yes,0,0,3.90,100,0.00,-3.90,-3.90,-31.73,-27.10,yes,2026-07-04T04:59:00Z,KXHIGHNY-26JUL03-B98.5
@@ -105,9 +109,9 @@ Minnesota vs New York Y Winner? · New York Y,sports,,,settled,yes,0,0,0.38,0,0.
 "Will the high temp in Chicago be 89-90° on Jul 3, 2026? · 89° to 90°",weather,,Chicago,settled,yes,0,0,3.38,0,0.00,+1.62,+1.62,-31.73,-5.61,no,2026-07-04T05:59:00Z,KXHIGHCHI-26JUL03-B89.5
 "Will the **high temp in LA** be 73-74° on Jul 3, 2026? · 73° to 74°",weather,,Los Angeles,settled,yes,0,0,2.04,100,0.00,-2.04,-2.04,-31.73,+0.14,yes,2026-07-04T07:59:00Z,KXHIGHLAX-26JUL03-B73.5
 "Will the **high temp in Denver** be 92-93° on Jul 3, 2026? · 92° to 93°",weather,,Denver,settled,yes,0,0,1.96,0,0.00,+2.04,+2.04,-31.73,-0.57,no,2026-07-04T06:59:00Z,KXHIGHDEN-26JUL03-B92.5
-"Ethereum price at Jul 3, 2026 at 5pm EDT? · $1,670 or above",other,,,settled,yes,0,0,0.19,100,0.00,-0.19,-0.19,-11.50,,yes,2026-07-03T21:00:00Z,KXETHD-26JUL0317-T1669.99
-"Bitcoin price on Jul 3, 2026? · $63,000 or above",other,,,settled,yes,0,0,0.10,0,0.00,-0.10,-0.10,-11.50,,no,2026-07-03T21:00:00Z,KXBTCD-26JUL0317-T62999.99
-"Bitcoin price on Jul 3, 2026? · $60,000 or above",other,,,settled,yes,0,0,0.37,100,0.00,-0.37,-0.37,-11.50,,yes,2026-07-03T21:00:00Z,KXBTCD-26JUL0317-T59999.99
+"Ethereum price at Jul 3, 2026 at 5pm EDT? · $1,670 or above",other,,,settled,yes,0,0,0.19,100,0.00,-0.19,-0.19,-39.97,,yes,2026-07-03T21:00:00Z,KXETHD-26JUL0317-T1669.99
+"Bitcoin price on Jul 3, 2026? · $63,000 or above",other,,,settled,yes,0,0,0.10,0,0.00,-0.10,-0.10,-39.97,,no,2026-07-03T21:00:00Z,KXBTCD-26JUL0317-T62999.99
+"Bitcoin price on Jul 3, 2026? · $60,000 or above",other,,,settled,yes,0,0,0.37,100,0.00,-0.37,-0.37,-39.97,,yes,2026-07-03T21:00:00Z,KXBTCD-26JUL0317-T59999.99
 "Will the **high temp in Austin** be 95-96° on Jul 2, 2026? · 95° to 96°",weather,,Austin,settled,yes,0,0,0.08,100,0.00,-0.08,-0.08,-31.73,-1.70,yes,2026-07-03T05:59:00Z,KXHIGHAUS-26JUL02-B95.5
 "Will the **high temp in NYC** be <99° on Jul 2, 2026? · 98° or below",weather,,New York,settled,yes,0,0,5.70,0,0.00,-5.70,-5.70,-31.73,-27.10,no,2026-07-03T04:59:00Z,KXHIGHNY-26JUL02-T99
 "Will the **high temp in NYC** be 99-100° on Jul 2, 2026? · 99° to 100°",weather,,New York,settled,yes,0,0,16.72,100,0.00,-16.73,-16.73,-31.73,-27.10,yes,2026-07-03T04:59:00Z,KXHIGHNY-26JUL02-B99.5
@@ -115,16 +119,16 @@ Minnesota vs New York Y Winner? · New York Y,sports,,,settled,yes,0,0,0.38,0,0.
 "Will the **high temp in Miami** be 93-94° on Jul 2, 2026? · 93° to 94°",weather,,Miami,settled,yes,0,0,2.41,100,0.00,-2.41,-2.41,-31.73,+0.26,yes,2026-07-03T04:59:00Z,KXHIGHMIA-26JUL02-B93.5
 "Will the **high temp in LA** be 72-73° on Jul 2, 2026? · 72° to 73°",weather,,Los Angeles,settled,yes,0,0,2.25,100,0.00,-2.25,-2.25,-31.73,+0.14,yes,2026-07-03T07:59:00Z,KXHIGHLAX-26JUL02-B72.5
 "Will the **high temp in Denver** be 89-90° on Jul 2, 2026? · 89° to 90°",weather,,Denver,settled,yes,0,0,1.82,100,0.00,-1.82,-1.82,-31.73,-0.57,yes,2026-07-03T06:59:00Z,KXHIGHDEN-26JUL02-B89.5
-"Bitcoin price on Jul 2, 2026? · $62,000 or above",other,,,settled,yes,0,0,0.14,0,0.00,-0.14,-0.14,-11.50,,no,2026-07-02T21:00:00Z,KXBTCD-26JUL0217-T61999.99
-"Ethereum price at Jul 2, 2026 at 4pm EDT? · $1,710 or above",other,,,settled,yes,0,0,0.16,0,0.00,-0.16,-0.16,-11.50,,no,2026-07-02T20:00:00Z,KXETHD-26JUL0216-T1709.99
-"Bitcoin price on Jul 2, 2026? · $61,900 or above",other,,,settled,yes,0,0,0.16,0,0.00,-0.16,-0.16,-11.50,,no,2026-07-02T20:00:00Z,KXBTCD-26JUL0216-T61899.99
-═══ GRAND TOTAL (sum of positions) ═══,,,,TOTAL,,,,,,,,-47.27,,,,,
+"Bitcoin price on Jul 2, 2026? · $62,000 or above",other,,,settled,yes,0,0,0.14,0,0.00,-0.14,-0.14,-39.97,,no,2026-07-02T21:00:00Z,KXBTCD-26JUL0217-T61999.99
+"Ethereum price at Jul 2, 2026 at 4pm EDT? · $1,710 or above",other,,,settled,yes,0,0,0.16,0,0.00,-0.16,-0.16,-39.97,,no,2026-07-02T20:00:00Z,KXETHD-26JUL0216-T1709.99
+"Bitcoin price on Jul 2, 2026? · $61,900 or above",other,,,settled,yes,0,0,0.16,0,0.00,-0.16,-0.16,-39.97,,no,2026-07-02T20:00:00Z,KXBTCD-26JUL0216-T61899.99
+═══ GRAND TOTAL (sum of positions) ═══,,,,TOTAL,,,,,,,,-75.74,,,,,
 TOTAL · category: nrfi,nrfi,,,TOTAL,,,,,,,,+1.10,+1.10,,,,
 TOTAL · category: tennis,tennis,,,TOTAL,,,,,,,,+0.21,+0.21,,,,
 TOTAL · category: sports,sports,,,TOTAL,,,,,,,,-2.50,-2.50,,,,
 TOTAL · category: nowcast,nowcast,,,TOTAL,,,,,,,,-2.85,-2.85,,,,
-TOTAL · category: other,other,,,TOTAL,,,,,,,,-11.50,-11.50,,,,
 TOTAL · category: weather,weather,,,TOTAL,,,,,,,,-31.73,-31.73,,,,
+TOTAL · category: other,other,,,TOTAL,,,,,,,,-39.97,-39.97,,,,
 TOTAL · weather city: Miami,,,Miami,TOTAL,,,,,,,,+0.26,,+0.26,,,
 TOTAL · weather city: Los Angeles,,,Los Angeles,TOTAL,,,,,,,,+0.14,,+0.14,,,
 TOTAL · weather city: Denver,,,Denver,TOTAL,,,,,,,,-0.57,,-0.57,,,
