@@ -1,6 +1,6 @@
 # 📊 Trading Scoreboard
 
-_Updated 2026-07-12 14:02 UTC — auto-generated every run; do not edit._
+_Updated 2026-07-12 15:32 UTC — auto-generated every run; do not edit._
 
 Signals are scored against official settlement whether or not a real order was placed. P&L shown is per 1-contract stakes.
 
@@ -89,12 +89,13 @@ _No signals recorded yet._
 
 ## ⚾ Sports model
 
-### 🟢 2 W — 🔴 2 L — ⏳ 1 pending — net **-60¢**
+### 🟢 2 W — 🔴 2 L — ⏳ 2 pending — net **-60¢**
 
 _Brier **0.326** (coin flip 0.25) over 4 settled · avg CLV **-15.0¢** over 4 sampled_
 
 | Scanned (UTC) | Market | Side | Price | Model | Result |
 |---|---|---|---|---|---|
+| 07-12 14:17 | KXMLBTOTAL-26JUL121340CLEMIA-10 | NO | 67¢ | 74% | ⏳ pending |
 | 07-10 22:14 | KXWNBA-26-MIN | YES | 36¢ | 62% | ⏳ pending |
 | 07-10 12:58 | KXMLBTOTAL-26JUL102005HOUTEX-7 | YES | 66¢ | 74% | 🟢 **win (+34c)** |
 | 07-10 12:58 | KXMLBTOTAL-26JUL101905KCBAL-9 | YES | 63¢ | 72% | 🔴 loss (-63c) |
