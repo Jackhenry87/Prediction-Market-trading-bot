@@ -1,65 +1,51 @@
 {
 "089163a3a05d1b2e8028fab27ad5605f": {
 "away_team": "Phoenix Mercury",
-"home_prob": 0.8591,
+"home_prob": 0.8614,
 "home_team": "Minnesota Lynx",
-"total_mean": 168.84,
-"updated": "2026-07-12T18:40:31+00:00"
+"total_mean": 168.798,
+"updated": "2026-07-12T19:53:52+00:00"
 },
 "15504ed1a378321542911fbfb7a49591": {
 "away_team": "Chicago Sky",
-"home_prob": 0.7956,
+"home_prob": 0.796,
 "home_team": "Dallas Wings",
-"total_mean": 177.563,
-"updated": "2026-07-12T18:40:31+00:00"
+"total_mean": 177.588,
+"updated": "2026-07-12T19:53:52+00:00"
 },
 "40ac03ae2d2b1dc11d41ced3f411f478": {
 "away_team": "Arizona Diamondbacks",
-"home_prob": 0.6743,
+"home_prob": 0.6762,
 "home_team": "Los Angeles Dodgers",
-"total_mean": 9.363,
-"updated": "2026-07-12T18:40:30+00:00"
+"total_mean": 9.399,
+"updated": "2026-07-12T19:53:51+00:00"
 },
 "59e806dd41a1cdd33be91c732ab446be": {
 "away_team": "Los Angeles Sparks",
-"home_prob": 0.7566,
+"home_prob": 0.7509,
 "home_team": "Atlanta Dream",
-"total_mean": 179.807,
-"updated": "2026-07-12T18:40:31+00:00"
+"total_mean": 179.846,
+"updated": "2026-07-12T19:53:52+00:00"
 },
 "7a7ba7018aa8c14997cbbcb0170fe203": {
 "away_team": "Indiana Fever",
-"home_prob": 0.6288,
+"home_prob": 0.6304,
 "home_team": "Las Vegas Aces",
-"total_mean": 180.294,
-"updated": "2026-07-12T18:40:31+00:00"
+"total_mean": 180.364,
+"updated": "2026-07-12T19:53:52+00:00"
 },
 "9d71a179d7d4dd618d4fae5516f00d95": {
 "away_team": "Colorado Rockies",
-"home_prob": 0.5831,
+"home_prob": 0.5823,
 "home_team": "San Francisco Giants",
-"total_mean": 9.19,
-"updated": "2026-07-12T18:40:30+00:00"
-},
-"a11188d43bce66a788fd84b4a10dc19b": {
-"away_team": "New York Liberty",
-"home_prob": 0.2802,
-"home_team": "Toronto Tempo",
-"total_mean": 178.62,
-"updated": "2026-07-12T18:40:31+00:00"
-},
-"a82c548dd13bf0b9134cd20a43ac88de": {
-"away_team": "Seattle Storm",
-"home_prob": 0.6811,
-"home_team": "Washington Mystics",
-"total_mean": 162.419,
-"updated": "2026-07-12T18:40:31+00:00"
+"total_mean": 9.221,
+"updated": "2026-07-12T19:53:51+00:00"
 },
 "f1d16b70bce98d0cea5eb7551dfbe37f": {
 "away_team": "Toronto Blue Jays",
-"home_prob": 0.4549,
+"home_prob": 0.4593,
 "home_team": "San Diego Padres",
-"total_mean": 8.656,
-"updated": "2026-07-12T18:40:30+00:00"
+"total_mean": 8.687,
+"updated": "2026-07-12T19:53:51+00:00"
 }
 }
