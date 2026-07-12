@@ -1,6 +1,16 @@
 {
-  "date": "2026-07-11",
-  "status": "no_bet",
-  "legs": [],
-  "step": 0
+  "date": "2026-07-12",
+  "direction": "no",
+  "legs": [
+    {
+      "ticker": "KXMLBRFI-26JUL121340CHCCIN",
+      "commence": 1783878060,
+      "order_id": null,
+      "entry_price": null,
+      "count": null,
+      "result": null
+    }
+  ],
+  "step": 0,
+  "status": "active"
 }
