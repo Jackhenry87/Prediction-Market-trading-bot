@@ -1,0 +1,62 @@
+{
+  "KXHIGHNY": {
+    "bias": -0.16,
+    "sigma": 3.0,
+    "trade": true,
+    "recent_std": 1.64,
+    "recent_bias": -0.16,
+    "n": 46,
+    "window": "recent",
+    "updated": "2026-07-13T12:19:03+00:00"
+  },
+  "KXHIGHCHI": {
+    "bias": -0.85,
+    "sigma": 2.5,
+    "trade": true,
+    "recent_std": 2.18,
+    "recent_bias": -0.85,
+    "n": 46,
+    "window": "recent",
+    "updated": "2026-07-13T12:19:04+00:00"
+  },
+  "KXHIGHMIA": {
+    "bias": 0.97,
+    "sigma": 2.0,
+    "trade": true,
+    "recent_std": 1.56,
+    "recent_bias": 0.97,
+    "n": 46,
+    "window": "recent",
+    "updated": "2026-07-13T12:19:05+00:00"
+  },
+  "KXHIGHDEN": {
+    "bias": -0.84,
+    "sigma": 2.5,
+    "trade": true,
+    "recent_std": 1.68,
+    "recent_bias": -0.84,
+    "n": 46,
+    "window": "recent",
+    "updated": "2026-07-13T12:19:06+00:00"
+  },
+  "KXHIGHLAX": {
+    "bias": 1.47,
+    "sigma": 3.0,
+    "trade": true,
+    "recent_std": 1.7,
+    "recent_bias": 1.47,
+    "n": 46,
+    "window": "recent",
+    "updated": "2026-07-13T12:19:12+00:00"
+  },
+  "KXHIGHAUS": {
+    "bias": 1.1,
+    "sigma": 2.5,
+    "trade": true,
+    "recent_std": 1.47,
+    "recent_bias": 1.1,
+    "n": 46,
+    "window": "recent",
+    "updated": "2026-07-13T12:21:34+00:00"
+  }
+}
