@@ -1,6 +1,6 @@
 market,model,copyTrade,city,status,side,count,avgPrice_cents,exposure_usd,lastPrice_cents,unrealized_usd,realized_usd,total_usd,categoryTotal_usd,cityTotal_usd,result,closeDate,ticker
 Will the France win the 2026 Men's World Cup? · France,other,,,settled,yes,0,0,7.48,0,0.00,-7.48,-7.48,-47.45,,no,2026-07-14T21:06:27Z,KXMENWORLDCUP-26-FR
-Will Conor McGregor win the Conor McGregor vs. Max Holloway 329 fight by KO/TKO/DQ? · Conor McGregor by KO/TKO/DQ,other,,,settled,yes,0,0,9.47,0,0.00,-9.47,-9.47,-47.45,,no,2026-07-12T03:54:33Z,KXUFCMOV-26JUL11MCGHOL-MCGKOTKODQ
+KXUFCMOV-26JUL11MCGHOL-MCGKOTKODQ,other,,,settled,yes,0,0,9.47,0,0.00,-9.47,-9.47,-47.45,,no,,KXUFCMOV-26JUL11MCGHOL-MCGKOTKODQ
 "yes Conor McGregor,yes Argentina advances,yes England advances · yes Conor McGregor,yes Argentina advances,yes England advances",other,,,settled,yes,0,0,4.72,0,0.00,-4.73,-4.73,-47.45,,no,2026-07-12T03:50:37Z,KXMVESPORTSMULTIGAMEEXTENDED-S2026197FFEE63B5-1C2620EBAEC
 Argentina wins by more than 1.5 goals? · Goal Diff Reg Time: Argentina wins by more than 1.5 goals,other,,,settled,yes,0,0,9.53,0,0.00,-9.54,-9.54,-47.45,,no,2026-07-12T03:00:34Z,KXWCSPREAD-26JUL11ARGSUI-ARG2
 "yes Max Holloway,yes Paddy Pimblett,yes Cory Sandhagen · yes Max Holloway,yes Paddy Pimblett,yes Cory Sandhagen",other,,,settled,yes,0,0,4.73,0,0.00,-4.73,-4.73,-47.45,,no,2026-07-12T02:56:06Z,KXMVESPORTSMULTIGAMEEXTENDED-S2026736973D26BD-BC7AA438D55
@@ -16,7 +16,7 @@ Colorado vs San Francisco Winner? · Colorado,sports,,,settled,yes,0,0,0.59,0,0.
 "Will the **high temp in Miami** be 93-94° on Jul 8, 2026? · 93° to 94°",weather,,Miami,settled,yes,0,0,0.64,0,0.00,+0.36,+0.36,-31.73,+0.26,no,2026-07-09T04:59:00Z,KXHIGHMIA-26JUL08-B93.5
 "Will the **high temp in Austin** be 99-100° on Jul 8, 2026? · 99° to 100°",weather,,Austin,settled,yes,0,0,0.73,100,0.00,-0.73,-0.73,-31.73,-1.70,yes,2026-07-09T05:59:00Z,KXHIGHAUS-26JUL08-B99.5
 "Will the **high temp in Austin** be 97-98° on Jul 8, 2026? · 97° to 98°",weather,,Austin,settled,yes,0,0,1.53,0,0.00,+0.47,+0.47,-31.73,-1.70,no,2026-07-09T05:59:00Z,KXHIGHAUS-26JUL08-B97.5
-"Will the **high temp in NYC** be 82-83° on Jul 8, 2026? · 82° to 83°",weather,,New York,settled,yes,0,0,1.30,0,0.00,+0.70,+0.70,-31.73,-27.10,no,2026-07-09T04:59:00Z,KXHIGHNY-26JUL08-B82.5
+KXHIGHNY-26JUL08-B82.5,weather,,New York,settled,yes,0,0,1.30,0,0.00,+0.70,+0.70,-31.73,-27.10,no,,KXHIGHNY-26JUL08-B82.5
 "Will the high temp in Chicago be 88-89° on Jul 8, 2026? · 88° to 89°",nowcast,,Chicago,settled,yes,0,0,2.85,100,0.00,-2.85,-2.85,-2.85,-5.61,yes,2026-07-09T05:59:00Z,KXHIGHCHI-26JUL08-B88.5
 "Will the **high temp in LA** be 77-78° on Jul 8, 2026? · 77° to 78°",weather,,Los Angeles,settled,yes,0,0,0.59,0,0.00,+0.41,+0.41,-31.73,+0.14,no,2026-07-09T07:59:00Z,KXHIGHLAX-26JUL08-B77.5
 "Will the **high temp in LA** be 75-76° on Jul 8, 2026? · 75° to 76°",weather,,Los Angeles,settled,yes,0,0,0.62,0,0.00,+0.38,+0.38,-31.73,+0.14,no,2026-07-09T07:59:00Z,KXHIGHLAX-26JUL08-B75.5
@@ -26,7 +26,7 @@ Colorado vs San Francisco Winner? · Colorado,sports,,,settled,yes,0,0,0.59,0,0.
 "Will the **high temp in Miami** be 90-91° on Jul 7, 2026? · 90° to 91°",weather,,Miami,settled,yes,0,0,1.40,0,0.00,+0.60,+0.60,-31.73,+0.26,no,2026-07-08T04:59:00Z,KXHIGHMIA-26JUL07-B90.5
 "Will the **high temp in Austin** be 98-99° on Jul 7, 2026? · 98° to 99°",weather,,Austin,settled,yes,0,0,1.40,100,0.00,-1.40,-1.40,-31.73,-1.70,yes,2026-07-08T05:59:00Z,KXHIGHAUS-26JUL07-B98.5
 "Will the **high temp in Austin** be 96-97° on Jul 7, 2026? · 96° to 97°",weather,,Austin,settled,yes,0,0,0.61,0,0.00,+0.39,+0.39,-31.73,-1.70,no,2026-07-08T05:59:00Z,KXHIGHAUS-26JUL07-B96.5
-"Will the **high temp in NYC** be <75° on Jul 7, 2026? · 74° or below",weather,,New York,settled,yes,0,0,0.82,100,0.00,+0.18,+0.18,-31.73,-27.10,yes,2026-07-08T04:59:00Z,KXHIGHNY-26JUL07-T75
+KXHIGHNY-26JUL07-T75,weather,,New York,settled,yes,0,0,0.82,100,0.00,+0.18,+0.18,-31.73,-27.10,yes,,KXHIGHNY-26JUL07-T75
 "Will the high temp in Chicago be 85-86° on Jul 7, 2026? · 85° to 86°",weather,,Chicago,settled,yes,0,0,0.79,0,0.00,+0.21,+0.21,-31.73,-5.61,no,2026-07-08T05:59:00Z,KXHIGHCHI-26JUL07-B85.5
 "Will the high temp in Chicago be 83-84° on Jul 7, 2026? · 83° to 84°",weather,,Chicago,settled,yes,0,0,1.33,100,0.00,-1.33,-1.33,-31.73,-5.61,yes,2026-07-08T05:59:00Z,KXHIGHCHI-26JUL07-B83.5
 "Will the **high temp in LA** be 73-74° on Jul 7, 2026? · 73° to 74°",weather,,Los Angeles,settled,yes,0,0,0.70,100,0.00,-0.70,-0.70,-31.73,+0.14,yes,2026-07-08T07:59:00Z,KXHIGHLAX-26JUL07-B73.5
@@ -36,13 +36,13 @@ Colorado vs Los Angeles D Winner? · Colorado,sports,,,settled,yes,0,0,0.35,100,
 Arizona vs San Diego Winner? · San Diego,sports,,,settled,yes,0,0,0.47,100,0.00,-0.47,-0.47,-2.50,,yes,2026-07-08T04:14:30Z,KXMLBGAME-26JUL072140AZSD-SD
 Los Angeles A vs Texas Winner? · Texas,sports,,,settled,yes,0,0,0.41,100,0.00,-0.41,-0.41,-2.50,,yes,2026-07-08T02:59:39Z,KXMLBGAME-26JUL072005LAATEX-TEX
 Boston vs Chicago WS Winner? · Boston,sports,,,settled,yes,0,0,0.52,100,0.00,+0.48,+0.48,-2.50,,yes,2026-07-08T02:39:38Z,KXMLBGAME-26JUL071940BOSCWS-BOS
-Philadelphia vs Cincinnati Winner? · Cincinnati,sports,,,settled,yes,0,0,0.43,0,0.00,-0.43,-0.43,-2.50,,no,2026-07-08T02:29:38Z,KXMLBGAME-26JUL071910PHICIN-CIN
+KXMLBGAME-26JUL071910PHICIN-CIN,sports,,,settled,yes,0,0,0.43,0,0.00,-0.43,-0.43,-2.50,,no,,KXMLBGAME-26JUL071910PHICIN-CIN
 Atlanta vs Pittsburgh Winner? · Pittsburgh,sports,,,settled,yes,0,0,0.48,100,0.00,-0.48,-0.48,-2.50,,yes,2026-07-08T01:29:46Z,KXMLBGAME-26JUL071840ATLPIT-PIT
 A's vs Detroit Winner? · Detroit,sports,,,settled,yes,0,0,0.40,100,0.00,-0.40,-0.40,-2.50,,yes,2026-07-08T01:29:45Z,KXMLBGAME-26JUL071840ATHDET-DET
 Will Novak Djokovic win the Auger-Aliassime vs Djokovic: Quarterfinal match? · Novak Djokovic,tennis,yes,,settled,yes,0,0,0.92,100,0.00,-0.92,-0.92,+0.21,,yes,2026-07-07T21:55:07Z,KXATPMATCH-26JUL07AUGDJO-DJO
 Will Felix Auger-Aliassime win the Auger-Aliassime vs Djokovic: Quarterfinal match? · Felix Auger-Aliassime,tennis,yes,,settled,yes,0,0,0.44,0,0.00,-0.44,-0.44,+0.21,,no,2026-07-07T21:55:07Z,KXATPMATCH-26JUL07AUGDJO-AUG
 Milwaukee vs St. Louis Winner? · Milwaukee,sports,,,settled,yes,0,0,0.35,100,0.00,-0.35,-0.35,-2.50,,yes,2026-07-07T20:59:52Z,KXMLBGAME-26JUL071415MILSTLG1-MIL
-Will Naomi Osaka win the Osaka vs Muchova: Quarterfinal match? · Naomi Osaka,tennis,,,settled,yes,0,0,0.61,0,0.00,-0.61,-0.61,+0.21,,no,2026-07-07T16:55:06Z,KXWTAMATCH-26JUL07OSAMUC-OSA
+KXWTAMATCH-26JUL07OSAMUC-OSA,tennis,,,settled,yes,0,0,0.61,0,0.00,-0.61,-0.61,+0.21,,no,,KXWTAMATCH-26JUL07OSAMUC-OSA
 Will Jessica Pegula win the Pegula vs Gauff: Quarterfinal match? · Jessica Pegula,tennis,,,settled,yes,0,0,0.78,0,0.00,-0.78,-0.78,+0.21,,no,2026-07-07T14:32:52Z,KXWTAMATCH-26JUL07PEGGAU-PEG
 Will Coco Gauff win the Pegula vs Gauff: Quarterfinal match? · Coco Gauff,tennis,,,settled,yes,0,0,1.04,100,0.00,+2.96,+2.96,+0.21,,yes,2026-07-07T14:32:52Z,KXWTAMATCH-26JUL07PEGGAU-GAU
 "Will the **high temp in Miami** be 93-94° on Jul 6, 2026? · 93° to 94°",weather,,Miami,settled,yes,0,0,1.63,100,0.00,-1.63,-1.63,-31.73,+0.26,yes,2026-07-07T04:59:00Z,KXHIGHMIA-26JUL06-B93.5
