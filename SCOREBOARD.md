@@ -1,6 +1,6 @@
 # 📊 Trading Scoreboard
 
-_Updated 2026-07-29 21:28 UTC — auto-generated every run; do not edit._
+_Updated 2026-07-29 22:30 UTC — auto-generated every run; do not edit._
 
 Signals are scored against official settlement whether or not a real order was placed. P&L shown is per 1-contract stakes.
 
