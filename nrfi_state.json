@@ -1,26 +1,10 @@
 {
-  "date": "2026-08-01",
+  "date": "2026-08-02",
   "direction": "no",
   "legs": [
     {
-      "ticker": "KXMLBRFI-26AUG011610MIANYM",
-      "commence": 1785615060,
-      "order_id": null,
-      "entry_price": null,
-      "count": null,
-      "result": null
-    },
-    {
-      "ticker": "KXMLBRFI-26AUG011905PHIBAL",
-      "commence": 1785625560,
-      "order_id": null,
-      "entry_price": null,
-      "count": null,
-      "result": null
-    },
-    {
-      "ticker": "KXMLBRFI-26AUG012040SFSD",
-      "commence": 1785631260,
+      "ticker": "KXMLBRFI-26AUG021335WSHATL",
+      "commence": 1785692160,
       "order_id": null,
       "entry_price": null,
       "count": null,
@@ -28,5 +12,5 @@
     }
   ],
   "step": 0,
-  "status": "aborted"
+  "status": "active"
 }
