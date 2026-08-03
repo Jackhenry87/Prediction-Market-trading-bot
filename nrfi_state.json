@@ -1,10 +1,10 @@
 {
-  "date": "2026-08-02",
+  "date": "2026-08-03",
   "direction": "no",
   "legs": [
     {
-      "ticker": "KXMLBRFI-26AUG021335WSHATL",
-      "commence": 1785692160,
+      "ticker": "KXMLBRFI-26AUG031840WSHPHI",
+      "commence": 1785796860,
       "order_id": null,
       "entry_price": null,
       "count": null,
@@ -12,5 +12,5 @@
     }
   ],
   "step": 0,
-  "status": "aborted"
+  "status": "active"
 }
