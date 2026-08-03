@@ -1,62 +1,62 @@
 {
   "KXHIGHNY": {
-    "bias": 0.11,
+    "bias": 0.18,
     "sigma": 3.0,
     "trade": true,
-    "recent_std": 1.6,
-    "recent_bias": 0.11,
+    "recent_std": 1.57,
+    "recent_bias": 0.18,
     "n": 46,
     "window": "recent",
-    "updated": "2026-07-27T12:40:56+00:00"
+    "updated": "2026-08-03T12:40:48+00:00"
   },
   "KXHIGHCHI": {
-    "bias": -0.42,
+    "bias": -0.74,
     "sigma": 2.5,
     "trade": true,
-    "recent_std": 2.21,
-    "recent_bias": -0.42,
+    "recent_std": 2.13,
+    "recent_bias": -0.74,
     "n": 46,
     "window": "recent",
-    "updated": "2026-07-27T12:40:57+00:00"
+    "updated": "2026-08-03T12:40:53+00:00"
   },
   "KXHIGHMIA": {
-    "bias": 0.85,
+    "bias": 0.82,
     "sigma": 2.0,
     "trade": true,
-    "recent_std": 1.56,
-    "recent_bias": 0.85,
+    "recent_std": 1.65,
+    "recent_bias": 0.82,
     "n": 46,
     "window": "recent",
-    "updated": "2026-07-27T12:40:58+00:00"
+    "updated": "2026-08-03T12:43:16+00:00"
   },
   "KXHIGHDEN": {
-    "bias": -0.88,
+    "bias": -0.51,
     "sigma": 2.5,
     "trade": true,
-    "recent_std": 1.53,
-    "recent_bias": -0.88,
+    "recent_std": 1.46,
+    "recent_bias": -0.51,
     "n": 46,
     "window": "recent",
-    "updated": "2026-07-27T12:41:00+00:00"
+    "updated": "2026-08-03T12:43:18+00:00"
   },
   "KXHIGHLAX": {
-    "bias": 1.42,
+    "bias": 1.25,
     "sigma": 3.0,
     "trade": true,
-    "recent_std": 1.79,
-    "recent_bias": 1.42,
+    "recent_std": 2.0,
+    "recent_bias": 1.25,
     "n": 46,
     "window": "recent",
-    "updated": "2026-07-27T12:41:04+00:00"
+    "updated": "2026-08-03T12:43:23+00:00"
   },
   "KXHIGHAUS": {
-    "bias": 1.24,
+    "bias": 1.2,
     "sigma": 2.5,
     "trade": true,
-    "recent_std": 1.84,
-    "recent_bias": 1.24,
+    "recent_std": 1.85,
+    "recent_bias": 1.2,
     "n": 46,
     "window": "recent",
-    "updated": "2026-07-27T12:43:25+00:00"
+    "updated": "2026-08-03T12:45:48+00:00"
   }
 }
