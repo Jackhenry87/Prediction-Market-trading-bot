@@ -1,10 +1,18 @@
 {
-  "date": "2026-08-03",
+  "date": "2026-08-04",
   "direction": "no",
   "legs": [
     {
-      "ticker": "KXMLBRFI-26AUG031840WSHPHI",
-      "commence": 1785796860,
+      "ticker": "KXMLBRFI-26AUG051420LADCHC",
+      "commence": 1785888360,
+      "order_id": null,
+      "entry_price": null,
+      "count": null,
+      "result": null
+    },
+    {
+      "ticker": "KXMLBRFI-26AUG061610DETSEA",
+      "commence": 1785894060,
       "order_id": null,
       "entry_price": null,
       "count": null,
@@ -12,5 +20,5 @@
     }
   ],
   "step": 0,
-  "status": "aborted"
+  "status": "active"
 }
