@@ -1,6 +1,6 @@
 # 📊 Trading Scoreboard
 
-_Updated 2026-08-05 00:53 UTC — auto-generated every run; do not edit._
+_Updated 2026-08-05 08:01 UTC — auto-generated every run; do not edit._
 
 Signals are scored against official settlement whether or not a real order was placed. P&L shown is per 1-contract stakes.
 
@@ -89,15 +89,15 @@ _No signals recorded yet._
 
 ## ⚾ Sports model
 
-### 🟢 4 W — 🔴 3 L — ⏳ 3 pending — net **-39¢**
+### 🟢 5 W — 🔴 4 L — ⏳ 1 pending — net **-53¢**
 
-_Brier **0.260** (coin flip 0.25) over 7 settled · avg CLV **-5.7¢** over 7 sampled_
+_Brier **0.278** (coin flip 0.25) over 9 settled · avg CLV **-6.0¢** over 9 sampled_
 
 | Scanned (UTC) | Market | Side | Price | Model | Result |
 |---|---|---|---|---|---|
-| 08-04 02:50 | KXMLBTOTAL-26AUG042140SDAZ-11 | NO | 66¢ | 73% | ⏳ pending |
+| 08-04 02:50 | KXMLBTOTAL-26AUG042140SDAZ-11 | NO | 66¢ | 73% | 🔴 loss (-66c) |
 | 08-02 13:56 | KXMLBTOTAL-26AUG021510KCCOL-14 | NO | 65¢ | 73% | 🟢 **win (+35c)** |
-| 08-02 13:56 | KXMLBGAME-26AUG042140SDAZ-AZ | NO | 48¢ | 62% | ⏳ pending |
+| 08-02 13:56 | KXMLBGAME-26AUG042140SDAZ-AZ | NO | 48¢ | 62% | 🟢 **win (+52c)** |
 | 08-02 13:56 | KXMLBGAME-26AUG032140SDAZ-AZ | NO | 47¢ | 62% | 🔴 loss (-47c) |
 | 07-12 14:17 | KXMLBTOTAL-26JUL121340CLEMIA-10 | NO | 67¢ | 74% | 🟢 **win (+33c)** |
 | 07-10 22:14 | KXWNBA-26-MIN | YES | 36¢ | 62% | ⏳ pending |
