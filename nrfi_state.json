@@ -1,18 +1,10 @@
 {
-  "date": "2026-08-04",
+  "date": "2026-08-05",
   "direction": "no",
   "legs": [
     {
-      "ticker": "KXMLBRFI-26AUG051420LADCHC",
-      "commence": 1785888360,
-      "order_id": null,
-      "entry_price": null,
-      "count": null,
-      "result": null
-    },
-    {
-      "ticker": "KXMLBRFI-26AUG061610DETSEA",
-      "commence": 1785894060,
+      "ticker": "KXMLBRFI-26AUG051410TORHOU",
+      "commence": 1785953400,
       "order_id": null,
       "entry_price": null,
       "count": null,
