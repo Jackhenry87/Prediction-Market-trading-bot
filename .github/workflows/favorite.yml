@@ -1,0 +1,137 @@
+name: favorite
+
+# THE ONLY STRATEGY RUNNING. Favourite-bias maker model, live on real Kalshi.
+#
+# Every other model is retired: their workflows are deleted and their recorded
+# results (Brier worse than a coin flip, negative CLV) are in the README.
+#
+# STOPPING IT: set repo Variable KILL_SWITCH=true. That blocks every order at
+# the safety gate, from a phone, with no code change. DRY_RUN=true is the
+# softer option — it logs the exact orders and sends nothing.
+#
+# SIZE: units come from sizing.py (quarter Kelly on each signal's own edge),
+# not a flat stake. On a $50 bankroll that is 1-2 contracts, $1.14-$2.50.
+# Three independent ceilings sit above it: the sizing model's own 5% cap,
+# MAX_ORDER_BANKROLL_PCT at the safety gate, and the absolute MAX_ORDER_ABS.
+#
+# CADENCE: '*/20' is aspirational — GitHub drops scheduled runs under load and
+# the previous 15-minute schedule produced ~14 runs/day. Signals require 2h+
+# to close so a sparse cadence still captures a closing line.
+
+on:
+  schedule:
+    - cron: '*/20 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Log orders without sending them'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: favorite
+  cancel-in-progress: false
+
+env:
+  STATE_FILES: paper_trades_favorite.csv clv_sports.csv CLV_SCOREBOARD.md executed_trades.csv
+
+jobs:
+  trade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: Write Kalshi key
+        env:
+          KALSHI_PEM: ${{ secrets.KALSHI_PRIVATE_KEY_PEM }}
+        run: printf '%s\n' "$KALSHI_PEM" > kalshi_prod.pem
+
+      - name: Restore state from the bot-state branch
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --heads origin bot-state >/dev/null; then
+            git fetch --depth=1 origin bot-state
+            for f in $STATE_FILES; do
+              if git cat-file -e origin/bot-state:"$f" 2>/dev/null; then
+                git show origin/bot-state:"$f" > "$f"
+                echo "restored $f"
+              fi
+            done
+          else
+            echo "no bot-state branch yet — starting fresh"
+          fi
+
+      - name: Scan, size and place maker orders
+        env:
+          KALSHI_API_KEY_ID: ${{ secrets.KALSHI_API_KEY_ID }}
+          KALSHI_PRIVATE_KEY_PATH: kalshi_prod.pem
+          KALSHI_ENV: ${{ vars.KALSHI_ENV || 'prod' }}
+          KILL_SWITCH: ${{ vars.KILL_SWITCH || 'false' }}
+          DRY_RUN: ${{ inputs.dry_run || vars.DRY_RUN || 'false' }}
+          # --- safety gate ceilings (independent of the sizing model) ---
+          MAX_ORDER_SIZE: ${{ vars.MAX_ORDER_SIZE || '3' }}
+          MAX_TOTAL_EXPOSURE: ${{ vars.MAX_TOTAL_EXPOSURE || '45' }}
+          MAX_ORDER_BANKROLL_PCT: ${{ vars.MAX_ORDER_BANKROLL_PCT || '5' }}
+          MAX_ORDER_ABS: ${{ vars.MAX_ORDER_ABS || '5' }}
+          MAX_EXPOSURE_BANKROLL_PCT: ${{ vars.MAX_EXPOSURE_BANKROLL_PCT || '90' }}
+          MAX_EXPOSURE_ABS: ${{ vars.MAX_EXPOSURE_ABS || '55' }}
+          # --- sizing model ---
+          KELLY_FRACTION: ${{ vars.KELLY_FRACTION || '0.25' }}
+          BIAS_CONFIDENCE: ${{ vars.BIAS_CONFIDENCE || '0.5' }}
+          MAX_BANKROLL_PCT: ${{ vars.MAX_BANKROLL_PCT || '5' }}
+          # --- daily circuit breakers ---
+          # Bound the worst realistic DAY, which no other cap does: the
+          # exposure cap alone would let ~90% of a $50 bankroll out in one run.
+          MAX_ORDERS_PER_DAY: ${{ vars.MAX_ORDERS_PER_DAY || '8' }}
+          MAX_DAILY_DEPLOY_USD: ${{ vars.MAX_DAILY_DEPLOY_USD || '15' }}
+        run: python favorite_runner.py
+
+      - name: Snapshot open prices, confirm fills, score CLV
+        # Runs every cycle regardless of whether anything was placed. This is
+        # where resting orders get confirmed against the exchange's own fills
+        # and the closing line is captured while markets are still OPEN.
+        env:
+          KALSHI_API_KEY_ID: ${{ secrets.KALSHI_API_KEY_ID }}
+          KALSHI_PRIVATE_KEY_PATH: kalshi_prod.pem
+          KALSHI_ENV: ${{ vars.KALSHI_ENV || 'prod' }}
+        run: python clv_tracker.py
+
+      - name: Persist state to the bot-state branch
+        if: always()
+        run: |
+          set -euo pipefail
+          git config user.name "favorite-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          mkdir -p "$RUNNER_TEMP/state"
+          for f in $STATE_FILES; do
+            if [ -f "$f" ]; then cp "$f" "$RUNNER_TEMP/state/"; fi
+          done
+          if git ls-remote --exit-code --heads origin bot-state >/dev/null; then
+            git fetch --depth=1 origin bot-state
+            git checkout -B bot-state origin/bot-state
+          else
+            git checkout --orphan bot-state
+            git rm -rf --cached . >/dev/null
+            find . -maxdepth 1 -mindepth 1 -not -name .git -exec rm -rf {} +
+          fi
+          for f in $STATE_FILES; do
+            if [ -f "$RUNNER_TEMP/state/$f" ]; then
+              cp "$RUNNER_TEMP/state/$f" "$f"
+              git add "$f"
+            fi
+          done
+          if git diff --cached --quiet; then
+            echo "no state change"
+          else
+            git commit -m "state $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push origin bot-state
+          fi

@@ -234,3 +234,76 @@ def test_unfilled_signal_never_counts_as_a_win():
     assert rows["p1"]["fill_status"] == "unfilled"
     assert rows["p1"]["pnl_cents"] == ""
     assert "**0W – 0L** over 0 settled contracts" in clv.scoreboard(rows)
+
+
+# --- real maker fills confirmed by the exchange -----------------------------
+
+class _FillClient:
+    def __init__(self, fills):
+        self._fills = fills
+
+    def get_fills(self, min_ts=None):
+        return list(self._fills)
+
+
+def _real_order(oid="ord-1", price="89"):
+    return dict(order_id=oid, ticker="KXTEST-A", model="favorite", side="yes",
+                price_cents=price, placed_at_utc="t0", fill_status="resting")
+
+
+def test_placed_maker_order_starts_resting_not_filled(tmp_path, monkeypatch):
+    # log_execution records PLACEMENT. A resting limit order is not a bet yet.
+    p = tmp_path / "executed_trades.csv"
+    p.write_text("placed_at_utc,model,ticker,side,count,price_cents,cost_usd,"
+                 "order_id,outcome\n"
+                 "t,favorite,KXA-1,yes,2,89,1.78,ord-1,\n"
+                 "t,sports,KXB-1,yes,1,40,0.40,s1,\n")
+    monkeypatch.setattr(clv, "EXECUTED", p)
+    rows = {r["order_id"]: r for r in clv.load_sports_fills()}
+    assert rows["ord-1"]["fill_status"] == "resting"   # maker model
+    assert "fill_status" not in rows["s1"]             # legacy path unchanged
+
+
+def test_exchange_fill_confirms_the_order_and_the_real_price():
+    rows = clv._enroll({}, [_real_order(price="89")])
+    client = _FillClient([{"order_id": "ord-1", "side": "yes",
+                           "yes_price_dollars": "0.8800",
+                           "created_time": "2026-08-06T12:00:00Z"}])
+    assert clv.mark_real_fills(client, rows) == 1
+    r = rows["ord-1"]
+    assert r["fill_status"] == "filled"
+    # we asked 89 and were filled at 88 — score what we actually paid
+    assert r["entry_price"] == "88"
+
+
+def test_unmatched_fills_leave_the_order_resting():
+    rows = clv._enroll({}, [_real_order()])
+    client = _FillClient([{"order_id": "someone-else", "side": "yes",
+                           "yes_price_dollars": "0.8800"}])
+    assert clv.mark_real_fills(client, rows) == 0
+    assert rows["ord-1"]["fill_status"] == "resting"
+
+
+def test_fills_api_failure_does_not_invent_a_fill():
+    class _Broken:
+        def get_fills(self, min_ts=None):
+            raise RuntimeError("503")
+
+    rows = clv._enroll({}, [_real_order()])
+    assert clv.mark_real_fills(_Broken(), rows) == 0
+    assert rows["ord-1"]["fill_status"] == "resting"
+
+
+def test_paper_rows_are_never_reconciled_against_the_exchange():
+    # paper: rows have no exchange order, so they must not be looked up.
+    # Uses the real key shape load_paper_signals() emits.
+    rows = clv._enroll({}, [_paper(oid="paper:KXTEST-A:2026-08-06T12:00:00+00:00")])
+    called = []
+
+    class _Spy:
+        def get_fills(self, min_ts=None):
+            called.append(1)
+            return []
+
+    assert clv.mark_real_fills(_Spy(), rows) == 0
+    assert called == []

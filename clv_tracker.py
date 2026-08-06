@@ -41,10 +41,12 @@ lies, so the accounting is explicit and reported.
 import csv
 import os
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 from kalshi_client import KalshiClient
+from ledger import _fill_price_cents
 from strategy_weather import price_cents
 from trade_logger import get_logger, setup_logging
 
@@ -55,7 +57,12 @@ EXECUTED = ROOT / "executed_trades.csv"
 PAPER_LEDGER = ROOT / "paper_trades_favorite.csv"
 CLV_CSV = ROOT / "clv_sports.csv"
 SCOREBOARD = ROOT / "CLV_SCOREBOARD.md"
-SPORTS_MODELS = {"sports", "tennis", "nrfi"}
+SPORTS_MODELS = {"sports", "tennis", "nrfi", "favorite"}
+# Models that place MAKER orders. A placed maker order is not a fill — it sits
+# in a FIFO queue and only the exchange knows whether it was hit. Rows for
+# these models start `resting` and are confirmed against Kalshi's own fills
+# endpoint, which is the one measurement paper trading cannot produce.
+MAKER_MODELS = {"favorite"}
 OPEN_STATUS = (None, "", "active", "open", "initialized")
 
 # How many scored samples before the result means anything. The old value was
@@ -109,7 +116,13 @@ def load_clv_rows() -> dict:
 
 
 def load_sports_fills() -> list:
-    """Real-money fills worth tracking, from the executed ledger."""
+    """Real-money orders worth tracking, from the executed ledger.
+
+    Maker-model rows are enrolled as `resting`: log_execution records the
+    moment an order was PLACED, which for a resting limit order says nothing
+    about whether it was filled. mark_real_fills() resolves that against the
+    exchange.
+    """
     if not EXECUTED.exists():
         return []
     out = []
@@ -117,8 +130,51 @@ def load_sports_fills() -> list:
         for r in csv.DictReader(fh):
             if (r.get("model") in SPORTS_MODELS and r.get("order_id")
                     and r.get("ticker")):
-                out.append(r)
+                row = dict(r)
+                if r.get("model") in MAKER_MODELS:
+                    row["fill_status"] = "resting"
+                out.append(row)
     return out
+
+
+def mark_real_fills(client, clv_rows: dict, days: float = 14) -> int:
+    """Confirm real maker fills against Kalshi's fills endpoint.
+
+    This is the number the whole live experiment exists to produce: what
+    fraction of our resting bids actually get hit, and at what price. The
+    paper proxy ('the ask reached our price') ignores queue position — other
+    orders sit ahead of ours at the same price and get filled first. Only the
+    exchange can settle it.
+
+    Returns how many rows were newly marked filled.
+    """
+    pending = {r["order_id"]: r for r in clv_rows.values()
+               if r.get("fill_status") == "resting"
+               and not str(r.get("order_id", "")).startswith("paper:")}
+    if not pending:
+        return 0
+    try:
+        fills = client.get_fills(int(time.time() - days * 86400))
+    except Exception as exc:
+        log.warning("could not read fills (%s) — leaving rows resting", exc)
+        return 0
+
+    marked = 0
+    for f in fills:
+        oid = str(f.get("order_id") or "")
+        row = pending.get(oid)
+        if not row:
+            continue
+        price = _fill_price_cents(f)
+        row["fill_status"] = "filled"
+        row["fill_ts"] = str(f.get("created_time") or "")
+        if price:
+            # Record what we ACTUALLY paid, not what we asked for.
+            row["entry_price"] = f"{price:.0f}"
+        marked += 1
+    if marked:
+        log.info("Confirmed %d real maker fill(s) from the exchange", marked)
+    return marked
 
 
 def load_paper_signals(path: Path = None) -> list:
@@ -333,7 +389,11 @@ def main() -> int:
                           os.getenv("KALSHI_PRIVATE_KEY_PATH"),
                           os.getenv("KALSHI_ENV", "prod"))
     bets = load_sports_fills() + load_paper_signals()
-    rows = update(load_clv_rows(), bets, client)
+    rows = _enroll(load_clv_rows(), bets)
+    # Resolve real maker fills from the exchange BEFORE snapshotting, so a
+    # newly confirmed fill is scored from this cycle onward.
+    mark_real_fills(client, rows)
+    rows = update(rows, [], client)
     write_clv(rows)
     board = scoreboard(rows)
     SCOREBOARD.write_text(board)

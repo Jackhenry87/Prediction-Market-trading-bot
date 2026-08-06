@@ -1,9 +1,9 @@
 # Prediction-Market Trading Bot (Kalshi)
 
 A research harness for finding a real edge on **Kalshi** (CFTC-regulated, legal
-for US users), running on GitHub Actions. It currently runs **one model, on
-paper, with no credentials and no money at risk**, and its only job is to
-produce enough closing-line-value samples to prove or kill that model.
+for US users), running on GitHub Actions. It runs **one model, live on Kalshi with a $50 bankroll**, sized by quarter
+Kelly off each signal's own edge. Its job is to produce closing-line-value and
+real fill-rate data that either proves the model or kills it.
 
 ## Where this stands
 
@@ -124,10 +124,14 @@ on its weakest signals. `MAX_BANKROLL_PCT` (5%) is a hard backstop above Kelly.
 
 ## Hard rules
 
-- **Paper-only by construction.** `strategy_favorite.py` imports no
-  order-placing code. There is no flag that makes it trade.
-- **No secrets.** The one running workflow uses unauthenticated public
-  endpoints.
+- **One order path.** `favorite_runner.py` is the only code that can place an
+  order, and every order passes `safety.check_order`. `strategy_favorite.py`
+  itself still imports no order-placing code.
+- **Maker only, re-checked live.** The book moves between scanning and placing,
+  so the price is re-verified against the current ask before every order and
+  re-priced or skipped if it would cross.
+- **Stop from a phone.** Repo Variable `KILL_SWITCH=true` blocks every order at
+  the gate. `DRY_RUN=true` logs orders without sending them.
 - **Merges are gated.** `.github/workflows/tests.yml` runs the full suite on
   every PR. Make it a required check in Settings → Branches.
 - **State is not on main.** Live state lives on the `bot-state` branch.
@@ -141,7 +145,8 @@ again.
 | Workflow | Schedule | What it does |
 |----------|----------|--------------|
 | `tests.yml` | every PR + push to main | Full pytest suite. The merge gate. |
-| `paper-favorite.yml` | every 20 min (see note) | Scan public Kalshi data → record paper signals → snapshot open prices → refresh `CLV_SCOREBOARD.md`. |
+| `favorite.yml` | every 20 min (see note) | Scan → size → place maker orders → confirm fills against the exchange → refresh `CLV_SCOREBOARD.md`. |
+| `env-check.yml` | manual | Verifies the odds key and compares Kalshi venues. |
 
 > Cron note: a `*/15` schedule previously produced ~14 runs/day, not 96 —
 > GitHub drops scheduled runs under load. The model only signals on markets
@@ -167,7 +172,14 @@ closed before the tracker ever saw it open. The old tracker hid those; this one
 reports them, because four silently-dropped rows are how "0 settled bets" was
 mistaken for "no data yet" for a month.
 
-Real money returns only at **100+ scored samples with a positive mean**.
+The model is live now, at deliberately small size, because one question can
+only be answered with real orders: **would a resting maker bid actually be
+filled?** The paper proxy ("the ask reached our price") ignores queue position —
+other orders sit ahead of yours at the same price. `mark_real_fills()` resolves
+every resting order against Kalshi's own fills endpoint, so `fill_status` is
+the exchange's answer, not an assumption.
+
+Scale up only at **100+ scored samples with a positive mean CLV**.
 
 ## Local setup
 
