@@ -52,22 +52,30 @@ MODEL = "favorite"
 MAX_ORDERS_PER_DAY = int(os.getenv("MAX_ORDERS_PER_DAY", "8"))
 MAX_DAILY_DEPLOY_USD = float(os.getenv("MAX_DAILY_DEPLOY_USD", "15"))
 
+# Correlated-theme cap ACROSS THE DAY. strategy_favorite caps themes within a
+# single scan, but the scheduler runs ~70 scans a day: two inflation bets per
+# scan would still fill the entire daily budget with one bet on one CPI print.
+# The per-scan cap alone does not achieve the goal; this one does.
+MAX_ORDERS_PER_THEME_PER_DAY = int(
+    os.getenv("MAX_ORDERS_PER_THEME_PER_DAY", "3"))
+
 EXEC_LOG = Path(__file__).resolve().parent / "executed_trades.csv"
 
 
 def placed_today(path: Path = None, now: datetime = None) -> tuple:
-    """(order_count, usd_deployed) for this model so far today, UTC.
+    """(order_count, usd_deployed, {theme: count}) for this model today, UTC.
 
     Read from the executed ledger rather than held in memory because the
     scheduler runs this process fresh every 20 minutes — in-process counters
-    would reset each time and cap nothing.
+    would reset each time and cap nothing. Themes are derived from the ticker
+    so no extra ledger column is needed.
     """
     path = path or EXEC_LOG
     now = now or datetime.now(timezone.utc)
     today = now.date().isoformat()
+    count, usd, themes = 0, 0.0, {}
     if not path.exists():
-        return 0, 0.0
-    count, usd = 0, 0.0
+        return count, usd, themes
     with open(path, newline="") as fh:
         for r in csv.DictReader(fh):
             if r.get("model") != MODEL:
@@ -75,11 +83,13 @@ def placed_today(path: Path = None, now: datetime = None) -> tuple:
             if not str(r.get("placed_at_utc", "")).startswith(today):
                 continue
             count += 1
+            th = fav.theme_of(r.get("ticker", ""))
+            themes[th] = themes.get(th, 0) + 1
             try:
                 usd += float(r.get("cost_usd") or 0)
             except ValueError:
                 pass
-    return count, usd
+    return count, usd, themes
 
 
 def maker_price_now(market: dict, side: str, wanted: float):
@@ -108,10 +118,11 @@ def place_signals(client, settings, signals: list, bankroll: float,
     """Place each sized signal that survives the live re-check and the gate."""
     placed = 0
     events = set()
-    day_count, day_usd = placed_today()
-    log.info("Today so far: %d order(s), $%.2f deployed (caps: %d orders, "
-             "$%.2f)", day_count, day_usd, MAX_ORDERS_PER_DAY,
-             MAX_DAILY_DEPLOY_USD)
+    day_count, day_usd, day_themes = placed_today()
+    log.info("Today so far: %d order(s), $%.2f deployed, themes %s "
+             "(caps: %d orders, $%.2f, %d per theme)", day_count, day_usd,
+             day_themes or "{}", MAX_ORDERS_PER_DAY, MAX_DAILY_DEPLOY_USD,
+             MAX_ORDERS_PER_THEME_PER_DAY)
 
     for s in sorted(signals, key=lambda x: -x["ev_cents"]):
         ticker = s["ticker"]
@@ -139,6 +150,13 @@ def place_signals(client, settings, signals: list, bankroll: float,
             log.info("RE-PRICED %s: %.0fc -> %.0fc (book moved)",
                      ticker, s["price_cents"], price)
 
+        theme = s.get("theme") or fav.theme_of(ticker)
+        if day_themes.get(theme, 0) >= MAX_ORDERS_PER_THEME_PER_DAY:
+            log.info("SKIP %s: theme '%s' already at its daily cap (%d) — "
+                     "these resolve off the same driver", ticker, theme,
+                     MAX_ORDERS_PER_THEME_PER_DAY)
+            continue
+
         count = s["contracts"]
         notional = count * price / 100.0
 
@@ -165,6 +183,7 @@ def place_signals(client, settings, signals: list, bankroll: float,
             # live run would hit, instead of reporting an impossible day
             day_count += 1
             day_usd += notional
+            day_themes[theme] = day_themes.get(theme, 0) + 1
             continue
 
         try:
@@ -184,6 +203,7 @@ def place_signals(client, settings, signals: list, bankroll: float,
         exposure += notional
         day_count += 1
         day_usd += notional
+        day_themes[theme] = day_themes.get(theme, 0) + 1
         placed += 1
     return placed
 
