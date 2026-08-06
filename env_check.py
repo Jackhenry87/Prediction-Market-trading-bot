@@ -82,31 +82,85 @@ def check_odds(spend: bool) -> int:
     return 0
 
 
-def check_kalshi(env: str) -> dict:
-    """Open markets, two-sided quotes, and how many the model would signal."""
+def _summarise(label: str, markets: list) -> dict:
     import strategy_favorite as fav
-    print(f"\n=== KALSHI {env.upper()} ===")
-    try:
-        client = KalshiClient(env=env)
-        markets = fav.list_open_markets(client)
-    except Exception as exc:
-        print(f"  ERROR: {exc}")
-        return dict(env=env, error=str(exc))
-
     quoted = [m for m in markets if fav.favourite_side(m)]
     signals = [s for s in (fav.evaluate_market(m) for m in markets) if s]
     volumes = sorted((float(m.get("volume") or 0) for m in markets),
                      reverse=True)
-    print(f"  open markets:        {len(markets)}")
-    print(f"  two-sided quotes:    {len(quoted)}")
-    print(f"  model would signal:  {len(signals)}")
-    print(f"  top volumes:         {[int(v) for v in volumes[:8]]}")
-    print(f"  markets w/ volume>0: {sum(1 for v in volumes if v > 0)}")
+    print(f"  [{label}] markets={len(markets)} two_sided={len(quoted)} "
+          f"volume>0={sum(1 for v in volumes if v > 0)} "
+          f"signals={len(signals)} top_vol={[int(v) for v in volumes[:5]]}")
     for s in signals[:5]:
-        print(f"    {s['side']:3} {s['ticker']:34} {s['price_cents']:.0f}c "
+        print(f"      {s['side']:3} {s['ticker']:34} {s['price_cents']:.0f}c "
               f"book {s['bid']:.0f}/{s['ask']:.0f}")
-    return dict(env=env, markets=len(markets), quoted=len(quoted),
-                signals=len(signals), traded=sum(1 for v in volumes if v > 0))
+    return dict(markets=len(markets), quoted=len(quoted),
+                signals=len(signals),
+                traded=sum(1 for v in volumes if v > 0))
+
+
+def check_kalshi(env: str) -> dict:
+    """Compare naive paging against a close-time-windowed query.
+
+    The naive `/markets?status=open` page walk returned 4000 markets with one
+    two-sided quote and zero volume — it was paging through far-dated markets
+    that have never traded. Kalshi's own liquidity lives in the contracts
+    closing soon, so the windowed query is the one that matters.
+    """
+    import time
+    import strategy_favorite as fav
+    print(f"\n=== KALSHI {env.upper()} ===")
+    try:
+        client = KalshiClient(env=env)
+    except Exception as exc:
+        print(f"  ERROR: {exc}")
+        return dict(env=env, error=str(exc))
+
+    out = {}
+    try:
+        naive = fav.list_open_markets(client)
+        out["naive"] = _summarise("naive page-walk", naive)
+    except Exception as exc:
+        print(f"  naive query ERROR: {exc}")
+        naive = []
+
+    # What does a market payload actually look like? Field names matter:
+    # `volume` may simply not be present in the list response.
+    if naive:
+        sample = naive[0]
+        print(f"  sample market keys: {sorted(sample.keys())}")
+        print(f"  sample values: " + ", ".join(
+            f"{k}={sample.get(k)!r}" for k in
+            ("ticker", "status", "yes_bid", "yes_ask", "volume",
+             "open_interest", "close_time") if k in sample))
+        booked = next((m for m in naive if fav.favourite_side(m)), None)
+        if booked:
+            print(f"  first two-sided market: {booked.get('ticker')} "
+                  f"bid={booked.get('yes_bid')} ask={booked.get('yes_ask')} "
+                  f"vol={booked.get('volume')} close={booked.get('close_time')}")
+
+    # Markets closing in the next week — where the live book is.
+    now = int(time.time())
+    try:
+        windowed, cursor = [], None
+        for _ in range(20):
+            params = {"status": "open", "limit": 200,
+                      "min_close_ts": now + 3600,
+                      "max_close_ts": now + 7 * 86400}
+            if cursor:
+                params["cursor"] = cursor
+            data = client._request("GET", "/markets", params=params)
+            page = data.get("markets") or []
+            windowed += page
+            cursor = data.get("cursor")
+            if not cursor or not page:
+                break
+        out["windowed"] = _summarise("closing within 7d", windowed)
+    except Exception as exc:
+        print(f"  windowed query ERROR: {exc}")
+
+    out["env"] = env
+    return out
 
 
 def main() -> int:
@@ -117,19 +171,22 @@ def main() -> int:
     prod = check_kalshi("prod")
 
     print("\n=== VERDICT ===")
-    if demo.get("error") or prod.get("error"):
-        print("  a venue failed to respond — see above")
-    else:
-        print(f"  demo: {demo['markets']} open / {demo['traded']} with volume "
-              f"/ {demo['signals']} signals")
-        print(f"  prod: {prod['markets']} open / {prod['traded']} with volume "
-              f"/ {prod['signals']} signals")
-        if demo["signals"] == 0 and prod["signals"] > 0:
-            print("  >> DEMO CANNOT FEED THE MODEL. CLV must be measured on "
-                  "prod market data (read-only; placing stays disabled).")
-        elif demo["traded"] < prod["traded"] / 10:
-            print("  >> demo books are far thinner than prod — a closing line "
-                  "measured there would not describe the real market.")
+    for name, res in (("demo", demo), ("prod", prod)):
+        if res.get("error"):
+            print(f"  {name}: ERROR {res['error']}")
+            continue
+        for q in ("naive", "windowed"):
+            if q in res:
+                r = res[q]
+                print(f"  {name:4} {q:9}: {r['markets']:5} markets, "
+                      f"{r['traded']:4} traded, {r['signals']:3} signals")
+    pw = prod.get("windowed", {})
+    dw = demo.get("windowed", {})
+    if pw.get("signals", 0) > dw.get("signals", 0):
+        print("  >> PROD carries the live book. Measure CLV there (read-only).")
+    if pw.get("signals", 0) == 0 and pw.get("traded", 0) == 0:
+        print("  >> Still no tradeable markets found — the market listing is "
+              "not returning book/volume fields; needs a different endpoint.")
     return rc
 
 
