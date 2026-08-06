@@ -239,3 +239,45 @@ def test_listing_stops_at_the_page_cap(monkeypatch):
 
     got = fav.list_open_markets(_C(), now=NOW)
     assert len(calls) == 3 and len(got) == 3
+
+
+# --- correlation control ----------------------------------------------------
+# The first live scan returned 12 of 14 signals resolving off ONE monthly CPI
+# release (used-car, shelter, headline, core, gas, airfare CPI, plus PPI).
+# They share no ticker prefix, so event-level dedup let all of them through:
+# one oversized wager on a single number, dressed up as a diversified book.
+
+def test_inflation_subindices_share_a_theme():
+    for t in ("KXUSEDCARCPI-26AUG12-T178.50", "KXSHELTERCPI-26AUG12-T429.0",
+              "KXCPINDEX-26AUG12-T333.4", "KXCPICORE-26JUL-T0.3",
+              "KXAIRFARECPI-26AUG12-T322", "KXUSPPIYOY-26AUG13-T5.9"):
+        assert fav.theme_of(t) == "inflation", t
+
+
+def test_unrelated_markets_get_distinct_themes():
+    assert fav.theme_of("KXALLSVENSKANGAME-26AUG10SIRBRO-BRO") == \
+        "KXALLSVENSKANGAME"
+    assert fav.theme_of("KXMC-MAR-60") == "KXMC"
+    # and are not lumped together
+    assert fav.theme_of("KXMC-MAR-60") != fav.theme_of("KXPOWERKWH-26AUG12-T19")
+
+
+def test_weather_and_jobs_group_too():
+    assert fav.theme_of("KXHIGHNY-26AUG06-B84.5") == "weather"
+    assert fav.theme_of("KXPAYROLLS-26AUG-T150") == "jobs"
+
+
+def test_scan_caps_correlated_signals(monkeypatch):
+    monkeypatch.setattr(fav, "MAX_PER_THEME", 2)
+    monkeypatch.setattr(fav, "MAX_PER_EVENT", 1)
+    # the exact shape of the first live scan: many CPI markets, two others
+    cpi = ["KXUSEDCARCPI-26AUG12-T178", "KXSHELTERCPI-26AUG12-T429",
+           "KXCPINDEX-26AUG12-T333", "KXCPICORE-26JUL-T03",
+           "KXAIRFARECPI-26AUG12-T322", "KXUSPPIYOY-26AUG13-T59"]
+    other = ["KXALLSVENSKANGAME-26AUG10SIRBRO-BRO", "KXMCX-MAR-60"]
+    markets = [dict(LIVE_KEYS, ticker=t) for t in cpi + other]
+    results = fav.scan(_Client(markets), NOW)
+    kept = [s for r in results for s in r["signals"]]
+    themes = [s["theme"] for s in kept]
+    assert themes.count("inflation") == 2, themes
+    assert len(kept) == 4          # 2 inflation + 2 unrelated
