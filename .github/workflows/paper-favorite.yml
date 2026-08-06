@@ -1,0 +1,109 @@
+name: paper-favorite
+
+# THE ONLY MODEL STILL RUNNING. Paper-only, no credentials, no money.
+#
+# Every other bot workflow was removed: the models they ran had negative CLV
+# and worse-than-coin-flip Brier scores, and the sports runner had been getting
+# 401 Unauthorized from the odds API for weeks while every run still reported
+# success. This one scans public Kalshi data for favourite-side maker entries
+# and records them for CLV scoring. Nothing here can place an order — the
+# strategy module never imports an order path.
+#
+# It stays paper-only until CLV_SCOREBOARD.md shows 100+ scored samples with a
+# positive mean. That is the gate for real money, and it is a deliberate
+# change, not a flag flip.
+#
+# NOTE ON CADENCE: a '*/15' cron is aspirational on a free repo. The previous
+# 15-minute schedule actually produced ~14 runs a day (GitHub drops scheduled
+# runs under load), so don't read the interval as a guarantee. The model only
+# signals on markets with 2h+ to close precisely so a sparse snapshot cadence
+# still captures a meaningful closing line.
+
+on:
+  schedule:
+    - cron: '*/20 * * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: paper-favorite
+  cancel-in-progress: false
+
+env:
+  # Public market data only — the client works unauthenticated for /markets
+  # and /markets/{ticker}. No secrets, so nothing to leak and no key to expire.
+  KALSHI_ENV: prod
+  STATE_FILES: paper_trades_favorite.csv clv_sports.csv CLV_SCOREBOARD.md
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: Restore state from the bot-state branch
+        # Bot state lives on its own branch, NOT on main. Previously these
+        # files were force-added and pushed to main every run: 49 of the last
+        # 50 commits were bot state, which made git log useless as a record of
+        # code changes and put a push race on the branch the bots deploy from.
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --heads origin bot-state >/dev/null; then
+            git fetch --depth=1 origin bot-state
+            for f in $STATE_FILES; do
+              if git cat-file -e origin/bot-state:"$f" 2>/dev/null; then
+                git show origin/bot-state:"$f" > "$f"
+                echo "restored $f"
+              fi
+            done
+          else
+            echo "no bot-state branch yet — starting fresh"
+          fi
+
+      - name: Scan for favourite-side maker entries
+        run: python strategy_favorite.py
+
+      - name: Snapshot open prices and score CLV
+        # Runs every cycle regardless of whether the scan found anything —
+        # the closing line has to be captured while markets are still OPEN,
+        # which is exactly what the previous tracker never managed to do.
+        run: python clv_tracker.py
+
+      - name: Persist state to the bot-state branch
+        if: always()
+        run: |
+          set -euo pipefail
+          git config user.name "favorite-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          mkdir -p "$RUNNER_TEMP/state"
+          for f in $STATE_FILES; do
+            if [ -f "$f" ]; then cp "$f" "$RUNNER_TEMP/state/"; fi
+          done
+          if git ls-remote --exit-code --heads origin bot-state >/dev/null; then
+            git fetch --depth=1 origin bot-state
+            git checkout -B bot-state origin/bot-state
+          else
+            git checkout --orphan bot-state
+            git rm -rf --cached . >/dev/null
+            find . -maxdepth 1 -mindepth 1 -not -name .git -exec rm -rf {} +
+          fi
+          for f in $STATE_FILES; do
+            if [ -f "$RUNNER_TEMP/state/$f" ]; then
+              cp "$RUNNER_TEMP/state/$f" "$f"
+              git add "$f"
+            fi
+          done
+          if git diff --cached --quiet; then
+            echo "no state change"
+          else
+            git commit -m "state $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push origin bot-state
+          fi

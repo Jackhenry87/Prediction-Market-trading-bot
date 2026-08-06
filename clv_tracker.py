@@ -1,19 +1,39 @@
-"""Closing-Line Value (CLV) tracker for the sports bets — the honest proof of edge.
+"""Closing-Line Value (CLV) tracker — the honest proof of edge.
 
 CLV is THE metric sharp bettors use to know they have an edge, and it shows up
 long before realized P&L (which is buried in variance on small samples). For
-every real sports fill we snapshot the market's price for the side we took while
-the market is still OPEN; the last pre-settlement snapshot is the CLOSING line.
+every bet we snapshot the market's price for the side we took while the market
+is still OPEN; the last pre-settlement snapshot is the CLOSING line.
 
     CLV_cents = closing_price_of_our_side - entry_price
 
 Positive CLV means the market moved TOWARD our side after we bet — we got a
-better price than the closing line, the signature of a genuine edge. A positive
-mean CLV over ~30+ bets is real evidence; realized W/L on <30 bets is noise.
+better price than the closing line, the signature of a genuine edge.
 
-Reads real fills from executed_trades.csv (model in sports/tennis), maintains
-clv_sports.csv (one row per bet, keyed by order_id), writes CLV_SCOREBOARD.md.
-Run it on the sports cadence so it captures a price close to each game's start.
+WHAT WENT WRONG BEFORE, AND WHAT THIS FIXES
+-------------------------------------------
+The first version of this tracker produced ZERO usable samples in a month. Two
+causes, both now fixed:
+
+  1. It only enrolled bets from executed_trades.csv — real money fills. With
+     the book paper-only there is nothing to enroll, so it tracked nothing.
+     It now enrols PAPER SIGNALS from the strategy ledger as well.
+
+  2. When it first saw a market that had already closed, it set status=closed
+     with last_price still blank, computed no CLV, and the scoreboard then
+     filtered those rows out of the count. Four bets became "0 settled bets
+     scored" with nothing anywhere saying they had been silently dropped.
+     Rows that never got an open-market snapshot are now marked `unscored`
+     and REPORTED, so a broken capture is visible instead of invisible.
+
+FILL REALISM
+------------
+The favourite-bias model rests maker orders; a resting bid is not a fill. A
+paper row starts `resting` and only becomes `filled` when the market's ask for
+our side actually drops to our limit price — i.e. someone would have crossed
+into us. Rows still resting when the market closes are `unfilled` and are NOT
+scored. Counting unfilled paper orders as wins is the classic way a backtest
+lies, so the accounting is explicit and reported.
 
     KALSHI_ENV=prod python clv_tracker.py
 """
@@ -32,13 +52,19 @@ log = get_logger("clv_tracker")
 
 ROOT = Path(__file__).resolve().parent
 EXECUTED = ROOT / "executed_trades.csv"
+PAPER_LEDGER = ROOT / "paper_trades_favorite.csv"
 CLV_CSV = ROOT / "clv_sports.csv"
 SCOREBOARD = ROOT / "CLV_SCOREBOARD.md"
 SPORTS_MODELS = {"sports", "tennis", "nrfi"}
 OPEN_STATUS = (None, "", "active", "open", "initialized")
+
+# How many scored samples before the result means anything. The old value was
+# 30; the owner's call is 100+ before any real money returns to the book.
+SAMPLE_TARGET = int(os.getenv("CLV_SAMPLE_TARGET", "100"))
+
 CLV_FIELDS = ["order_id", "ticker", "model", "side", "entry_price", "entry_ts",
               "last_price", "last_ts", "closing_price", "clv_cents",
-              "status", "result"]
+              "status", "result", "fill_status", "fill_ts"]
 
 
 def _num(x):
@@ -64,6 +90,16 @@ def side_value_cents(market: dict, side: str):
     return yes if side == "yes" else 100.0 - yes
 
 
+def side_ask_cents(market: dict, side: str):
+    """The best ASK for the side we want to buy, in that side's own prices.
+    A resting bid at price P fills when this drops to <= P. Kalshi quotes one
+    book in YES terms, so the NO ask is the mirror of the YES bid."""
+    yb, ya = price_cents(market, "yes_bid"), price_cents(market, "yes_ask")
+    if side == "yes":
+        return ya if ya and 0 < ya < 100 else None
+    return 100.0 - yb if yb and 0 < yb < 100 else None
+
+
 def load_clv_rows() -> dict:
     if not CLV_CSV.exists():
         return {}
@@ -73,6 +109,7 @@ def load_clv_rows() -> dict:
 
 
 def load_sports_fills() -> list:
+    """Real-money fills worth tracking, from the executed ledger."""
     if not EXECUTED.exists():
         return []
     out = []
@@ -84,22 +121,53 @@ def load_sports_fills() -> list:
     return out
 
 
-def update(clv_rows: dict, fills: list, client) -> dict:
-    """Add any new sports fills, then snapshot each still-open bet's price and
-    freeze the closing line when its market settles. Pure w.r.t. the client so
-    it's unit-testable. Returns the updated {order_id: row}."""
-    now = datetime.now(timezone.utc).isoformat()
-    for f in fills:
+def load_paper_signals(path: Path = None) -> list:
+    """Paper signals from the strategy ledger, shaped like fills so they can
+    be enrolled by the same code path. The ledger has no order_id, so the
+    (ticker, timestamp) pair is the key — stable across re-runs, which keeps
+    re-scanning the same market from enrolling it twice."""
+    path = path or PAPER_LEDGER
+    if not path.exists():
+        return []
+    out = []
+    with open(path, newline="") as fh:
+        for r in csv.DictReader(fh):
+            ticker, ts = r.get("ticker"), r.get("scanned_at_utc")
+            if not ticker or not ts:
+                continue
+            out.append(dict(order_id=f"paper:{ticker}:{ts}", ticker=ticker,
+                            model="favorite", side=r.get("side", ""),
+                            price_cents=r.get("price_cents", ""),
+                            placed_at_utc=ts, fill_status="resting"))
+    return out
+
+
+def _enroll(clv_rows: dict, bets: list) -> dict:
+    """Add any bet we're not already tracking. Real fills are filled by
+    definition; paper maker signals start resting until the book proves the
+    order would have been hit."""
+    for f in bets:
         oid = f["order_id"]
-        if oid not in clv_rows:
-            clv_rows[oid] = dict(
-                order_id=oid, ticker=f["ticker"], model=f.get("model", ""),
-                side=f.get("side", ""), entry_price=f.get("price_cents", ""),
-                entry_ts=f.get("placed_at_utc", ""), last_price="", last_ts="",
-                closing_price="", clv_cents="", status="open", result="")
+        if oid in clv_rows:
+            continue
+        clv_rows[oid] = dict(
+            order_id=oid, ticker=f["ticker"], model=f.get("model", ""),
+            side=f.get("side", ""), entry_price=f.get("price_cents", ""),
+            entry_ts=f.get("placed_at_utc", ""), last_price="", last_ts="",
+            closing_price="", clv_cents="", status="open", result="",
+            fill_status=f.get("fill_status", "filled"), fill_ts="")
+    return clv_rows
+
+
+def update(clv_rows: dict, fills: list, client, now: str = None) -> dict:
+    """Enrol new bets, snapshot each still-open bet's price, resolve maker
+    fills, and freeze the closing line when the market settles. Pure w.r.t.
+    the client so it's unit-testable. Returns the updated {order_id: row}."""
+    now = now or datetime.now(timezone.utc).isoformat()
+    _enroll(clv_rows, fills)
 
     for row in clv_rows.values():
-        if row.get("status") == "closed":
+        if row.get("status") in ("closed", "unscored"):
             continue
         try:
             market = client.get_market(row["ticker"])
@@ -107,19 +175,45 @@ def update(clv_rows: dict, fills: list, client) -> dict:
             log.warning("no market for %s (%s) — will retry", row["ticker"], exc)
             continue
         status = market.get("status")
-        val = side_value_cents(market, row["side"])
+        entry = _num(row.get("entry_price"))
+
         if status in OPEN_STATUS:
+            # A resting maker bid becomes a fill the moment someone is willing
+            # to sell to us at our price.
+            if row.get("fill_status") == "resting" and entry is not None:
+                ask = side_ask_cents(market, row["side"])
+                if ask is not None and ask <= entry:
+                    row["fill_status"], row["fill_ts"] = "filled", now
+                    log.info("FILLED (paper): %s %s @ %.0fc",
+                             row["side"], row["ticker"], entry)
+            val = side_value_cents(market, row["side"])
             if val is not None:                       # snapshot latest open price
                 row["last_price"], row["last_ts"] = f"{val:.1f}", now
-        else:
-            # market closed/settled: freeze the CLOSING line = last OPEN snapshot
-            closing = _num(row.get("last_price"))
-            entry = _num(row.get("entry_price"))
-            if closing is not None and entry is not None:
-                row["closing_price"] = f"{closing:.1f}"
-                row["clv_cents"] = f"{closing - entry:.1f}"
+            continue
+
+        # --- market closed ---
+        if row.get("fill_status") == "resting":
+            # Never got hit. Not a bet, must not be scored either way.
+            row["fill_status"] = "unfilled"
             row["status"] = "closed"
+            row["result"] = market.get("result") or ""
+            continue
+
+        closing = _num(row.get("last_price"))
+        if closing is None or entry is None:
+            # We never saw this market while it was open, so there is no
+            # closing line to compare against. Say so instead of emitting a
+            # blank row that the scoreboard silently drops.
+            row["status"] = "unscored"
             row["result"] = market.get("result") or row.get("result") or ""
+            log.warning("UNSCORED %s: closed before any open-market snapshot",
+                        row["ticker"])
+            continue
+
+        row["closing_price"] = f"{closing:.1f}"
+        row["clv_cents"] = f"{closing - entry:.1f}"
+        row["status"] = "closed"
+        row["result"] = market.get("result") or row.get("result") or ""
     return clv_rows
 
 
@@ -131,39 +225,64 @@ def write_clv(clv_rows: dict) -> None:
             w.writerow({k: row.get(k, "") for k in CLV_FIELDS})
 
 
+def _is_scored(r: dict) -> bool:
+    return (r.get("status") == "closed"
+            and r.get("fill_status") != "unfilled"
+            and _num(r.get("clv_cents")) is not None)
+
+
 def scoreboard(clv_rows: dict) -> str:
-    closed = [r for r in clv_rows.values()
-              if r.get("status") == "closed" and _num(r.get("clv_cents")) is not None]
-    n = len(closed)
+    rows = list(clv_rows.values())
+    scored = [r for r in rows if _is_scored(r)]
+    n = len(scored)
     if n:
-        clvs = [_num(r["clv_cents"]) for r in closed]
+        clvs = [_num(r["clv_cents"]) for r in scored]
         mean = sum(clvs) / n
-        pos = sum(1 for c in clvs if c > 0)
-        beat = 100.0 * pos / n
+        beat = 100.0 * sum(1 for c in clvs if c > 0) / n
     else:
         mean = beat = 0.0
-    open_n = sum(1 for r in clv_rows.values() if r.get("status") != "closed")
-    if n < 30:
-        verdict = (f"⏳ Only {n} settled bets — need ~30+ for a real read "
-                   f"(realized W/L on <30 is noise).")
+
+    resting = sum(1 for r in rows if r.get("fill_status") == "resting"
+                  and r.get("status") not in ("closed", "unscored"))
+    open_n = sum(1 for r in rows
+                 if r.get("status") not in ("closed", "unscored")) - resting
+    unfilled = sum(1 for r in rows if r.get("fill_status") == "unfilled")
+    unscored = sum(1 for r in rows if r.get("status") == "unscored")
+
+    if n < SAMPLE_TARGET:
+        verdict = (f"⏳ {n} of {SAMPLE_TARGET} scored samples — not enough to "
+                   f"read yet. No real money until this reaches "
+                   f"{SAMPLE_TARGET}+ and the mean is positive.")
     elif mean > 0:
         verdict = (f"✅ Mean CLV +{mean:.1f}c over {n} bets — evidence of a "
                    f"genuine edge. This is where real size is justified.")
     else:
         verdict = (f"❌ Mean CLV {mean:.1f}c over {n} bets — no edge vs the "
-                   f"closing line. Do NOT scale real money here.")
+                   f"closing line. Do NOT put real money here.")
+
     lines = [
-        "# Sports CLV scoreboard",
+        "# CLV scoreboard — favourite-bias maker model",
         "",
         "Closing-Line Value = (market price of our side at close) − (price we "
         "paid). Positive = we beat the close = edge. The honest test.",
         "",
-        f"- **Settled bets scored:** {n}   (open/pending: {open_n})",
+        f"- **Scored samples:** {n} / {SAMPLE_TARGET}",
         f"- **Mean CLV:** {mean:+.1f}c per bet",
         f"- **Beat the close:** {beat:.0f}% of bets",
         "",
+        "### Sample accounting",
+        "",
+        f"- resting (maker bid not yet hit): {resting}",
+        f"- filled and still open: {open_n}",
+        f"- expired unfilled (never hit — correctly NOT scored): {unfilled}",
+        f"- unscored (closed before any open snapshot — capture gap): {unscored}",
+        "",
         f"**Verdict:** {verdict}",
     ]
+    if unscored:
+        lines += ["", f"> ⚠️ {unscored} row(s) unscored. That is a measurement "
+                      "failure, not a result — the tracker saw them only after "
+                      "their market had closed."]
     return "\n".join(lines) + "\n"
 
 
@@ -172,7 +291,8 @@ def main() -> int:
     client = KalshiClient(os.getenv("KALSHI_API_KEY_ID"),
                           os.getenv("KALSHI_PRIVATE_KEY_PATH"),
                           os.getenv("KALSHI_ENV", "prod"))
-    rows = update(load_clv_rows(), load_sports_fills(), client)
+    bets = load_sports_fills() + load_paper_signals()
+    rows = update(load_clv_rows(), bets, client)
     write_clv(rows)
     board = scoreboard(rows)
     SCOREBOARD.write_text(board)

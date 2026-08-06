@@ -68,14 +68,19 @@ def test_no_side_clv():
     assert rows["o1"]["clv_cents"] == "15.0"
 
 
+def _scored(n, clv_cents):
+    return {f"o{i}": {"status": "closed", "clv_cents": clv_cents,
+                      "fill_status": "filled"} for i in range(n)}
+
+
 def test_scoreboard_verdict_thresholds():
-    # <30 settled -> "need more"; else sign of mean decides edge/no-edge
-    small = {f"o{i}": {"status": "closed", "clv_cents": "5"} for i in range(3)}
-    assert "need" in clv.scoreboard(small).lower()
-    winners = {f"o{i}": {"status": "closed", "clv_cents": "4"} for i in range(30)}
-    assert "genuine edge" in clv.scoreboard(winners)
-    losers = {f"o{i}": {"status": "closed", "clv_cents": "-4"} for i in range(30)}
-    assert "no edge" in clv.scoreboard(losers)
+    # under the sample target -> "not enough"; past it, the sign of the mean
+    # decides. The target is 100, not 30: the owner's rule is no real money
+    # until 100+ scored samples say the edge is real.
+    assert clv.SAMPLE_TARGET == 100
+    assert "not enough" in clv.scoreboard(_scored(3, "5")).lower()
+    assert "genuine edge" in clv.scoreboard(_scored(clv.SAMPLE_TARGET, "4"))
+    assert "no edge" in clv.scoreboard(_scored(clv.SAMPLE_TARGET, "-4"))
 
 
 def test_only_sports_fills_tracked(tmp_path, monkeypatch):
@@ -88,3 +93,90 @@ def test_only_sports_fills_tracked(tmp_path, monkeypatch):
     monkeypatch.setattr(clv, "EXECUTED", p)
     fills = clv.load_sports_fills()
     assert [f["order_id"] for f in fills] == ["s1"]
+
+
+# --- the failures that produced zero usable samples for a month -------------
+
+def _paper(oid="p1", side="yes", price="89"):
+    return dict(order_id=oid, ticker="KXTEST-A", model="favorite", side=side,
+                price_cents=price, placed_at_utc="t0", fill_status="resting")
+
+
+def test_resting_maker_order_is_not_a_fill_until_the_ask_reaches_it():
+    # Our resting bid is 89. While the ask sits at 92 nobody has sold to us,
+    # so the row must stay `resting` — counting it as a bet would be the
+    # backtest lie this model exists to avoid.
+    client = _Client([{"status": "active", "yes_bid": 88, "yes_ask": 92}])
+    rows = clv.update({}, [_paper()], client, now="t1")
+    assert rows["p1"]["fill_status"] == "resting"
+    assert rows["p1"]["last_price"] == "90.0"      # still snapshots the price
+
+
+def test_ask_dropping_to_our_price_fills_the_maker_order():
+    client = _Client([{"status": "active", "yes_bid": 86, "yes_ask": 89}])
+    rows = clv.update({}, [_paper()], client, now="t1")
+    assert rows["p1"]["fill_status"] == "filled" and rows["p1"]["fill_ts"] == "t1"
+
+
+def test_no_side_fill_uses_the_mirrored_ask():
+    # NO ask = 100 - yes_bid. yes_bid 11 -> no ask 89 -> our 89 bid is hit.
+    client = _Client([{"status": "active", "yes_bid": 11, "yes_ask": 15}])
+    rows = clv.update({}, [_paper(side="no")], client, now="t1")
+    assert rows["p1"]["fill_status"] == "filled"
+
+
+def test_unfilled_at_close_is_not_scored():
+    client = _Client([
+        {"status": "active", "yes_bid": 88, "yes_ask": 92},   # never hit
+        {"status": "settled", "result": "yes"},
+    ])
+    rows = clv.update({}, [_paper()], client)
+    rows = clv.update(rows, [_paper()], client)
+    assert rows["p1"]["fill_status"] == "unfilled"
+    assert rows["p1"]["clv_cents"] == ""
+    assert "**Scored samples:** 0" in clv.scoreboard(rows)
+    assert "expired unfilled (never hit — correctly NOT scored): 1" in \
+        clv.scoreboard(rows)
+
+
+def test_closed_before_any_snapshot_is_reported_not_dropped():
+    # THE original bug: the tracker first saw these markets after they closed,
+    # wrote status=closed with a blank CLV, and the scoreboard filtered them
+    # out — four bets became "0 settled bets" with nothing saying why.
+    client = _Client([{"status": "settled", "result": "yes"}])
+    rows = clv.update({}, [_fill(price="40")], client)
+    assert rows["o1"]["status"] == "unscored"
+    board = clv.scoreboard(rows)
+    assert "unscored (closed before any open snapshot — capture gap): 1" in board
+    assert "measurement failure" in board
+
+
+def test_filled_paper_row_scores_like_a_real_bet():
+    client = _Client([
+        {"status": "active", "yes_bid": 86, "yes_ask": 89},   # fills at 89
+        {"status": "active", "yes_bid": 93, "yes_ask": 95},   # drifts to 94
+        {"status": "settled", "result": "yes"},
+    ])
+    rows = clv.update({}, [_paper()], client)
+    rows = clv.update(rows, [_paper()], client)
+    rows = clv.update(rows, [_paper()], client)
+    r = rows["p1"]
+    assert r["fill_status"] == "filled" and r["status"] == "closed"
+    assert r["closing_price"] == "94.0" and r["clv_cents"] == "5.0"
+    assert "**Scored samples:** 1" in clv.scoreboard(rows)
+
+
+def test_paper_signals_load_from_the_ledger(tmp_path, monkeypatch):
+    p = tmp_path / "paper_trades_favorite.csv"
+    p.write_text("scanned_at_utc,event,ticker,side,price_cents,model_prob,"
+                 "ev_cents,outcome,clv_cents\n"
+                 "2026-08-06T12:00:00+00:00,2026-08-06,KXA-1,yes,89,0.90,4.1,,\n")
+    monkeypatch.setattr(clv, "PAPER_LEDGER", p)
+    sigs = clv.load_paper_signals()
+    assert len(sigs) == 1
+    s = sigs[0]
+    assert s["fill_status"] == "resting" and s["price_cents"] == "89"
+    # keyed by ticker+timestamp so re-scanning the same market never enrols twice
+    assert s["order_id"] == "paper:KXA-1:2026-08-06T12:00:00+00:00"
+    rows = clv._enroll({}, sigs)
+    assert clv._enroll(rows, clv.load_paper_signals()).keys() == rows.keys()

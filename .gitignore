@@ -22,7 +22,18 @@ __pycache__/
 .DS_Store
 .idea/
 .vscode/
-paper_trades*.csv
-executed_trades.csv
-trade_history.csv
 paperbook/paperbook.db
+
+# Live bot state — belongs on the `bot-state` branch, never on main.
+# The paper-favorite workflow restores these at the start of a run and pushes
+# them to bot-state at the end.
+#
+# These rules used to list executed_trades.csv / trade_history.csv /
+# paper_trades*.csv, all of which were tracked anyway and force-added by the
+# workflows (`git add -f`), so the ignore file was documenting a policy that
+# nothing followed. Those files are now a FROZEN historical record of real
+# money and stay tracked on main deliberately; only files a running bot
+# rewrites are ignored here.
+clv_sports.csv
+CLV_SCOREBOARD.md
+paper_trades_favorite.csv

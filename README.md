@@ -1,94 +1,130 @@
 # Prediction-Market Trading Bot (Kalshi)
 
-An automated trading system for **Kalshi** (CFTC-regulated, legal for US
-users) that runs entirely on GitHub Actions — no laptop or server needed.
-It scans several market families for mispricings, sizes orders off the
-live bankroll, and records every signal and execution for scoring.
+A research harness for finding a real edge on **Kalshi** (CFTC-regulated, legal
+for US users), running on GitHub Actions. It currently runs **one model, on
+paper, with no credentials and no money at risk**, and its only job is to
+produce enough closing-line-value samples to prove or kill that model.
 
-> The project started against Polymarket's crypto CLOB, but that exchange
-> geoblocks US trading, so everything targets Kalshi's Trade API v2. The
-> Polymarket-era code was removed once the pivot was complete (it lives in
-> git history if ever needed).
+## Where this stands
 
-## Hard rules (enforced on every order path)
+The first generation of this bot traded eight models with real money and lost
+**-$33.42 of $50** (39W / 86L). The full record is in `HISTORY.md`,
+`kalshi_report.csv` and `executed_trades.csv`, which are kept deliberately.
+The post-mortem, in short:
 
-- **DRY_RUN** — `true` logs what would happen and places zero orders.
-  Live trading only because the owner explicitly enabled it.
-- **Limits** — `MAX_ORDER_SIZE` and `MAX_TOTAL_EXPOSURE` are checked on
-  every order; a breaching order is rejected and logged, never placed.
-- **Kill switch** — `KILL_SWITCH=true` (repo Variable, settable from a
-  phone) blocks all order placement.
-- **Dynamic sizing** — per-order cost is also capped at `MAX_ORDER_PCT`%
-  of the live bankroll; one theme (weather/sports/...) may not exceed
-  `MAX_THEME_PCT`% of bankroll; one bet per event.
-- **Limit orders only** — every order names its price; slippage is treated
-  as the default outcome, never a surprise.
-- **Logging** — every attempt/result/rejection goes to `logs/` and executed
-  trades are committed to `executed_trades.csv`.
-- **No secrets in code** — keys live in `.env` locally (gitignored) and in
-  repo Secrets on Actions.
+| Evidence | Reading |
+|---|---|
+| Brier 0.308 (weather), 0.278 (sports) vs 0.25 for a coin flip | The models were worse than guessing |
+| Avg CLV -11.6¢ (weather), -6.0¢ (sports) | We were consistently on the wrong side of the price |
+| -$27.10 of the -$33.42 from one city, mostly one trade | Position limits arrived after the accident |
+| 0 usable CLV samples in a month | The instrument measuring "do we have an edge" was broken |
+| Sports odds API returning 401 for weeks, every run still green | `\|\| true` on every step hid it |
 
-## The models
+So the models were retired, the measurement was fixed first, and one
+research-backed model replaced them.
 
-| Model | File | Edge hypothesis |
-|-------|------|-----------------|
-| weather | `strategy_weather.py` | NWS station forecasts reprice Kalshi's daily high-temp buckets slower than the forecast updates. Normal(forecast, SIGMA_F) prices each bucket. |
-| sports | `strategy_sports.py` | Devigged sportsbook consensus (Shin's method per book, Pinnacle weighted 3×) vs Kalshi moneylines, with a line-movement (steam) filter: only trade sides the sharp line moved toward. OFF in the hourly (owner call) — sports bets come from the smart-money copier only. |
-| macro | `strategy_macro.py` | Resolution lag: after a macro print (claims, CPI, payrolls, U3) the correct side is *known*; buy it if still cheap. Fresh-release gate + strict reference-period matching. OFF by default. |
-| crypto | `strategy_crypto.py` | Lognormal option-style pricing of BTC/ETH threshold markets. OFF (weak edge). |
-| commodities | `strategy_commodities.py` | Same approach for oil/gas/metals thresholds. OFF (weak edge). |
+## The one model: favourite-bias, maker-only
 
-`ENABLED_MODELS` (repo Variable) controls which run; default `weather,nowcast`
-(the hourly is weather-only — every other market comes from the smart-money
-copier, which runs its own always-on watcher).
+`strategy_favorite.py`. It does not try to out-forecast anything. It bets on
+two documented structural facts about the venue:
 
-## Automation (GitHub Actions)
+1. **Favourite-longshot bias.** Low-priced contracts are systematically
+   overpriced and high-priced contracts underpriced — the most replicated
+   anomaly in prediction and betting markets. On Kalshi transaction data
+   (300k+ contracts, Bürgi/Deng/Whelan), contracts under 10¢ lose over 60% of
+   stake while high-priced contracts return a small positive amount.
+2. **Makers beat takers.** The same study splits by execution style: on
+   longshots takers lose ~32%, makers ~10%. Kalshi charges makers **no fee**;
+   takers pay `0.07·p·(1-p)` per contract. Resting instead of crossing is
+   worth more than most models' entire claimed edge.
+
+So: buy the **favourite** side, only ever as a **maker**, and measure with CLV.
+
+```
+edge = FAV_BIAS_CENTS        <- the assumption under test
+     + (ask - entry)         <- spread kept by resting instead of crossing
+     + taker_fee_cents(ask)  <- fee not paid because we're the maker
+```
+
+Only the first term is a claim. The other two are arithmetic. If mean CLV over
+100+ **filled** samples is positive, the claim survived; if not, this model
+dies like the others. That is the entire point of running it on paper.
+
+It needs **no API keys** — public Kalshi market data only. The dependency that
+silently died last time cannot break this one.
+
+## Honest limits of the thesis
+
+- The favourite-side excess return in the literature is **small** (low single
+  digit percent). It can be eaten by adverse selection.
+- A resting bid fills *precisely when someone wants to sell to you*, which is
+  correlated with the price about to move against you. The CLV tracker only
+  counts a signal once the book actually reached our price, and reports
+  unfilled orders separately, but this is the risk most likely to kill the edge.
+- Sample independence is imperfect: `FAV_MAX_PER_EVENT` caps correlated
+  markets, but 100 samples across a few event types is not 100 independent draws.
+
+## Hard rules
+
+- **Paper-only by construction.** `strategy_favorite.py` imports no
+  order-placing code. There is no flag that makes it trade.
+- **No secrets.** The one running workflow uses unauthenticated public
+  endpoints.
+- **Merges are gated.** `.github/workflows/tests.yml` runs the full suite on
+  every PR. Make it a required check in Settings → Branches.
+- **State is not on main.** Live state lives on the `bot-state` branch.
+
+The order-safety machinery (`safety.py`, `kalshi_exposure.py`, the caps in
+`auto_trade.py`) is intact and tested, for whenever a model earns real money
+again.
+
+## Workflows
 
 | Workflow | Schedule | What it does |
 |----------|----------|--------------|
-| `autotrade.yml` | hourly 12:00–01:00 UTC | Full pipeline: scan enabled models → risk caps → place limit orders → commit ledgers + `SCOREBOARD.md`. |
-| `release-capture.yml` | Thu/Fri release windows | Paper-only burst around 8:30am ET macro releases to measure the resolution lag before arming `macro` live. |
-| `calibrate-weather.yml` | manual | Measures a year of real forecast error per station (Open-Meteo archives) to tune SIGMA_F. Read-only. |
-| `analyze-dfs.yml` | manual | +EV analysis of DFS (PrizePicks/Underdog) picks in `dfs_picks.csv`. |
-| `backfill.yml` | manual | One-time import of Kalshi fills/settlements into `HISTORY.md`. |
+| `tests.yml` | every PR + push to main | Full pytest suite. The merge gate. |
+| `paper-favorite.yml` | every 20 min (see note) | Scan public Kalshi data → record paper signals → snapshot open prices → refresh `CLV_SCOREBOARD.md`. |
 
-Control knobs without code changes (repo → Settings → Secrets and
-variables → Actions → **Variables**): `DRY_RUN`, `KILL_SWITCH`,
-`ENABLED_MODELS`, `MAX_ORDER_SIZE`, `MAX_TOTAL_EXPOSURE`, `MAX_ORDER_PCT`,
-`MIN_ORDER_PCT`, `MAX_THEME_PCT`, `TAKE_PROFIT_PCT`, `TRADE_MIN_PRICE`,
-`TRADE_MAX_PRICE`, `KALSHI_ENV`.
+> Cron note: a `*/15` schedule previously produced ~14 runs/day, not 96 —
+> GitHub drops scheduled runs under load. The model only signals on markets
+> with 2h+ to close so a sparse cadence still captures a closing line.
 
-**Secrets** required: `KALSHI_API_KEY_ID`, `KALSHI_PRIVATE_KEY_PEM`,
-`ODDS_API_KEY` (sports), `FRED_API_KEY` (macro).
+Everything else was deleted (`live-bots`, `autotrade`, `refresh-account`,
+`calibrate-weather`, `release-capture`, the arb and demo runners, the probes).
+They are all recoverable from git history if a model ever earns its way back.
 
-## Results
+## Reading the result
 
-- **`SCOREBOARD.md`** — per-model paper/live signal scoring, refreshed by
-  every run.
-- **`executed_trades.csv`** — audit trail of every real order placed.
-- **`HISTORY.md`** — account history (fills + settlements) since July 1.
+`CLV_SCOREBOARD.md` on the `bot-state` branch is the only number that matters:
 
-## Local setup (optional — the cloud runs without it)
+```
+- Scored samples: N / 100
+- Mean CLV: +X.Xc per bet
+### Sample accounting
+- resting / filled-and-open / expired unfilled / unscored
+```
+
+`unscored` is a **measurement failure**, not a result — it means a market
+closed before the tracker ever saw it open. The old tracker hid those; this one
+reports them, because four silently-dropped rows are how "0 settled bets" was
+mistaken for "no data yet" for a month.
+
+Real money returns only at **100+ scored samples with a positive mean**.
+
+## Local setup
 
 ```bash
 python3 -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env       # fill in Kalshi key ID + .pem path
-python strategy_weather.py # any strategy runs read-only, zero orders
-python auto_trade.py       # full pipeline (respects DRY_RUN)
-pytest tests/              # test suite
+pip install -r requirements.txt -r paperbook/requirements.txt pytest
+python strategy_favorite.py   # read-only scan, places nothing
+python clv_tracker.py         # snapshot + scoreboard
+python -m pytest -q           # 283 tests
 ```
-
-Manual tools: `kalshi_fetch_orderbook.py` (balance + book),
-`kalshi_place_order.py` (one gated order), `kalshi_cancel_orders.py`
-(list/cancel resting orders), `backfill_history.py`, `calibrate_weather.py`.
 
 ## Other components
 
-- `paperbook/` — a free-to-play paper sportsbook web app (FastAPI +
-  SQLite) with user accounts; `paperbook_client.py` lets the bot trade it.
-- `dfs_analyzer.py` — devig-based +EV picker for DFS slates.
-- `deploy/` — optional $5-VPS runner for tighter macro release timing if
-  GitHub cron proves too slow.
-- `macro_calendar.py` / `release_runner.py` — release schedule + burst
-  runner used by `release-capture.yml`.
+- `paperbook/` — a free-to-play paper sportsbook web app (FastAPI + SQLite).
+- `dfs_analyzer.py` — devig-based +EV picker for DFS slates (manual).
+- The retired strategy modules are still present and still tested; they are
+  simply not scheduled. `strategy_weather.py` also holds the shared
+  `price_cents` / `taker_fee_cents` helpers that the live model imports.
