@@ -102,12 +102,68 @@ MAX_SIGNALS = int(os.getenv("FAV_MAX_SIGNALS", "25"))
 MAX_PER_EVENT = int(os.getenv("FAV_MAX_PER_EVENT", "1"))
 
 
-def list_open_markets(client, page_cap: int = 20) -> list:
-    """Every open market, paged. Uses the public /markets endpoint — no
-    credentials needed, so this works even with a broken/absent API key."""
+# Exotic multi-leg combination markets. They dominate the first pages of the
+# prod listing, are structurally parlays rather than single binary contracts,
+# and the favourite-longshot research does not describe them.
+EXCLUDE_PREFIXES = tuple(
+    p for p in os.getenv("FAV_EXCLUDE_PREFIXES", "KXMVE").split(",") if p)
+
+# How far ahead to look. The naive listing pages through thousands of
+# far-dated contracts that have never traded — a page walk found 4000 markets
+# with ONE two-sided quote. Liquidity lives in what closes soon.
+MAX_DAYS_OUT = float(os.getenv("FAV_MAX_DAYS_OUT", "7"))
+
+# Kalshi rate-limits the listing endpoint (HTTP 429 on a fast 20-page walk),
+# so pace the pages and keep the cap modest.
+PAGE_CAP = int(os.getenv("FAV_PAGE_CAP", "8"))
+PAGE_PAUSE_S = float(os.getenv("FAV_PAGE_PAUSE_S", "0.4"))
+
+
+def _fp(market: dict, *names) -> float:
+    """Read a numeric field across API vintages.
+
+    Kalshi's current listing returns volume and open interest as fixed-point
+    STRINGS under *_fp names ('1234.00'), and prices under *_dollars. The
+    plain `volume` / `yes_bid` keys this scanner originally read DO NOT EXIST
+    in the live payload — reading them returned 0 for every market, so the
+    volume filter rejected the entire exchange and the model signalled
+    nothing. Never assume a field name here; check the payload.
+    """
+    for n in names:
+        v = market.get(n)
+        if v in (None, ""):
+            continue
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            continue
+    return 0.0
+
+
+def market_volume(market: dict) -> float:
+    """Contracts traded. Prefers lifetime volume, falls back to 24h."""
+    return _fp(market, "volume_fp", "volume", "volume_24h_fp")
+
+
+def list_open_markets(client, page_cap: int = None, now: datetime = None) -> list:
+    """Open markets closing within MAX_DAYS_OUT, paged.
+
+    Public /markets endpoint — no credentials needed, so this works with no
+    API key at all. Windowed by close time because the unfiltered listing is
+    overwhelmingly far-dated contracts with no book.
+    """
+    import time as _time
+    now = now or datetime.now(timezone.utc)
+    page_cap = PAGE_CAP if page_cap is None else page_cap
+    base = {
+        "status": "open",
+        "limit": 200,
+        "min_close_ts": int(now.timestamp()),
+        "max_close_ts": int(now.timestamp() + MAX_DAYS_OUT * 86400),
+    }
     out, cursor = [], None
-    for _ in range(page_cap):
-        params = {"status": "open", "limit": 200}
+    for i in range(page_cap):
+        params = dict(base)
         if cursor:
             params["cursor"] = cursor
         data = client._request("GET", "/markets", params=params)
@@ -116,6 +172,8 @@ def list_open_markets(client, page_cap: int = 20) -> list:
         cursor = data.get("cursor")
         if not cursor or not page:
             break
+        if i + 1 < page_cap:
+            _time.sleep(PAGE_PAUSE_S)          # stay under the rate limit
     return out
 
 
@@ -156,6 +214,10 @@ def favourite_side(market: dict):
 def evaluate_market(market: dict, now: datetime = None):
     """A maker signal for this market, or None. Pure — no I/O — so the
     filters are unit-testable without a client."""
+    ticker = market.get("ticker", "")
+    if EXCLUDE_PREFIXES and ticker.startswith(EXCLUDE_PREFIXES):
+        return None
+
     book = favourite_side(market)
     if not book:
         return None
@@ -173,7 +235,7 @@ def evaluate_market(market: dict, now: datetime = None):
     if not FAV_MIN_PRICE <= entry <= FAV_MAX_PRICE:
         return None
 
-    if float(market.get("volume") or 0) < MIN_VOLUME:
+    if market_volume(market) < MIN_VOLUME:
         return None
 
     hours = _hours_to_close(market, now)

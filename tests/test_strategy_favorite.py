@@ -139,3 +139,85 @@ def test_one_bad_market_does_not_kill_the_scan():
     results = fav.scan(_Client(markets), NOW)
     assert [s["ticker"] for r in results for s in r["signals"]] == \
         ["KXOK-26AUG06-A"]
+
+
+# --- the live API payload shape ---------------------------------------------
+# These tests use the field names Kalshi ACTUALLY returns, captured from a
+# real /markets response. The original fixtures used `volume` / `yes_bid` /
+# `yes_ask`, none of which exist in the live payload: prices come back as
+# *_dollars strings and volume as *_fp strings. The unit tests passed while
+# the model signalled nothing in production, which is the failure mode these
+# guard against.
+
+LIVE_KEYS = {
+    "ticker": "KXHIGHNY-26AUG06-B84.5",
+    "status": "active",
+    "title": "Will the high temp in NYC be 84-85 on Aug 6?",
+    "yes_bid_dollars": "0.8800",
+    "yes_ask_dollars": "0.9200",
+    "no_bid_dollars": "0.0800",
+    "no_ask_dollars": "0.1200",
+    "last_price_dollars": "0.9000",
+    "volume_fp": "1543.00",
+    "volume_24h_fp": "212.00",
+    "open_interest_fp": "845.00",
+    "liquidity_dollars": "412.5500",
+    "close_time": (NOW + timedelta(hours=8)).isoformat(),
+}
+
+
+def test_volume_reads_the_fp_field_not_the_absent_plain_one():
+    assert "volume" not in LIVE_KEYS          # the live payload really lacks it
+    assert fav.market_volume(LIVE_KEYS) == 1543.0
+    assert fav.market_volume({"volume": 7}) == 7.0          # older vintage
+    assert fav.market_volume({"volume_24h_fp": "9.00"}) == 9.0
+    assert fav.market_volume({}) == 0.0
+    assert fav.market_volume({"volume_fp": "not-a-number"}) == 0.0
+
+
+def test_live_payload_produces_a_signal():
+    # The whole bug in one assertion: with real field names this must signal.
+    sig = fav.evaluate_market(LIVE_KEYS, NOW)
+    assert sig is not None, "live payload must not be silently filtered out"
+    assert sig["side"] == "yes" and sig["price_cents"] == 89
+
+
+def test_live_payload_with_no_volume_is_still_rejected():
+    thin = dict(LIVE_KEYS, volume_fp="0.00", volume_24h_fp="0.00")
+    assert fav.evaluate_market(thin, NOW) is None
+
+
+def test_multileg_combo_markets_are_excluded():
+    # KXMVE* cross-category combos dominate the prod listing and are parlays,
+    # not the single binary contracts the research describes.
+    combo = dict(LIVE_KEYS, ticker="KXMVECROSSCATEGORY-S2026B9F7-A7E40")
+    assert fav.evaluate_market(combo, NOW) is None
+
+
+def test_listing_is_windowed_by_close_time_and_paced():
+    captured = []
+
+    class _C:
+        def _request(self, method, path, params=None):
+            captured.append(params)
+            return {"markets": [], "cursor": None}
+
+    fav.list_open_markets(_C(), now=NOW)
+    p = captured[0]
+    assert p["status"] == "open"
+    # must not page the whole far-dated exchange
+    assert p["max_close_ts"] - p["min_close_ts"] == int(fav.MAX_DAYS_OUT * 86400)
+
+
+def test_listing_stops_at_the_page_cap(monkeypatch):
+    monkeypatch.setattr(fav, "PAGE_CAP", 3)
+    monkeypatch.setattr(fav, "PAGE_PAUSE_S", 0)
+    calls = []
+
+    class _C:
+        def _request(self, method, path, params=None):
+            calls.append(1)
+            return {"markets": [dict(LIVE_KEYS)], "cursor": "more"}
+
+    got = fav.list_open_markets(_C(), now=NOW)
+    assert len(calls) == 3 and len(got) == 3
