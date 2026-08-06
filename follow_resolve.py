@@ -84,6 +84,20 @@ def series_events(client, series: str, force: bool = False) -> list:
         return hit[1] if hit else []
 
 
+def _any_cache_is_stale() -> bool:
+    """True when at least one series would hit the network on a fresh read.
+
+    Used to decide whether a failed resolution is worth retrying. If every
+    series was just fetched, the data is as current as it can be and a
+    forced second pass is 16 wasted API calls — which matters because
+    roughly two thirds of his trades (golf, soccer, tennis, UFC) are
+    markets we cannot resolve at all, so the miss path is the COMMON path.
+    """
+    now = time.time()
+    return any(series not in _cache or now - _cache[series][0] >= EVENTS_TTL
+               for series in SERIES)
+
+
 def open_events(client, force: bool = False) -> list:
     """Every open event across the priced series. Convenience for callers
     that want the whole picture; `resolve_ticker` deliberately does NOT use
@@ -203,10 +217,14 @@ def resolve_ticker(client, signal: dict) -> dict:
         one call.
 
     A full miss retries once with the caches forced, because the markets he
-    bets are often minutes old.
+    bets are often minutes old — but ONLY if some cache was actually stale.
+    When the first pass already fetched everything fresh, a forced retry
+    cannot find anything new and just burns 16 more calls on what is, two
+    times in three, a market we were never going to be able to price.
     """
     title, outcome = signal.get("market_title"), signal.get("outcome_text")
-    for force in (False, True):
+    passes = (False, True) if _any_cache_is_stale() else (False,)
+    for force in passes:
         for series in SERIES:
             events = series_events(client, series, force=force)
             if not events:

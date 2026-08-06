@@ -135,3 +135,41 @@ def test_one_game_in_two_series_still_resolves(monkeypatch):
         None, {"market_title": "Los Angeles D vs Chicago C",
                "outcome_text": "Over 8.5 runs scored"})
     assert tot["ticker"] == "KXMLBTOTAL-26AUG06LADCHC-8"
+
+
+def test_a_miss_retries_once_when_a_cache_is_stale(monkeypatch):
+    """Markets he bets are often minutes old, so a cold/stale cache earns a
+    forced refresh before we give up."""
+    follow_resolve._cache.clear()
+    calls = []
+
+    def fake(c, series, force=False):
+        calls.append((series, force))
+        return []
+
+    monkeypatch.setattr(follow_resolve, "series_events", fake)
+    follow_resolve.resolve_ticker(None, {"market_title": "A vs B",
+                                         "outcome_text": "A"})
+    assert any(force for _, force in calls)          # the retry happened
+
+
+def test_a_miss_does_not_retry_when_everything_is_fresh(monkeypatch):
+    """Two thirds of his trades are markets we cannot price at all, so the
+    miss path is the common path — a forced second pass over 16 series that
+    were just fetched is pure waste."""
+    import time as _t
+    follow_resolve._cache.clear()
+    for s in follow_resolve.SERIES:                  # all fresh
+        follow_resolve._cache[s] = (_t.time(), [])
+    calls = []
+
+    def fake(c, series, force=False):
+        calls.append((series, force))
+        return []
+
+    monkeypatch.setattr(follow_resolve, "series_events", fake)
+    follow_resolve.resolve_ticker(None, {"market_title": "A vs B",
+                                         "outcome_text": "A"})
+    assert calls, "should still have looked"
+    assert not any(force for _, force in calls)      # but never forced
+    assert len(calls) == len(follow_resolve.SERIES)  # exactly one pass
