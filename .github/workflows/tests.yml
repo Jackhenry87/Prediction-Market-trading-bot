@@ -1,0 +1,44 @@
+name: tests
+
+# The merge gate. Until now this repo had NO workflow that ran the test suite:
+# live-money code reached main with nothing checking it, and the /ship skill's
+# local pytest was the only barrier. Make this a required status check in
+# Settings -> Branches so a red suite cannot merge.
+#
+# No `|| true` anywhere in this file, by design. A step that fails must fail
+# the run.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        # Three files, all required. paperbook/ has its own runtime deps
+        # (fastapi, bcrypt, ...) and requirements-dev.txt carries the test-only
+        # ones (pytest, httpx2). Miss any of them and nine tests error at
+        # import, which is indistinguishable from a real failure.
+        run: |
+          pip install -r requirements.txt \
+                      -r paperbook/requirements.txt \
+                      -r requirements-dev.txt
+      - name: Run the suite
+        run: python -m pytest -q

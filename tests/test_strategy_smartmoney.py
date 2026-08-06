@@ -45,7 +45,7 @@ def test_select_sharp_wallets_filters(monkeypatch):
     monkeypatch.setattr(sm, "fetch_big_trades", lambda: tape)
     monkeypatch.setattr(sm, "fetch_pnl_curve", lambda w: curves[w])
     monkeypatch.setattr(sm, "SHARP_MIN_PNL_2W", 500.0)
-    sharps = sm.select_sharp_wallets()
+    sharps = sm.select_sharp_wallets(NOW)
     assert list(sharps) == ["0xup"]
 
 
@@ -87,7 +87,7 @@ def test_select_ranks_by_risk_adjusted_not_size(monkeypatch):
     monkeypatch.setattr(sm, "fetch_pnl_curve", lambda w: curves[w])
     monkeypatch.setattr(sm, "SHARP_MIN_PNL_2W", 500.0)
     monkeypatch.setattr(sm, "load_blacklist", lambda: set())
-    sharps = sm.select_sharp_wallets()
+    sharps = sm.select_sharp_wallets(NOW)
     assert "0xspike" not in sharps                 # one-day spike filtered
     assert list(sharps)[0] == "0xsteady"           # risk-adjusted beats size
 
@@ -197,7 +197,7 @@ def test_pinned_specialist_always_in_pool(monkeypatch):
     monkeypatch.setattr(sm, "SHARP_MIN_PNL_2W", 500.0)
     monkeypatch.setattr(sm, "load_blacklist", lambda: set())
     monkeypatch.setattr(sm, "PINNED_WALLETS", {"0xpinned"})
-    sharps = sm.select_sharp_wallets()
+    sharps = sm.select_sharp_wallets(NOW)
     # discovered wallet keyed lowercase (no double-count), pin guaranteed in
     assert "0xdiscovered" in sharps and "0xpinned" in sharps
 
@@ -208,7 +208,7 @@ def test_pinned_specialist_still_respects_blacklist(monkeypatch):
     monkeypatch.setattr(sm, "load_blacklist", lambda: {"0xpinned"})
     monkeypatch.setattr(sm, "PINNED_WALLETS", {"0xpinned"})
     monkeypatch.setattr(sm, "fetch_pnl_curve", lambda w: [])
-    assert "0xpinned" not in sm.select_sharp_wallets()
+    assert "0xpinned" not in sm.select_sharp_wallets(NOW)
 
 
 def test_backers_multiplier_tilts_within_band(monkeypatch):
@@ -576,7 +576,7 @@ def test_wallet_grading_blacklists_losers(tmp_path, monkeypatch):
              (NOW - day, 900.0)]
     monkeypatch.setattr(sm, "fetch_pnl_curve", lambda w: curve)
     monkeypatch.setattr(sm, "SHARP_MIN_PNL_2W", 500.0)
-    sharps = sm.select_sharp_wallets()
+    sharps = sm.select_sharp_wallets(NOW)
     assert "0xloser" not in sharps and "0xwinner" in sharps
 
 

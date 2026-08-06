@@ -489,11 +489,15 @@ def curve_quality(curve: list, now_ts: float = None) -> dict:
     return dict(pts=n, up_frac=up_frac, max_share=max_share, sharpe=sharpe)
 
 
-def select_sharp_wallets() -> dict:
+def select_sharp_wallets(now_ts: float = None) -> dict:
     """wallet -> 2-week PnL for the top wallets behind recent big-money
     flow, RANKED BY RISK-ADJUSTED RETURN (not raw dollars, which just finds
     whales) and filtered for consistency (up over the week, fortnight AND
-    month, steady rather than one lucky day)."""
+    month, steady rather than one lucky day).
+
+    now_ts pins the trailing-window clock. Production leaves it None (= now);
+    tests pass a fixed timestamp so their fixture curves stay inside the
+    window instead of ageing out and failing weeks after they were written."""
     stake = {}
     for tr in fetch_big_trades():
         w = (tr.get("proxyWallet") or "").lower()   # normalise so a pinned
@@ -514,14 +518,14 @@ def select_sharp_wallets() -> dict:
         except Exception as exc:
             log.debug("PnL fetch failed for %s (%s)", w, exc)
             continue
-        pnl2w = pnl_change(curve, 14)
-        pnl1w = pnl_change(curve, 7)
-        pnl30 = pnl_change(curve, 30)
+        pnl2w = pnl_change(curve, 14, now_ts)
+        pnl1w = pnl_change(curve, 7, now_ts)
+        pnl30 = pnl_change(curve, 30, now_ts)
         # profitable across the week, fortnight AND month — one lucky
         # streak alone no longer qualifies a wallet
         if not (pnl2w >= SHARP_MIN_PNL_2W and pnl1w > 0 and pnl30 > 0):
             continue
-        q = curve_quality(curve)
+        q = curve_quality(curve, now_ts)
         # when the curve is long enough to judge, demand a STEADY earner:
         # enough up-days and no single day carrying most of the profit
         if q["pts"] >= MIN_CURVE_PTS and (q["up_frac"] < MIN_UPDAY_FRAC
@@ -541,7 +545,7 @@ def select_sharp_wallets() -> dict:
         if w in blacklist or w in top:
             continue
         try:
-            top[w] = pnl_change(fetch_pnl_curve(w), 14)
+            top[w] = pnl_change(fetch_pnl_curve(w), 14, now_ts)
         except Exception:
             top[w] = 0.0
         log.info("Pinned specialist kept in sharp pool: %s…", w[:12])
