@@ -180,3 +180,57 @@ def test_paper_signals_load_from_the_ledger(tmp_path, monkeypatch):
     assert s["order_id"] == "paper:KXA-1:2026-08-06T12:00:00+00:00"
     rows = clv._enroll({}, sigs)
     assert clv._enroll(rows, clv.load_paper_signals()).keys() == rows.keys()
+
+
+# --- settlement record without placing an order -----------------------------
+
+def test_settlement_pnl_arithmetic():
+    # bought YES at 89: wins 11c if it settles yes, loses 89c if no
+    assert clv.settlement_pnl_cents("yes", 89.0, "yes") == 11.0
+    assert clv.settlement_pnl_cents("yes", 89.0, "no") == -89.0
+    assert clv.settlement_pnl_cents("no", 89.0, "no") == 11.0
+    # unsettled or unknown -> no P&L, never a guess
+    assert clv.settlement_pnl_cents("yes", 89.0, "") is None
+    assert clv.settlement_pnl_cents("yes", None, "yes") is None
+
+
+def test_paper_signal_gets_a_real_win_loss_record():
+    # The whole point: a signal never sent to Kalshi still gets scored
+    # against Kalshi's official result.
+    client = _Client([
+        {"status": "active", "yes_bid": 86, "yes_ask": 89},   # fills at 89
+        {"status": "settled", "result": "yes"},
+    ])
+    rows = clv.update({}, [_paper()], client)
+    rows = clv.update(rows, [_paper()], client)
+    assert rows["p1"]["result"] == "yes"
+    assert rows["p1"]["pnl_cents"] == "+11"
+    board = clv.scoreboard(rows)
+    assert "**1W – 0L** over 1 settled contracts" in board
+    assert "**Net +11c** on 89c staked" in board
+    assert "+12.4%" in board                      # 11/89
+
+
+def test_losing_paper_signal_is_recorded_as_a_loss():
+    client = _Client([
+        {"status": "active", "yes_bid": 86, "yes_ask": 89},
+        {"status": "settled", "result": "no"},
+    ])
+    rows = clv.update({}, [_paper()], client)
+    rows = clv.update(rows, [_paper()], client)
+    assert rows["p1"]["pnl_cents"] == "-89"
+    assert "**0W – 1L**" in clv.scoreboard(rows)
+
+
+def test_unfilled_signal_never_counts_as_a_win():
+    # The failure mode that makes a paper record worthless: claiming a win on
+    # an order the book never reached.
+    client = _Client([
+        {"status": "active", "yes_bid": 80, "yes_ask": 95},   # never hit 89
+        {"status": "settled", "result": "yes"},
+    ])
+    rows = clv.update({}, [_paper()], client)
+    rows = clv.update(rows, [_paper()], client)
+    assert rows["p1"]["fill_status"] == "unfilled"
+    assert rows["p1"]["pnl_cents"] == ""
+    assert "**0W – 0L** over 0 settled contracts" in clv.scoreboard(rows)

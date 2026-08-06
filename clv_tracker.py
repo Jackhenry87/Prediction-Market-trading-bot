@@ -64,7 +64,7 @@ SAMPLE_TARGET = int(os.getenv("CLV_SAMPLE_TARGET", "100"))
 
 CLV_FIELDS = ["order_id", "ticker", "model", "side", "entry_price", "entry_ts",
               "last_price", "last_ts", "closing_price", "clv_cents",
-              "status", "result", "fill_status", "fill_ts"]
+              "status", "result", "fill_status", "fill_ts", "pnl_cents"]
 
 
 def _num(x):
@@ -155,8 +155,25 @@ def _enroll(clv_rows: dict, bets: list) -> dict:
             side=f.get("side", ""), entry_price=f.get("price_cents", ""),
             entry_ts=f.get("placed_at_utc", ""), last_price="", last_ts="",
             closing_price="", clv_cents="", status="open", result="",
-            fill_status=f.get("fill_status", "filled"), fill_ts="")
+            fill_status=f.get("fill_status", "filled"), fill_ts="",
+            pnl_cents="")
     return clv_rows
+
+
+def settlement_pnl_cents(side: str, entry: float, result: str):
+    """Per-contract P&L at settlement, in cents. A binary contract pays 100
+    if your side is the result and 0 otherwise, so a fill at `entry` makes
+    (100 - entry) on a win and loses `entry` on a loss.
+
+    This needs NO order to have been placed — Kalshi publishes the result of
+    every market, so a paper signal gets a real, auditable win/loss record.
+    What it cannot tell you is whether a resting maker bid would actually
+    have been hit; that is why only rows the book demonstrably reached
+    (fill_status == 'filled') are counted here.
+    """
+    if result not in ("yes", "no") or entry is None:
+        return None
+    return (100.0 - entry) if result == side else -entry
 
 
 def update(clv_rows: dict, fills: list, client, now: str = None) -> dict:
@@ -214,6 +231,9 @@ def update(clv_rows: dict, fills: list, client, now: str = None) -> dict:
         row["clv_cents"] = f"{closing - entry:.1f}"
         row["status"] = "closed"
         row["result"] = market.get("result") or row.get("result") or ""
+        pnl = settlement_pnl_cents(row["side"], entry, row["result"])
+        if pnl is not None:
+            row["pnl_cents"] = f"{pnl:+.0f}"
     return clv_rows
 
 
@@ -260,6 +280,17 @@ def scoreboard(clv_rows: dict) -> str:
         verdict = (f"❌ Mean CLV {mean:.1f}c over {n} bets — no edge vs the "
                    f"closing line. Do NOT put real money here.")
 
+    # Settlement record. Kalshi publishes every market's result, so paper
+    # signals get a real W/L and P&L without an order being placed. Only
+    # rows the book actually reached are counted — an unfilled resting bid
+    # is not a bet and must not appear as a win.
+    settled = [r for r in rows if _num(r.get("pnl_cents")) is not None
+               and r.get("fill_status") != "unfilled"]
+    wins = sum(1 for r in settled if _num(r["pnl_cents"]) > 0)
+    net = sum(_num(r["pnl_cents"]) for r in settled)
+    staked = sum(_num(r.get("entry_price")) or 0 for r in settled)
+    roi = (100.0 * net / staked) if staked else 0.0
+
     lines = [
         "# CLV scoreboard — favourite-bias maker model",
         "",
@@ -269,6 +300,16 @@ def scoreboard(clv_rows: dict) -> str:
         f"- **Scored samples:** {n} / {SAMPLE_TARGET}",
         f"- **Mean CLV:** {mean:+.1f}c per bet",
         f"- **Beat the close:** {beat:.0f}% of bets",
+        "",
+        "### Settlement record (scored against Kalshi's official results)",
+        "",
+        f"- **{wins}W – {len(settled) - wins}L** over {len(settled)} settled "
+        f"contracts",
+        f"- **Net {net:+.0f}c** on {staked:.0f}c staked (**{roi:+.1f}%**)",
+        "",
+        "_Real outcomes from public settlement data — no order required. What "
+        "this does NOT prove is that a resting maker bid would have been "
+        "filled at these prices; only live orders establish queue position._",
         "",
         "### Sample accounting",
         "",
