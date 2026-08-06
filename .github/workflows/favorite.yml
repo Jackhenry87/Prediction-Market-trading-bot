@@ -93,6 +93,10 @@ jobs:
           # exposure cap alone would let ~90% of a $50 bankroll out in one run.
           MAX_ORDERS_PER_DAY: ${{ vars.MAX_ORDERS_PER_DAY || '8' }}
           MAX_DAILY_DEPLOY_USD: ${{ vars.MAX_DAILY_DEPLOY_USD || '15' }}
+          # Correlated bets are one bet. The first live scan returned 12 of 14
+          # signals resolving off a single CPI print; without this, one theme
+          # could consume the whole daily budget across ~70 scans.
+          MAX_ORDERS_PER_THEME_PER_DAY: ${{ vars.MAX_ORDERS_PER_THEME_PER_DAY || '3' }}
         run: python favorite_runner.py
 
       - name: Snapshot open prices, confirm fills, score CLV

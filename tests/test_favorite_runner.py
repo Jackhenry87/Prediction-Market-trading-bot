@@ -90,19 +90,19 @@ def test_placed_today_counts_only_today_and_only_this_model(tmp_path):
         "2026-08-05T23:00:00+00:00,favorite,KXC,yes,2,89,1.78,o3,",  # yesterday
         "2026-08-06T03:00:00+00:00,sports,KXD,yes,1,50,0.50,o4,",     # not ours
     ])
-    count, usd = fr.placed_today(p, NOW)
+    count, usd, themes = fr.placed_today(p, NOW)
     assert count == 2 and round(usd, 2) == 2.68
 
 
 def test_missing_ledger_is_a_clean_zero(tmp_path):
-    count, usd = fr.placed_today(tmp_path / "nope.csv", NOW)
-    assert (count, usd) == (0, 0.0)
+    count, usd, themes = fr.placed_today(tmp_path / "nope.csv", NOW)
+    assert (count, usd, themes) == (0, 0.0, {})
 
 
 def test_daily_order_cap_stops_placing(monkeypatch, tmp_path):
     monkeypatch.setattr(fr, "MAX_ORDERS_PER_DAY", 2)
     monkeypatch.setattr(fr, "MAX_DAILY_DEPLOY_USD", 100.0)
-    monkeypatch.setattr(fr, "placed_today", lambda *a, **k: (0, 0.0))
+    monkeypatch.setattr(fr, "placed_today", lambda *a, **k: (0, 0.0, {}))
     monkeypatch.setattr(fr, "log_execution", lambda *a, **k: None)
     client = _Client()
     sigs = [_signal(ticker=f"KX{i}-26AUG06-1") for i in range(6)]   # 6 events
@@ -113,7 +113,7 @@ def test_daily_order_cap_stops_placing(monkeypatch, tmp_path):
 def test_daily_deploy_cap_stops_placing(monkeypatch):
     monkeypatch.setattr(fr, "MAX_ORDERS_PER_DAY", 99)
     monkeypatch.setattr(fr, "MAX_DAILY_DEPLOY_USD", 4.0)
-    monkeypatch.setattr(fr, "placed_today", lambda *a, **k: (0, 0.0))
+    monkeypatch.setattr(fr, "placed_today", lambda *a, **k: (0, 0.0, {}))
     monkeypatch.setattr(fr, "log_execution", lambda *a, **k: None)
     client = _Client()
     # each order is 2 x 89c = $1.78, so only two fit under a $4 cap
@@ -127,7 +127,7 @@ def test_caps_carry_across_runs(monkeypatch):
     # come off the ledger, not an in-process counter
     monkeypatch.setattr(fr, "MAX_ORDERS_PER_DAY", 3)
     monkeypatch.setattr(fr, "MAX_DAILY_DEPLOY_USD", 100.0)
-    monkeypatch.setattr(fr, "placed_today", lambda *a, **k: (3, 5.0))
+    monkeypatch.setattr(fr, "placed_today", lambda *a, **k: (3, 5.0, {}))
     monkeypatch.setattr(fr, "log_execution", lambda *a, **k: None)
     client = _Client()
     placed = fr.place_signals(client, FakeSettings(), [_signal()], 50.0, 0.0,
@@ -138,7 +138,7 @@ def test_caps_carry_across_runs(monkeypatch):
 # --- other refusals ---------------------------------------------------------
 
 def test_held_ticker_is_not_stacked(monkeypatch):
-    monkeypatch.setattr(fr, "placed_today", lambda *a, **k: (0, 0.0))
+    monkeypatch.setattr(fr, "placed_today", lambda *a, **k: (0, 0.0, {}))
     client = _Client()
     fr.place_signals(client, FakeSettings(), [_signal()], 50.0, 0.0,
                      {"KXA-26AUG06-1"})
@@ -146,7 +146,7 @@ def test_held_ticker_is_not_stacked(monkeypatch):
 
 
 def test_one_order_per_event_per_run(monkeypatch):
-    monkeypatch.setattr(fr, "placed_today", lambda *a, **k: (0, 0.0))
+    monkeypatch.setattr(fr, "placed_today", lambda *a, **k: (0, 0.0, {}))
     monkeypatch.setattr(fr, "log_execution", lambda *a, **k: None)
     client = _Client()
     sigs = [_signal(ticker="KXA-26AUG06-1"), _signal(ticker="KXA-26AUG06-2")]
@@ -155,7 +155,7 @@ def test_one_order_per_event_per_run(monkeypatch):
 
 
 def test_kill_switch_blocks_every_order(monkeypatch):
-    monkeypatch.setattr(fr, "placed_today", lambda *a, **k: (0, 0.0))
+    monkeypatch.setattr(fr, "placed_today", lambda *a, **k: (0, 0.0, {}))
     client = _Client()
     placed = fr.place_signals(client, FakeSettings(kill_switch=True),
                               [_signal()], 50.0, 0.0, set())
@@ -163,7 +163,7 @@ def test_kill_switch_blocks_every_order(monkeypatch):
 
 
 def test_dry_run_sends_nothing(monkeypatch):
-    monkeypatch.setattr(fr, "placed_today", lambda *a, **k: (0, 0.0))
+    monkeypatch.setattr(fr, "placed_today", lambda *a, **k: (0, 0.0, {}))
     client = _Client()
     placed = fr.place_signals(client, FakeSettings(dry_run=True), [_signal()],
                               50.0, 0.0, set())
@@ -171,8 +171,69 @@ def test_dry_run_sends_nothing(monkeypatch):
 
 
 def test_unfetchable_market_is_skipped_not_placed_blind(monkeypatch):
-    monkeypatch.setattr(fr, "placed_today", lambda *a, **k: (0, 0.0))
+    monkeypatch.setattr(fr, "placed_today", lambda *a, **k: (0, 0.0, {}))
     client = _Client(fail=True)
     placed = fr.place_signals(client, FakeSettings(), [_signal()], 50.0, 0.0,
                               set())
     assert placed == 0 and client.orders == []
+
+
+# --- correlated-theme cap across the day ------------------------------------
+# strategy_favorite caps themes within a scan, but the scheduler runs ~70 scans
+# a day. Two inflation bets per scan would still fill the entire 8-order daily
+# budget with a single bet on a single CPI print, which is the concentration
+# the per-scan cap was meant to prevent.
+
+def test_placed_today_groups_tickers_into_themes(tmp_path):
+    p = _ledger(tmp_path, [
+        "2026-08-06T01:00:00+00:00,favorite,KXUSEDCARCPI-26AUG12-T1,yes,1,86,0.86,o1,",
+        "2026-08-06T02:00:00+00:00,favorite,KXSHELTERCPI-26AUG12-T4,yes,1,88,0.88,o2,",
+        "2026-08-06T03:00:00+00:00,favorite,KXALLSVENSKANGAME-X-BRO,no,1,91,0.91,o3,",
+    ])
+    count, usd, themes = fr.placed_today(p, NOW)
+    assert count == 3
+    assert themes["inflation"] == 2          # the two CPI markets are one bet
+    assert themes["KXALLSVENSKANGAME"] == 1
+
+
+def test_theme_cap_stops_a_day_of_one_correlated_bet(monkeypatch):
+    monkeypatch.setattr(fr, "MAX_ORDERS_PER_DAY", 8)
+    monkeypatch.setattr(fr, "MAX_DAILY_DEPLOY_USD", 100.0)
+    monkeypatch.setattr(fr, "MAX_ORDERS_PER_THEME_PER_DAY", 3)
+    monkeypatch.setattr(fr, "placed_today", lambda *a, **k: (0, 0.0, {}))
+    monkeypatch.setattr(fr, "log_execution", lambda *a, **k: None)
+    client = _Client()
+    # eight distinct CPI markets, all resolving off one release
+    sigs = [_signal(ticker=f"KXCPI{i}-26AUG12-T1") for i in range(8)]
+    placed = fr.place_signals(client, FakeSettings(), sigs, 50.0, 0.0, set())
+    assert placed == 3, "one theme must not consume the whole daily budget"
+
+
+def test_theme_cap_carries_across_runs(monkeypatch):
+    monkeypatch.setattr(fr, "MAX_ORDERS_PER_THEME_PER_DAY", 3)
+    monkeypatch.setattr(fr, "MAX_ORDERS_PER_DAY", 8)
+    monkeypatch.setattr(fr, "MAX_DAILY_DEPLOY_USD", 100.0)
+    # earlier runs today already placed three inflation bets
+    monkeypatch.setattr(fr, "placed_today",
+                        lambda *a, **k: (3, 5.0, {"inflation": 3}))
+    monkeypatch.setattr(fr, "log_execution", lambda *a, **k: None)
+    client = _Client()
+    placed = fr.place_signals(client, FakeSettings(),
+                              [_signal(ticker="KXCPIX-26AUG12-T1")],
+                              50.0, 0.0, set())
+    assert placed == 0 and client.orders == []
+
+
+def test_other_themes_still_trade_when_one_is_capped(monkeypatch):
+    monkeypatch.setattr(fr, "MAX_ORDERS_PER_THEME_PER_DAY", 3)
+    monkeypatch.setattr(fr, "MAX_ORDERS_PER_DAY", 8)
+    monkeypatch.setattr(fr, "MAX_DAILY_DEPLOY_USD", 100.0)
+    monkeypatch.setattr(fr, "placed_today",
+                        lambda *a, **k: (3, 5.0, {"inflation": 3}))
+    monkeypatch.setattr(fr, "log_execution", lambda *a, **k: None)
+    client = _Client()
+    sigs = [_signal(ticker="KXCPIX-26AUG12-T1"),
+            _signal(ticker="KXSOCCER-26AUG10-BRO")]
+    placed = fr.place_signals(client, FakeSettings(), sigs, 50.0, 0.0, set())
+    assert placed == 1
+    assert client.orders[0]["ticker"] == "KXSOCCER-26AUG10-BRO"
