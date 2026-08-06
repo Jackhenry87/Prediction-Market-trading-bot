@@ -1,0 +1,43 @@
+name: env-check
+
+# Manual diagnostic. Verifies the ODDS_API_KEY secret and compares the Kalshi
+# demo and prod venues for usable market data. Runs on this branch so it can
+# be triggered before the branch is merged.
+#
+# The odds check uses the FREE /v4/sports endpoint by default and spends zero
+# of the 500 monthly credits. Set spend=true to also make one metered call
+# (2 credits) and observe the true per-call cost from the response headers.
+
+on:
+  workflow_dispatch:
+    inputs:
+      spend:
+        description: 'Also make ONE metered odds call (costs 2 credits)'
+        type: boolean
+        default: false
+  push:
+    branches: [claude/repo-review-feedback-kz86wt]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Probe odds key and both Kalshi venues
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        run: |
+          if [ "${{ inputs.spend }}" = "true" ]; then
+            python env_check.py --spend
+          else
+            python env_check.py
+          fi
