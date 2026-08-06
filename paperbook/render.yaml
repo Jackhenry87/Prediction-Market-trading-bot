@@ -9,3 +9,21 @@ services:
         generateValue: true
       - key: ODDS_API_KEY
         sync: false
+
+  # Receiver for followed-trader push notifications, forwarded by an iOS
+  # Shortcut. A SEPARATE service from the sportsbook on purpose: a public
+  # play-money demo and a live-money trade trigger should not share a
+  # process, a request path, or an auth surface.
+  #
+  # FOLLOW_WEBHOOK_KEY is sync:false so the secret is set in the Render
+  # dashboard and never lands in the repo. The app refuses to accept
+  # triggers while it is unset.
+  - type: web
+    name: follow-webhook
+    runtime: python
+    buildCommand: pip install -r paperbook/requirements.txt
+    startCommand: uvicorn follow_webhook:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /follow/health
+    envVars:
+      - key: FOLLOW_WEBHOOK_KEY
+        sync: false

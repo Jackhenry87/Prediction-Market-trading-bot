@@ -1,0 +1,25 @@
+# systemd unit for the leaderboard copier (an always-on VPS).
+#   sudo cp deploy/follow-runner.service /etc/systemd/system/
+#   sudo systemctl enable --now follow-runner
+#
+# This process drains follow_webhook and, when OUR OWN model agrees there is
+# an edge, places a quarter-Kelly copy. It is separate from the hourly bot
+# because the whole point is latency: the target is an order within two
+# minutes of his, and an hourly cron cannot do that.
+#
+# It is SAFE to leave running before you trust the strategy — FOLLOW_DRY_RUN
+# defaults to true, and FOLLOW_ENABLED defaults to false, so an unconfigured
+# unit does nothing at all.
+[Unit]
+Description=Kalshi leaderboard copy-trade runner
+After=network-online.target
+
+[Service]
+WorkingDirectory=/opt/trading-bot
+EnvironmentFile=/opt/trading-bot/.env
+ExecStart=/opt/trading-bot/venv/bin/python follow_runner.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

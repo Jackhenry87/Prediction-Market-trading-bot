@@ -15,6 +15,11 @@ Two jobs:
 
    Redirecting the paths for the whole session means a future test that
    forgets to patch cannot do it again.
+
+   The same trap caught the follow-runner tests, which appended three fake
+   `test-order` rows to the real copy_trades.csv and executed_trades.csv —
+   the ledgers the scoreboards report from. Those two are redirected here as
+   well, so the blast radius of a forgetful test is a temp directory.
 """
 
 import sys
@@ -33,6 +38,28 @@ def _isolate_state_files(tmp_path, monkeypatch):
     import strategy_sports
     import strategy_favorite
     import clv_tracker
+    import ledger
+
+    # The two shared EXECUTION ledgers. follow_runner passes these paths
+    # explicitly at the call site, which is what lets a patch here take
+    # effect — the functions' `path=` defaults are bound at import time and
+    # cannot be redirected by patching the module constant alone.
+    monkeypatch.setattr(ledger, "EXEC_LOG", tmp_path / "executed_trades.csv")
+    monkeypatch.setattr(ledger, "COPY_LOG", tmp_path / "copy_trades.csv")
+    try:
+        import follow_runner
+        monkeypatch.setattr(follow_runner, "EXEC_LOG",
+                            tmp_path / "executed_trades.csv")
+        monkeypatch.setattr(follow_runner, "COPY_LOG",
+                            tmp_path / "copy_trades.csv")
+        monkeypatch.setattr(follow_runner, "PAPER_LOG",
+                            tmp_path / "follow_trades.csv")
+        monkeypatch.setattr(follow_runner, "CURSOR_PATH",
+                            tmp_path / "follow_cursor.txt")
+        monkeypatch.setattr(follow_runner, "UNPARSED_LOG",
+                            tmp_path / "follow_unparsed.log")
+    except ImportError:
+        pass
 
     monkeypatch.setattr(strategy_sports, "LINE_HISTORY",
                         tmp_path / "sports_line_history.json")

@@ -37,3 +37,10 @@ paperbook/paperbook.db
 clv_sports.csv
 CLV_SCOREBOARD.md
 paper_trades_favorite.csv
+
+# leaderboard copier runtime state
+follow_inbox.jsonl
+follow_cursor.txt
+follow_unparsed.log
+follow_trades.csv
+FOLLOW_SCOREBOARD.md

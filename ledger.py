@@ -28,10 +28,15 @@ COPY_COLUMNS = ["placed_at_utc", "model", "ticker", "side", "count",
 
 def log_copy_execution(ticker: str, side: str, count: int, price_cents: int,
                        order_id: str, model_prob: float, wallets: int,
-                       conviction: float, path: Path = COPY_LOG) -> None:
+                       conviction: float, path: Path = COPY_LOG,
+                       model: str = "smartmoney") -> None:
     """Like log_execution but for the copy ledger, recording the CONFIDENCE
     behind the pick (win prob, # sharps, conviction) so the copy scoreboard
-    can show a rating next to every trade."""
+    can show a rating next to every trade.
+
+    `model` defaults to smartmoney — the original and only caller — but is
+    overridable so the leaderboard follower can share this ledger without
+    its rows being attributed to the wrong strategy."""
     new_file = not path.exists()
     with open(path, "a", newline="") as fh:
         writer = csv.writer(fh)
@@ -39,7 +44,7 @@ def log_copy_execution(ticker: str, side: str, count: int, price_cents: int,
             writer.writerow(COPY_COLUMNS)
         writer.writerow([
             datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "smartmoney", ticker, side, count, price_cents,
+            model, ticker, side, count, price_cents,
             f"{price_cents * count / 100:.2f}", order_id,
             f"{model_prob:.3f}", wallets, f"{conviction:.0f}", "",
         ])
