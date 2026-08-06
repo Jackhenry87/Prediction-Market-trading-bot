@@ -89,16 +89,34 @@ def test_thin_market_is_skipped():
 
 # --- edge arithmetic --------------------------------------------------------
 
-def test_edge_is_bias_plus_spread_saved_plus_fee_avoided():
-    from strategy_weather import taker_fee_cents
+def test_edge_is_measured_against_the_mid_not_the_ask():
+    # book 88/92 -> mid 90, entry 89. Mechanical edge is mid - entry = 1c.
+    # An earlier version used (ask - entry) = 3c, the saving versus crossing
+    # the spread, which is what a TAKER forgoes — not what we gain over fair
+    # value. It inflated the edge ~3x and would have inflated every position
+    # size derived from it.
+    import sizing
     sig = fav.evaluate_market(_market(88, 92), NOW)
-    expected = fav.FAV_BIAS_CENTS + (92 - 89) + taker_fee_cents(92)
+    expected = 1.0 + fav.FAV_BIAS_CENTS * sizing.BIAS_CONFIDENCE
     assert round(sig["ev_cents"], 6) == round(expected, 6)
+    assert sig["mid"] == 90
+    assert sig["ev_cents"] < (92 - 89), "must not count the spread as edge"
 
 
-def test_model_prob_records_the_assumption_under_test():
+def test_wider_spread_earns_more_mechanical_edge():
+    # Resting at bid+1 in a wide book buys further below fair value. This is
+    # also why newly-listed, thinly-quoted series are attractive: the edge
+    # comes from the spread, so no special-casing for "new markets" is needed.
+    narrow = fav.evaluate_market(_market(89, 91), NOW)   # mid 90, entry 90
+    wide = fav.evaluate_market(_market(85, 95), NOW)     # mid 90, entry 86
+    assert wide["ev_cents"] > narrow["ev_cents"]
+    assert narrow["ev_cents"] == fav.FAV_BIAS_CENTS * __import__(
+        "sizing").BIAS_CONFIDENCE          # at the mid: bias only, no capture
+
+
+def test_model_prob_is_entry_plus_the_discounted_edge():
     sig = fav.evaluate_market(_market(88, 92), NOW)
-    assert sig["model_prob"] == (89 + fav.FAV_BIAS_CENTS) / 100.0
+    assert sig["model_prob"] == (89 + sig["ev_cents"]) / 100.0
 
 
 # --- scan-level culls -------------------------------------------------------

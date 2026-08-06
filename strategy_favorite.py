@@ -61,6 +61,7 @@ from pathlib import Path
 
 from kalshi_client import KalshiClient
 from ledger import log_signals
+from sizing import effective_edge_cents, size_position
 from strategy_weather import price_cents, taker_fee_cents
 from trade_logger import get_logger, setup_logging
 
@@ -242,20 +243,25 @@ def evaluate_market(market: dict, now: datetime = None):
     if hours is None or hours < MIN_HOURS_TO_CLOSE:
         return None
 
-    # Edge decomposition — see the module docstring. Only the first term is an
-    # assumption; the other two are mechanical consequences of resting.
-    spread_saved = ask - entry
-    fee_avoided = taker_fee_cents(ask)
-    ev = FAV_BIAS_CENTS + spread_saved + fee_avoided
+    # Edge is measured against FAIR VALUE, which is the market's own mid — not
+    # against the ask. An earlier version counted (ask - entry), the saving
+    # versus crossing the spread, as edge; that is what a taker gives up, not
+    # what we gain over fair. It inflated the edge roughly threefold and would
+    # have inflated every Kelly-sized position built on it.
+    mid = (bid + ask) / 2.0
+    edge = effective_edge_cents(mid, entry, FAV_BIAS_CENTS)
 
-    # model_prob is the price we believe is fair, i.e. our entry plus the
-    # assumed bias. Recording it makes the assumption falsifiable: the
-    # scoreboard scores this number against settlement like any other model.
-    model_prob = min((entry + FAV_BIAS_CENTS) / 100.0, 0.99)
+    # Fair value as we estimate it, recorded so the assumption is falsifiable:
+    # the scoreboard scores this against settlement like any other model.
+    model_prob = min((entry + edge) / 100.0, 0.99)
 
-    return dict(ticker=market.get("ticker", ""), side=side,
-                price_cents=entry, model_prob=model_prob, ev_cents=ev,
-                bid=bid, ask=ask, spread=spread, hours_to_close=hours,
+    return dict(ticker=ticker, side=side,
+                price_cents=entry, model_prob=model_prob, ev_cents=edge,
+                mid=mid, bid=bid, ask=ask, spread=spread,
+                # what a taker would have paid to get the same exposure, for
+                # the log only — never added to the edge
+                taker_cost=ask + taker_fee_cents(ask),
+                hours_to_close=hours,
                 subtitle=(market.get("title") or market.get("subtitle") or ""))
 
 
@@ -267,7 +273,10 @@ def _event_of(ticker: str) -> str:
     return ticker or ""
 
 
-def scan(client=None, now: datetime = None) -> list:
+BANKROLL_USD = float(os.getenv("BANKROLL_USD", "50"))
+
+
+def scan(client=None, now: datetime = None, bankroll_usd: float = None) -> list:
     """Scan every open market for favourite-side maker entries.
 
     Returns the ledger's results shape: [{date, signals: [...]}] so the
@@ -299,14 +308,33 @@ def scan(client=None, now: datetime = None) -> list:
         if len(kept) >= MAX_SIGNALS:
             break
 
-    log.info("%d favourite-side maker signals (%d before event/limit cull)",
-             len(kept), len(signals))
+    # Size every survivor off its own edge. Units are NOT uniform: a 2.5c edge
+    # earns more contracts than a 0.9c one, and an edge too thin to pay for a
+    # single contract at quarter Kelly gets zero rather than a token bet.
+    bankroll = BANKROLL_USD if bankroll_usd is None else bankroll_usd
+    sized = []
     for s in kept:
-        log.info("  %s %s @ %.0fc (book %.0f/%.0f, %.1fc edge, closes in "
-                 "%.1fh) | %s", s["side"].upper(), s["ticker"],
-                 s["price_cents"], s["bid"], s["ask"], s["ev_cents"],
-                 s["hours_to_close"], s["subtitle"][:60])
+        plan = size_position(bankroll, s["price_cents"], s["ev_cents"])
+        s.update(contracts=plan["contracts"], stake_usd=plan["stake_usd"],
+                 kelly_full=plan["kelly_full"], kelly_used=plan["kelly_used"],
+                 sizing_reason=plan["reason"])
+        if plan["contracts"] < 1:
+            log.info("  SKIP %s: %s", s["ticker"], plan["reason"])
+            continue
+        sized.append(s)
 
+    log.info("%d sized signals (%d qualified, %d before event/limit cull) "
+             "on a $%.2f bankroll", len(sized), len(kept), len(signals),
+             bankroll)
+    for s in sized:
+        log.info("  %s %s x%d @ %.0fc (book %.0f/%.0f mid %.1f, edge %.2fc, "
+                 "$%.2f, closes %.1fh) | %s",
+                 s["side"].upper(), s["ticker"], s["contracts"],
+                 s["price_cents"], s["bid"], s["ask"], s["mid"],
+                 s["ev_cents"], s["stake_usd"], s["hours_to_close"],
+                 s["subtitle"][:50])
+
+    kept = sized
     if not kept:
         return []
     date = datetime.now(timezone.utc).date().isoformat()

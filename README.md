@@ -53,6 +53,64 @@ dies like the others. That is the entire point of running it on paper.
 It needs **no API keys** — public Kalshi market data only. The dependency that
 silently died last time cannot break this one.
 
+## Why this model and not the other eight
+
+| Strategy | Verdict |
+|---|---|
+| weather | Brier 0.308 vs 0.25 coin flip, CLV −11.6¢, −$27 of the −$33. Retired. |
+| sports | Brier 0.278, CLV −6.0¢, and needs a paid odds API whose free tier covers ~3 days a month. Retired. |
+| crypto / commodities | Lognormal pricing of BTC/oil thresholds — competing with actual options desks. Never produced a signal. Retired. |
+| macro resolution-lag | Sound idea, wrong infrastructure: the edge decays in minutes and GitHub cron lags by tens of minutes. Structurally infeasible here. |
+| smart-money copy | Premise is that big Polymarket wallets are sharp. The largest study of both venues finds the most capitalised traders systematically *underperform* smaller ones. Premise inverted. |
+| NRFI Martingale | 1-2-4 doubling. Martingale converts a small edge into eventual ruin with certainty. Should never be re-enabled. |
+| risk-free arb | Genuinely real, but capacity-constrained and latency-competitive; on a $50 book the absolute return is pennies. |
+| **favourite-bias maker** | **Structural rather than predictive, externally replicated, no paid dependency, 23 live signals on first real scan.** |
+
+On "a new strategy profitable for a short time": that instinct is right, and this
+model already captures it. Newly listed series have wide, thin books, and the
+edge here *is* the spread — resting at bid+1 in a 85/95 book buys 4¢ below fair
+value versus 0¢ in an 89/91 book. No special-casing needed; wide books
+automatically size larger.
+
+## Position sizing
+
+Units are **not** a flat percentage. `sizing.py` sizes each signal off its own
+edge, using Kelly for a binary contract:
+
+```
+f* = edge_cents / (100 - entry_cents)      # edge divided by what you can win
+```
+
+Buying an 89¢ favourite risks 89¢ to win 11¢, so even a 2¢ edge is 18% of
+bankroll at full Kelly. Full Kelly also carries an expected peak-to-trough
+drawdown near 50% *even when the edge is real*. We use **quarter Kelly**:
+variance scales with the square of the fraction, so it cuts variance ~94% while
+keeping ~44% of the growth rate and capping expected drawdown near 12%. That is
+the standard response to an uncertain edge, a small bankroll and correlated
+positions — this strategy has all three.
+
+The edge itself is split by how much we trust it:
+
+- **mechanical** (`mid − entry`) — certain given a fill; we rest below the
+  market's own midpoint.
+- **assumed** (the favourite-longshot correction) — the research claim under
+  test, multiplied by `BIAS_CONFIDENCE` (starts at 0.5). Raise it only when the
+  CLV scoreboard earns it.
+
+Two signals with the same headline edge size differently if one leans harder on
+the unproven part. On a $50 bankroll this yields 1–2 contracts at $1.14–$2.50:
+
+| entry | mid | edge | full Kelly | used | stake | units |
+|---|---|---|---|---|---|---|
+| 89¢ | 89.5 | 1.00¢ | 9.1% | 2.3% | $1.14 | 1 |
+| 89¢ | 90 | 1.50¢ | 13.6% | 3.4% | $1.70 | 1 |
+| 89¢ | 91 | 2.50¢ | 22.7% | 5.0% | $2.50 | 2 |
+| 86¢ | 90 | 4.50¢ | 32.1% | 5.0% | $2.50 | 2 |
+
+A stake below one contract is **zero** contracts, never one — rounding a
+sub-minimum stake up is how a sized model quietly becomes a flat-stake punter
+on its weakest signals. `MAX_BANKROLL_PCT` (5%) is a hard backstop above Kelly.
+
 ## Honest limits of the thesis
 
 - The favourite-side excess return in the literature is **small** (low single
