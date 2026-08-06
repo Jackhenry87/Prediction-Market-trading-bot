@@ -97,6 +97,10 @@ jobs:
           # signals resolving off a single CPI print; without this, one theme
           # could consume the whole daily budget across ~70 scans.
           MAX_ORDERS_PER_THEME_PER_DAY: ${{ vars.MAX_ORDERS_PER_THEME_PER_DAY || '3' }}
+          # How long a maker bid may rest before it is pulled and re-priced.
+          # Without this an 86c bid sat in a book closing 142h out, free to be
+          # picked off after the market walked away from it.
+          RESTING_TTL_H: ${{ vars.RESTING_TTL_H || '6' }}
         run: python favorite_runner.py
 
       - name: Snapshot open prices, confirm fills, score CLV

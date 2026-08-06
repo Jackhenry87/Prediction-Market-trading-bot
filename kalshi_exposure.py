@@ -55,22 +55,35 @@ def _order_cost_cents(order: dict):
     if remaining <= 0:
         return 0
 
+    per_contract = order_price_cents(order)
+    if per_contract is None:
+        return None
+    return per_contract * remaining
+
+
+def order_price_cents(order: dict):
+    """Price per contract of a resting order, in cents, across API vintages.
+    None if unparseable.
+
+    Split out of _order_cost_cents so the live runner can compare a resting
+    bid against the current book without re-deriving the field vocabulary.
+    """
     price = order.get("price")
     if price not in (None, ""):
         value = float(price)
-        cents = value * 100 if value <= 1 else value  # dollars vs cents
-        return cents * remaining
+        return value * 100 if value <= 1 else value   # dollars vs cents
     # the outcome side we're buying (V2 orders carry side='yes'/'no' plus a
     # book_side='bid'/'ask'); price is in cents (<side>_price) or dollar strings
     # (<side>_price_dollars, the current vintage).
+    side = order.get("side")
     outcome = side if side in ("yes", "no") else None
     for base in ([outcome] if outcome else []) + ["yes", "no"]:
         c = order.get(f"{base}_price")
         if c not in (None, ""):
-            return float(c) * remaining                 # already cents
+            return float(c)                             # already cents
         d = order.get(f"{base}_price_dollars")
         if d not in (None, ""):
-            return float(d) * 100.0 * remaining         # dollars -> cents
+            return float(d) * 100.0                     # dollars -> cents
     return None
 
 

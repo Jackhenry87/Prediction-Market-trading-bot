@@ -237,3 +237,103 @@ def test_other_themes_still_trade_when_one_is_capped(monkeypatch):
     placed = fr.place_signals(client, FakeSettings(), sigs, 50.0, 0.0, set())
     assert placed == 1
     assert client.orders[0]["ticker"] == "KXSOCCER-26AUG10-BRO"
+
+
+# --- resting-order lifecycle ------------------------------------------------
+# A maker bid with no expiry is a free option written to the rest of the
+# market. Markets here close up to a week out, so an 86c bid could sit while
+# the price walked to 60c — and the only traders who take it are the ones who
+# know why it should not be there. The runner had NO cancellation at all.
+
+from datetime import timedelta
+
+T0 = datetime(2026, 8, 6, 12, 0, tzinfo=timezone.utc)
+
+
+def _resting(price=86, side="yes", age_h=1.0, ticker="KXA-26AUG06-1",
+             oid="ord-1"):
+    return {"order_id": oid, "ticker": ticker, "side": side, "action": "buy",
+            "yes_price": price, "remaining_count": 2,
+            "created_time": (T0 - timedelta(hours=age_h)).isoformat()}
+
+
+def test_bid_left_above_the_mid_is_cancelled():
+    # we bid 86; the market fell to 70/80 (mid 75). Our order now offers to
+    # overpay by 11c and will be hit by whoever wants out.
+    r = fr.cancel_reason(_resting(price=86), _book(70, 80), T0)
+    assert r and "above the mid" in r
+
+
+def test_bid_still_below_the_mid_is_left_alone():
+    r = fr.cancel_reason(_resting(price=86), _book(85, 95), T0)   # mid 90
+    assert r is None
+
+
+def test_favourite_flip_cancels():
+    # our YES bid when the market now favours NO: we hold the longshot
+    r = fr.cancel_reason(_resting(price=86, side="yes"), _book(8, 12), T0)
+    assert r and "flipped" in r
+
+
+def test_ttl_expires_an_otherwise_fine_bid(monkeypatch):
+    monkeypatch.setattr(fr, "RESTING_TTL_H", 6)
+    fine = fr.cancel_reason(_resting(price=86, age_h=1), _book(85, 95), T0)
+    stale = fr.cancel_reason(_resting(price=86, age_h=7), _book(85, 95), T0)
+    assert fine is None
+    assert stale and "TTL" in stale
+
+
+def test_unreadable_order_still_expires_on_age(monkeypatch):
+    monkeypatch.setattr(fr, "RESTING_TTL_H", 6)
+    o = {"order_id": "x", "ticker": "T", "action": "buy", "remaining_count": 1,
+         "created_time": (T0 - timedelta(hours=9)).isoformat()}
+    assert "unreadable" in fr.cancel_reason(o, _book(85, 95), T0)
+
+
+def test_no_quote_means_leave_it_rather_than_cancel_blind():
+    assert fr.cancel_reason(_resting(), {"ticker": "T"}, T0) is None
+
+
+class _CancelClient(_Client):
+    def __init__(self, market=None):
+        super().__init__(market)
+        self.cancelled = []
+
+    def cancel_order(self, oid):
+        self.cancelled.append(oid)
+        return {"ok": True}
+
+
+def test_a_bid_that_drifts_out_of_the_band_is_cancelled():
+    # book fell to 70/80: our 70c bid is below the mid, but we only want to
+    # hold favourites in the 85-97 band, so we should not want this fill.
+    r = fr.cancel_reason(_resting(price=70), _book(70, 80), T0)
+    assert r and "outside the trading band" in r
+
+
+def test_sweep_cancels_only_the_stale_ones():
+    client = _CancelClient(_book(85, 95))          # mid 90
+    orders = [_resting(price=92, oid="stale"),     # above mid -> cancel
+              _resting(price=86, oid="ok")]        # below mid, in band -> keep
+    n = fr.cancel_stale_resting(client, orders, T0)
+    assert n == 1 and client.cancelled == ["stale"]
+
+
+def test_sweep_ignores_sell_orders():
+    client = _CancelClient(_book(70, 80))
+    o = dict(_resting(price=86), action="sell")
+    assert fr.cancel_stale_resting(client, [o], T0) == 0
+    assert client.cancelled == []
+
+
+def test_cancel_failure_does_not_stop_the_sweep():
+    class _Flaky(_CancelClient):
+        def cancel_order(self, oid):
+            if oid == "bad":
+                raise RuntimeError("500")
+            return super().cancel_order(oid)
+
+    client = _Flaky(_book(70, 80))
+    orders = [_resting(price=86, oid="bad"), _resting(price=86, oid="good")]
+    n = fr.cancel_stale_resting(client, orders, T0)
+    assert n == 1 and client.cancelled == ["good"]
