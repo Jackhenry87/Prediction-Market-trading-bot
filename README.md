@@ -41,17 +41,23 @@ two documented structural facts about the venue:
 So: buy the **favourite** side, only ever as a **maker**, and measure with CLV.
 
 ```
-edge = FAV_BIAS_CENTS        <- the assumption under test
-     + (ask - entry)         <- spread kept by resting instead of crossing
-     + taker_fee_cents(ask)  <- fee not paid because we're the maker
+edge = (mid - entry)                      <- mechanical: we rest below the
+                                             market's own midpoint
+     + FAV_BIAS_CENTS * BIAS_CONFIDENCE   <- the assumption under test
 ```
 
-Only the first term is a claim. The other two are arithmetic. If mean CLV over
-100+ **filled** samples is positive, the claim survived; if not, this model
-dies like the others. That is the entire point of running it on paper.
+Edge is measured against **fair value (the mid)**, not against the ask. An
+earlier version counted `ask - entry` — the saving a taker forgoes by crossing
+the spread — as edge. That is not what we gain over fair value, and it inflated
+every signal roughly threefold and every position size derived from it.
 
-It needs **no API keys** — public Kalshi market data only. The dependency that
-silently died last time cannot break this one.
+Only the second term is a claim; the first is arithmetic. If mean CLV over 100+
+**filled** samples is positive, the claim survived. If not, this model dies like
+the others.
+
+The scan needs **no API keys** — public Kalshi market data only, so the kind of
+silent credential expiry that blinded the sports model for weeks cannot happen
+here. Placing orders does use the Kalshi key.
 
 ## Why this model and not the other eight
 
@@ -185,7 +191,7 @@ Scale up only at **100+ scored samples with a positive mean CLV**.
 
 ```bash
 python3 -m venv venv && source venv/bin/activate
-pip install -r requirements.txt -r paperbook/requirements.txt pytest
+pip install -r requirements.txt -r paperbook/requirements.txt -r requirements-dev.txt
 python strategy_favorite.py   # read-only scan, places nothing
 python clv_tracker.py         # snapshot + scoreboard
 python -m pytest -q           # 283 tests

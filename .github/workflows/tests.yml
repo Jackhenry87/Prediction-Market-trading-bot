@@ -32,12 +32,13 @@ jobs:
           python-version: '3.12'
           cache: pip
       - name: Install dependencies
-        # paperbook/ has its own deps (fastapi, bcrypt, ...). Without them
-        # nine tests error out on import, which is indistinguishable from a
-        # real failure — install both requirement sets.
+        # Three files, all required. paperbook/ has its own runtime deps
+        # (fastapi, bcrypt, ...) and requirements-dev.txt carries the test-only
+        # ones (pytest, httpx2). Miss any of them and nine tests error at
+        # import, which is indistinguishable from a real failure.
         run: |
-          pip install -r requirements.txt
-          pip install -r paperbook/requirements.txt
-          pip install pytest
+          pip install -r requirements.txt \
+                      -r paperbook/requirements.txt \
+                      -r requirements-dev.txt
       - name: Run the suite
         run: python -m pytest -q

@@ -11,14 +11,15 @@ order and STOP at the first failure.
 ## 1. Hard test gate (never skip)
 
 ```bash
-pip install -r requirements.txt -r paperbook/requirements.txt pytest
+pip install -r requirements.txt -r paperbook/requirements.txt -r requirements-dev.txt
 python -m pytest -q
 ```
 
 - **If ANY test fails: STOP.** Do not commit, push, or merge. Show the failing
   tests and ask whether to fix or abort. A red suite never ships.
-- Both requirement files matter: without `paperbook/requirements.txt` nine
-  tests error on import, which looks identical to a real failure.
+- All three requirement files matter: miss `paperbook/requirements.txt` or
+  `requirements-dev.txt` (pytest, httpx2) and nine tests error on import,
+  which looks identical to a real failure but is not one.
 - Only continue when the suite is fully green. Print the pass count.
 
 ## 2. Commit on the feature branch
