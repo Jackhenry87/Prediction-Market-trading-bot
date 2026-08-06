@@ -265,6 +265,40 @@ def evaluate_market(market: dict, now: datetime = None):
                 subtitle=(market.get("title") or market.get("subtitle") or ""))
 
 
+# Correlation groups. Markets in different SERIES can still be one bet: the
+# first live scan returned twelve signals — used-car CPI, shelter CPI, headline
+# CPI, core CPI, gas CPI, airfare CPI, PPI — that all resolve off a single
+# monthly inflation release. Event-level dedup does not see this, because the
+# tickers share no prefix. Betting all of them is one oversized wager on one
+# number, which is exactly how a -$27 concentration loss happened before.
+_THEME_KEYWORDS = [
+    ("CPI", "inflation"), ("PPI", "inflation"), ("PCE", "inflation"),
+    ("INFLATION", "inflation"),
+    ("PAYROLL", "jobs"), ("UNEMP", "jobs"), ("JOBLESS", "jobs"),
+    ("CLAIMS", "jobs"), ("NFP", "jobs"),
+    ("FED", "rates"), ("FOMC", "rates"),
+    ("HIGH", "weather"), ("LOW", "weather"), ("TEMP", "weather"),
+    ("BTC", "crypto"), ("ETH", "crypto"),
+]
+
+# Max signals sharing one correlated theme, per scan.
+MAX_PER_THEME = int(os.getenv("FAV_MAX_PER_THEME", "2"))
+
+
+def theme_of(ticker: str) -> str:
+    """The correlated group a market belongs to.
+
+    Keyword-matched for known shared drivers (one CPI release moves every
+    inflation sub-index); otherwise the series prefix, so unrelated markets
+    each get their own theme and are not over-grouped.
+    """
+    t = (ticker or "").upper()
+    for keyword, theme in _THEME_KEYWORDS:
+        if keyword in t:
+            return theme
+    return t.split("-", 1)[0] or "other"
+
+
 def _event_of(ticker: str) -> str:
     """KXHIGHNY-26JUL02-B99.5 -> KXHIGHNY-26JUL02. Markets in one event are
     the same underlying bet; we take at most MAX_PER_EVENT of them."""
@@ -298,12 +332,19 @@ def scan(client=None, now: datetime = None, bankroll_usd: float = None) -> list:
 
     # Best edge first, then thin out correlated markets from the same event.
     signals.sort(key=lambda s: -s["ev_cents"])
-    per_event, kept = {}, []
+    per_event, per_theme, kept = {}, {}, []
     for s in signals:
         ev_key = _event_of(s["ticker"])
+        th_key = theme_of(s["ticker"])
         if per_event.get(ev_key, 0) >= MAX_PER_EVENT:
             continue
+        if per_theme.get(th_key, 0) >= MAX_PER_THEME:
+            log.debug("theme cap: skip %s (%s already at %d)",
+                      s["ticker"], th_key, MAX_PER_THEME)
+            continue
         per_event[ev_key] = per_event.get(ev_key, 0) + 1
+        per_theme[th_key] = per_theme.get(th_key, 0) + 1
+        s["theme"] = th_key
         kept.append(s)
         if len(kept) >= MAX_SIGNALS:
             break
