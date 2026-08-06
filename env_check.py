@@ -86,8 +86,10 @@ def _summarise(label: str, markets: list) -> dict:
     import strategy_favorite as fav
     quoted = [m for m in markets if fav.favourite_side(m)]
     signals = [s for s in (fav.evaluate_market(m) for m in markets) if s]
-    volumes = sorted((float(m.get("volume") or 0) for m in markets),
-                     reverse=True)
+    # via market_volume, not m["volume"] — that key does not exist in the
+    # live payload, which is what made this diagnostic report "0 traded"
+    # alongside 23 signals.
+    volumes = sorted((fav.market_volume(m) for m in markets), reverse=True)
     print(f"  [{label}] markets={len(markets)} two_sided={len(quoted)} "
           f"volume>0={sum(1 for v in volumes if v > 0)} "
           f"signals={len(signals)} top_vol={[int(v) for v in volumes[:5]]}")
@@ -107,7 +109,6 @@ def check_kalshi(env: str) -> dict:
     that have never traded. Kalshi's own liquidity lives in the contracts
     closing soon, so the windowed query is the one that matters.
     """
-    import time
     import strategy_favorite as fav
     print(f"\n=== KALSHI {env.upper()} ===")
     try:
@@ -119,7 +120,7 @@ def check_kalshi(env: str) -> dict:
     out = {}
     try:
         naive = fav.list_open_markets(client)
-        out["naive"] = _summarise("naive page-walk", naive)
+        out["scan"] = _summarise("production query", naive)
     except Exception as exc:
         print(f"  naive query ERROR: {exc}")
         naive = []
@@ -139,26 +140,9 @@ def check_kalshi(env: str) -> dict:
                   f"bid={booked.get('yes_bid')} ask={booked.get('yes_ask')} "
                   f"vol={booked.get('volume')} close={booked.get('close_time')}")
 
-    # Markets closing in the next week — where the live book is.
-    now = int(time.time())
-    try:
-        windowed, cursor = [], None
-        for _ in range(20):
-            params = {"status": "open", "limit": 200,
-                      "min_close_ts": now + 3600,
-                      "max_close_ts": now + 7 * 86400}
-            if cursor:
-                params["cursor"] = cursor
-            data = client._request("GET", "/markets", params=params)
-            page = data.get("markets") or []
-            windowed += page
-            cursor = data.get("cursor")
-            if not cursor or not page:
-                break
-        out["windowed"] = _summarise("closing within 7d", windowed)
-    except Exception as exc:
-        print(f"  windowed query ERROR: {exc}")
-
+    # list_open_markets is ITSELF close-time windowed now, so a second 20-page
+    # walk here just duplicated it and drew HTTP 429 from the rate limiter.
+    # Removed — the query above is the one production uses.
     out["env"] = env
     return out
 
@@ -175,13 +159,13 @@ def main() -> int:
         if res.get("error"):
             print(f"  {name}: ERROR {res['error']}")
             continue
-        for q in ("naive", "windowed"):
+        for q in ("scan",):
             if q in res:
                 r = res[q]
                 print(f"  {name:4} {q:9}: {r['markets']:5} markets, "
                       f"{r['traded']:4} traded, {r['signals']:3} signals")
-    pw = prod.get("windowed", {})
-    dw = demo.get("windowed", {})
+    pw = prod.get("scan", {})
+    dw = demo.get("scan", {})
     if pw.get("signals", 0) > dw.get("signals", 0):
         print("  >> PROD carries the live book. Measure CLV there (read-only).")
     if pw.get("signals", 0) == 0 and pw.get("traded", 0) == 0:
