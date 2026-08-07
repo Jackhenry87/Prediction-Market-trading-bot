@@ -32,7 +32,8 @@ from pathlib import Path
 import strategy_favorite as fav
 from config import ConfigError, load_kalshi_settings
 from kalshi_client import KalshiClient
-from kalshi_exposure import ExposureError, current_exposure_usd
+from kalshi_exposure import (ExposureError, current_exposure_usd,
+                             order_price_cents)
 from ledger import log_execution, log_signals
 from safety import check_order, scaled_exposure_cap, scaled_order_cap
 from trade_logger import get_logger, setup_logging
@@ -90,6 +91,94 @@ def placed_today(path: Path = None, now: datetime = None) -> tuple:
             except ValueError:
                 pass
     return count, usd, themes
+
+
+# How long a maker bid may rest before it is cancelled and re-priced by a
+# later scan. A resting limit order with no expiry is a free option written to
+# the rest of the market: the only traders who exercise it are the ones who
+# know something we do not. Markets here close up to a week out, so without
+# this an 86c bid could sit in the book for six days while the market walks
+# away from it.
+RESTING_TTL_H = float(os.getenv("RESTING_TTL_H", "6"))
+
+
+def cancel_reason(order: dict, market: dict, now: datetime):
+    """Why this resting bid should be pulled, or None to leave it.
+
+    The dangerous case is not age by itself — it is a bid left ABOVE the
+    market's own mid after the price walks away from us. That order no longer
+    buys below fair value; it offers to overpay, and it will be hit precisely
+    when someone informed wants out.
+    """
+    price = order_price_cents(order)
+    side = order.get("side")
+
+    try:
+        created = datetime.fromisoformat(
+            str(order.get("created_time") or "").replace("Z", "+00:00"))
+        age_h = (now - created).total_seconds() / 3600.0
+    except ValueError:
+        age_h = None
+
+    if price is None or side not in ("yes", "no"):
+        # Cannot judge it on price. Fall back to age alone rather than
+        # leaving an unreadable order resting forever.
+        if age_h is not None and age_h >= RESTING_TTL_H:
+            return f"unreadable order resting {age_h:.1f}h"
+        return None
+
+    book = fav.favourite_side(market)
+    if book is None:
+        return None                       # no quote to judge against; leave it
+    fav_side, bid, ask = book
+    if fav_side != side:
+        return f"favourite flipped to {fav_side}, our {side} bid is the longshot"
+
+    mid = (bid + ask) / 2.0
+    if price > mid:
+        return (f"bid {price:.0f}c is above the mid {mid:.1f}c — the book "
+                f"moved away and this now offers to overpay")
+    if not fav.FAV_MIN_PRICE <= price <= fav.FAV_MAX_PRICE:
+        return f"bid {price:.0f}c drifted outside the trading band"
+    if age_h is not None and age_h >= RESTING_TTL_H:
+        return f"resting {age_h:.1f}h (TTL {RESTING_TTL_H:.0f}h) — re-price it"
+    return None
+
+
+def cancel_stale_resting(client, resting: list, now: datetime = None) -> int:
+    """Pull resting bids that have gone stale. Returns how many were cancelled.
+
+    Runs before the scan so a cancelled ticker becomes eligible again and the
+    next pass re-places it at a price that reflects the current book.
+    """
+    now = now or datetime.now(timezone.utc)
+    cancelled = 0
+    for o in resting or []:
+        action = (o.get("action") or "").lower()
+        book_side = (o.get("book_side") or "").lower()
+        if action and action != "buy":
+            continue
+        if not action and book_side and book_side != "bid":
+            continue
+        ticker = o.get("ticker")
+        oid = o.get("order_id")
+        if not ticker or not oid:
+            continue
+        try:
+            market = client.get_market(ticker)
+        except Exception as exc:
+            log.warning("could not re-check %s (%s) — leaving it", ticker, exc)
+            continue
+        reason = cancel_reason(o, market, now)
+        if not reason:
+            continue
+        try:
+            client.cancel_order(str(oid))
+            log.info("CANCELLED %s: %s", ticker, reason)
+            cancelled += 1
+        except Exception as exc:
+            log.error("cancel failed for %s: %s", ticker, exc)
+    return cancelled
 
 
 def maker_price_now(market: dict, side: str, wanted: float):
@@ -231,6 +320,17 @@ def main() -> int:
     except Exception as exc:
         log.error("REFUSING TO PLACE: account read failed: %s", exc)
         return 1
+
+    # Pull stale bids BEFORE building the held-set, so a cancelled ticker
+    # becomes eligible for a fresh, correctly-priced order this same run.
+    n = cancel_stale_resting(client, resting)
+    if n:
+        try:
+            resting = client.get_resting_orders()
+            exposure = current_exposure_usd(client)
+        except Exception as exc:
+            log.warning("re-read after cancels failed (%s) — using prior view",
+                        exc)
 
     from auto_trade import held_tickers
     held = held_tickers(positions, resting)

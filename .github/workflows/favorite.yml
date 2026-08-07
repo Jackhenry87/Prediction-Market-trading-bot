@@ -14,13 +14,21 @@ name: favorite
 # Three independent ceilings sit above it: the sizing model's own 5% cap,
 # MAX_ORDER_BANKROLL_PCT at the safety gate, and the absolute MAX_ORDER_ABS.
 #
-# CADENCE: '*/20' is aspirational — GitHub drops scheduled runs under load and
-# the previous 15-minute schedule produced ~14 runs/day. Signals require 2h+
-# to close so a sparse cadence still captures a closing line.
+# CADENCE: deliberately 30 minutes, not tighter. Two separate GitHub behaviours
+# punish a fast cron:
+#   1. Scheduled runs are silently dropped under load — the old 15-minute cron
+#      produced ~14 runs/day, not 96.
+#   2. A run that queues without a free runner is SUPERSEDED by the next run in
+#      the same concurrency group. On 2026-08-06 runners stalled for ~15 min and
+#      every '*/20' run was cancelled before it started, so the bot placed
+#      nothing for hours while still looking scheduled.
+# A 30-minute gap gives a queued run time to be picked up before its successor
+# cancels it. Signals require 2h+ to close, so a sparse cadence still captures a
+# closing line.
 
 on:
   schedule:
-    - cron: '*/20 * * * *'
+    - cron: '*/30 * * * *'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -97,6 +105,10 @@ jobs:
           # signals resolving off a single CPI print; without this, one theme
           # could consume the whole daily budget across ~70 scans.
           MAX_ORDERS_PER_THEME_PER_DAY: ${{ vars.MAX_ORDERS_PER_THEME_PER_DAY || '3' }}
+          # How long a maker bid may rest before it is pulled and re-priced.
+          # Without this an 86c bid sat in a book closing 142h out, free to be
+          # picked off after the market walked away from it.
+          RESTING_TTL_H: ${{ vars.RESTING_TTL_H || '6' }}
         run: python favorite_runner.py
 
       - name: Snapshot open prices, confirm fills, score CLV
