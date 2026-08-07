@@ -151,3 +151,39 @@ def test_position_for_survives_junk():
     assert unwind.position_for(pos, "T") is None
     assert unwind.position_for({}, "T") is None
     assert unwind.position_for({"market_positions": None}, "T") is None
+
+
+# --- configuration ---------------------------------------------------------
+
+def test_exit_does_not_require_the_opening_trade_caps(monkeypatch, tmp_path):
+    # The first live unwind died with "Missing required setting
+    # 'MAX_ORDER_SIZE'" before it could sell anything. Those caps bound how
+    # much risk may be OPENED; requiring them to CLOSE creates a way to be
+    # locked out of exiting — a small MAX_ORDER_SIZE would block the sale of a
+    # larger holding.
+    import config
+    pem = tmp_path / "k.pem"
+    pem.write_text("x")
+    for var in ("MAX_ORDER_SIZE", "MAX_TOTAL_EXPOSURE", "MARKET_TICKER"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("KALSHI_ENV", "prod")
+    monkeypatch.setenv("KALSHI_API_KEY_ID", "id")
+    monkeypatch.setenv("KALSHI_PRIVATE_KEY_PATH", str(pem))
+
+    # what unwind.main() asks for must succeed with no trading caps set
+    settings = config.load_kalshi_settings(require_market=False,
+                                           require_trading=False)
+    assert settings.kalshi_env == "prod"
+
+
+def test_main_loads_settings_without_requiring_trading_caps(monkeypatch):
+    seen = {}
+
+    def fake_load(**kw):
+        seen.update(kw)
+        raise unwind.ConfigError("stop here — we only care about the call")
+
+    monkeypatch.setattr(unwind, "load_kalshi_settings", fake_load)
+    monkeypatch.setattr(unwind.sys, "argv", ["unwind.py", "T"])
+    assert unwind.main() == 1
+    assert seen == {"require_market": False, "require_trading": False}
