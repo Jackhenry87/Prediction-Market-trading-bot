@@ -9,13 +9,22 @@ import unwind
 
 
 class FakeClient:
-    def __init__(self, positions=None, market=None):
+    def __init__(self, positions=None, market=None, resting=None):
         self._positions = positions or {"market_positions": []}
         self._market = market or {}
+        self._resting = resting or []
         self.orders = []
+        self.cancelled = []
 
     def get_positions(self):
         return self._positions
+
+    def get_resting_orders(self):
+        return list(self._resting)
+
+    def cancel_order(self, order_id):
+        self.cancelled.append(order_id)
+        return {"ok": True}
 
     def _request(self, method, path, **kw):
         return {"market": self._market}
@@ -26,10 +35,11 @@ class FakeClient:
         return {"order_id": "o1"}
 
 
-def _client(qty=30, yes_bid=7, yes_ask=8, ticker="KXWNBA-26-ATL"):
+def _client(qty=30, yes_bid=7, yes_ask=8, ticker="KXWNBA-26-ATL", resting=None):
     return FakeClient(
         positions={"market_positions": [{"ticker": ticker, "position": qty}]},
-        market={"ticker": ticker, "yes_bid": yes_bid, "yes_ask": yes_ask})
+        market={"ticker": ticker, "yes_bid": yes_bid, "yes_ask": yes_ask},
+        resting=resting)
 
 
 # --- it must never be able to open a position ------------------------------
@@ -187,3 +197,58 @@ def test_main_loads_settings_without_requiring_trading_caps(monkeypatch):
     monkeypatch.setattr(unwind.sys, "argv", ["unwind.py", "T"])
     assert unwind.main() == 1
     assert seen == {"require_market": False, "require_trading": False}
+
+
+# --- unfilled orders are exposure too --------------------------------------
+#
+# The first live unwind reported "no open position in KXWNBA-26-ATL" and
+# stopped. That was correct by its own logic and useless in fact: the 8c buy
+# had never filled, so it was not a position — it was a resting order sitting
+# in the book, still able to fill and re-open the trade at any moment.
+
+def test_cancels_a_resting_order_even_with_no_position():
+    c = _client(qty=0, resting=[{"ticker": "KXWNBA-26-ATL", "order_id": "o9",
+                                 "side": "yes", "count": 30}])
+    unwind.unwind(c, "KXWNBA-26-ATL", dry_run=False)
+    assert c.cancelled == ["o9"]
+
+
+def test_cancels_every_resting_order_in_the_ticker():
+    c = _client(qty=0, resting=[
+        {"ticker": "KXWNBA-26-ATL", "order_id": "a"},
+        {"ticker": "KXWNBA-26-ATL", "order_id": "b"}])
+    unwind.unwind(c, "KXWNBA-26-ATL", dry_run=False)
+    assert c.cancelled == ["a", "b"]
+
+
+def test_never_cancels_orders_in_another_market():
+    c = _client(qty=0, resting=[{"ticker": "KXOTHER-1", "order_id": "z"}])
+    unwind.unwind(c, "KXWNBA-26-ATL", dry_run=False)
+    assert c.cancelled == []
+
+
+def test_cancels_before_selling_so_we_do_not_cross_ourselves():
+    # Kalshi's self-trade prevention rejects a sale that would cross our own
+    # resting bid, so the cancel has to happen first.
+    events = []
+    c = _client(qty=30, resting=[{"ticker": "KXWNBA-26-ATL", "order_id": "o1"}])
+    real_cancel, real_order = c.cancel_order, c.create_limit_order
+    c.cancel_order = lambda oid: (events.append("cancel"), real_cancel(oid))[1]
+    c.create_limit_order = lambda *a, **k: (events.append("sell"),
+                                            real_order(*a, **k))[1]
+    unwind.unwind(c, "KXWNBA-26-ATL", dry_run=False)
+    assert events == ["cancel", "sell"]
+
+
+def test_dry_run_cancels_nothing():
+    c = _client(qty=30, resting=[{"ticker": "KXWNBA-26-ATL", "order_id": "o1"}])
+    unwind.unwind(c, "KXWNBA-26-ATL", dry_run=True)
+    assert c.cancelled == [] and c.orders == []
+
+
+def test_a_failing_resting_lookup_does_not_stop_the_sale():
+    c = _client(qty=30)
+    def boom():
+        raise RuntimeError("orders endpoint down")
+    c.get_resting_orders = boom
+    assert unwind.unwind(c, "KXWNBA-26-ATL", dry_run=False) == 30

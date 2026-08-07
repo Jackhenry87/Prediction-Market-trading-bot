@@ -61,6 +61,41 @@ def position_for(positions: dict, ticker: str):
     return None
 
 
+def cancel_resting_in(client, ticker: str, dry_run: bool = True) -> int:
+    """Pull any of our own unfilled orders in this market. Returns the count.
+
+    Unwinding means leaving the market, and an unfilled BUY is still exposure:
+    it can fill at any moment, re-opening the position we just decided was a
+    mistake. The first live unwind found "no open position" and stopped —
+    correctly by its own logic, uselessly in fact, because the 8c order for
+    KXWNBA-26-ATL had never filled and was sitting in the book waiting to."""
+    try:
+        orders = client.get_resting_orders() or []
+    except Exception as exc:
+        log.error("Could not read resting orders: %s", exc)
+        return 0
+    mine = [o for o in orders if o.get("ticker") == ticker]
+    if not mine:
+        return 0
+    cancelled = 0
+    for o in mine:
+        oid = o.get("order_id") or o.get("id")
+        log.info("RESTING: %s %s x%s @ %s — cancelling", ticker,
+                 o.get("side", "?"), o.get("remaining_count", o.get("count", "?")),
+                 o.get("price", o.get("yes_price", "?")))
+        if dry_run:
+            continue
+        if not oid:
+            log.warning("Resting order in %s has no id — cannot cancel", ticker)
+            continue
+        try:
+            client.cancel_order(oid)
+            cancelled += 1
+        except Exception as exc:
+            log.error("Cancel failed for %s: %s", oid, exc)
+    return cancelled
+
+
 def exit_price(client, ticker: str, side: str):
     """The price to sell into: the best resting bid for the side we hold.
 
@@ -87,10 +122,19 @@ def exit_price(client, ticker: str, side: str):
 def unwind(client, ticker: str, min_price: float = 1.0,
            dry_run: bool = True) -> int:
     """Sell out of `ticker`. Returns contracts sold (0 if nothing was done)."""
+    # Order matters: kill the unfilled orders BEFORE selling. Otherwise our own
+    # resting buy sits in the book while we try to sell into it, and Kalshi's
+    # self-trade prevention rejects the sale.
+    pulled = cancel_resting_in(client, ticker, dry_run)
+    if pulled:
+        log.info("Cancelled %d resting order(s) in %s.", pulled, ticker)
+
     positions = client.get_positions()
     held = position_for(positions, ticker)
     if not held:
-        log.info("Nothing to unwind: no open position in %s.", ticker)
+        log.info("No open position in %s%s.", ticker,
+                 " (resting orders pulled)" if pulled else
+                 " and nothing resting — already flat")
         return 0
     side, count = held
 
