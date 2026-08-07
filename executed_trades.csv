@@ -73,3 +73,4 @@ placed_at_utc,model,ticker,side,count,price_cents,cost_usd,order_id,outcome
 2026-08-07T03:26:04+00:00,favorite,KXUSPPIYOY-26AUG13-T5.8,no,3,85,2.55,631d1e61-c534-47ba-9cd6-1058f618879b,
 2026-08-07T03:26:04+00:00,favorite,KXARMOMINF-26AUG13-T1.2,yes,2,94,1.88,deb609f4-5afd-47a7-8e94-6c2ed2fb6f47,
 2026-08-07T03:26:04+00:00,favorite,KXMC-MAR-60,yes,2,95,1.90,7011c052-dc9e-4658-b327-7b82e38d1ad2,
+2026-08-07T05:12:23+00:00,favorite,KXARMOMINF-26AUG13-T1.4,yes,2,94,1.88,3247e989-e150-4430-8cea-2b054f3b2acb,
