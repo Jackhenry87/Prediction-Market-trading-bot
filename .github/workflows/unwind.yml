@@ -1,0 +1,101 @@
+name: unwind
+
+# Close one named position. MANUAL DISPATCH ONLY — there is deliberately no
+# `schedule:` here. An automated seller on a cron is a liquidation risk; this
+# runs only because a human asked it to, on a ticker a human typed.
+#
+# It shares the `favorite` concurrency group so it can never run at the same
+# time as the trading workflow — both write executed_trades.csv, and a
+# concurrent state push is how the ledger got clobbered before.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ticker:
+        description: 'Market to close, e.g. KXWNBA-26-ATL'
+        required: true
+        type: string
+      min_price:
+        description: 'Refuse to sell below this many cents'
+        default: '1'
+        type: string
+      dry_run:
+        description: 'Log the order without sending it'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: favorite
+  cancel-in-progress: false
+
+env:
+  STATE_FILES: paper_trades_favorite.csv paper_trades_sports.csv sports_line_history.json odds_quota.json clv_sports.csv CLV_SCOREBOARD.md executed_trades.csv
+
+jobs:
+  unwind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: Write Kalshi key
+        env:
+          KALSHI_PEM: ${{ secrets.KALSHI_PRIVATE_KEY_PEM }}
+        run: printf '%s\n' "$KALSHI_PEM" > kalshi_prod.pem
+
+      - name: Restore state from the bot-state branch
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --heads origin bot-state >/dev/null; then
+            git fetch --depth=1 origin bot-state
+            for f in $STATE_FILES; do
+              if git cat-file -e origin/bot-state:"$f" 2>/dev/null; then
+                git show origin/bot-state:"$f" > "$f"
+              fi
+            done
+          fi
+
+      - name: Sell out of the position
+        env:
+          KALSHI_API_KEY_ID: ${{ secrets.KALSHI_API_KEY_ID }}
+          KALSHI_PRIVATE_KEY_PATH: kalshi_prod.pem
+          KALSHI_ENV: ${{ vars.KALSHI_ENV || 'prod' }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: python unwind.py "${{ inputs.ticker }}" --min-price "${{ inputs.min_price }}"
+
+      - name: Persist state to the bot-state branch
+        if: always()
+        run: |
+          set -euo pipefail
+          git config user.name "favorite-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          mkdir -p "$RUNNER_TEMP/state"
+          for f in $STATE_FILES; do
+            if [ -f "$f" ]; then cp "$f" "$RUNNER_TEMP/state/"; fi
+          done
+          if git ls-remote --exit-code --heads origin bot-state >/dev/null; then
+            git fetch --depth=1 origin bot-state
+            git checkout -f -B bot-state origin/bot-state
+          else
+            exit 0
+          fi
+          for f in $STATE_FILES; do
+            if [ -f "$RUNNER_TEMP/state/$f" ]; then
+              cp "$RUNNER_TEMP/state/$f" "$f"
+              git add "$f"
+            fi
+          done
+          if git diff --cached --quiet; then
+            echo "no state change"
+          else
+            git commit -m "unwind $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push origin bot-state
+          fi
