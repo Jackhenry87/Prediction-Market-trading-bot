@@ -29,6 +29,10 @@ GAME = {
 # gate. (Current fair home prob for GAME is ~0.38.)
 DET_STEAM = {"game1": {"home_prob": 0.45}}
 
+# GAME starts in 6h; a real Kalshi game market settles a few hours after that.
+# covers_game uses this to tell tonight's moneyline apart from a season future.
+GAME_SETTLES = _in_hours(9)
+
 
 def test_shin_devig_strips_vig():
     # symmetric odds -> exactly 50%, even though 1/1.9 + 1/1.9 > 1
@@ -85,6 +89,7 @@ def test_evaluate_market_finds_gap_with_steam():
     # Tigers YES -> buy YES with ~15c EV, and the sharp line moved toward
     # Detroit (DET_STEAM), so the steam gate lets it through.
     market = {"ticker": "KXMLBGAME-X-DET", "yes_sub_title": "Detroit",
+              "expected_expiration_time": GAME_SETTLES,
               "status": "active", "yes_ask": 45, "yes_bid": 41}
     signals = ss.evaluate_market(market, [GAME], DET_STEAM)
     yes = [s for s in signals if s["side"] == "yes"]
@@ -92,6 +97,7 @@ def test_evaluate_market_finds_gap_with_steam():
 
     # fairly priced -> no signal even with steam
     fair = {"ticker": "T", "yes_sub_title": "Detroit",
+            "expected_expiration_time": GAME_SETTLES,
             "yes_ask": 61, "yes_bid": 58}
     assert ss.evaluate_market(fair, [GAME], DET_STEAM) == []
 
@@ -101,6 +107,7 @@ def test_steam_gate_blocks_without_prior_line():
     # moved toward us meant entering AFTER the move, which is why the model
     # measured -6.0c CLV. With no history at all we now still trade.
     market = {"ticker": "KXMLBGAME-X-DET", "yes_sub_title": "Detroit",
+              "expected_expiration_time": GAME_SETTLES,
               "status": "active", "yes_ask": 45, "yes_bid": 41}
     assert ss.evaluate_market(market, [GAME], {})
     assert ss.evaluate_market(market, [GAME], None)
@@ -111,6 +118,7 @@ def test_line_moving_against_us_no_longer_blocks():
     # allowed — being early is the point — but the signal must SAY it is early.
     against = {"game1": {"home_prob": 0.30}}
     market = {"ticker": "KXMLBGAME-X-DET", "yes_sub_title": "Detroit",
+              "expected_expiration_time": GAME_SETTLES,
               "status": "active", "yes_ask": 45, "yes_bid": 41}
     sigs = ss.evaluate_market(market, [GAME], against)
     yes = [s for s in sigs if s["side"] == "yes"]
@@ -123,6 +131,7 @@ def test_steam_is_signed_per_side():
     # line drifted 6 points toward Detroit (the away side) since last look
     hist = {"game1": {"home_prob": round(p_home + 0.06, 4)}}
     market = {"ticker": "KXMLBGAME-X-DET", "yes_sub_title": "Detroit",
+              "expected_expiration_time": GAME_SETTLES,
               "status": "active", "yes_ask": 45, "yes_bid": 41}
     sigs = ss.evaluate_market(market, [GAME], hist)
     for s in sigs:
@@ -133,6 +142,7 @@ def test_steam_is_signed_per_side():
 
 def test_no_prior_line_records_steam_as_unknown_not_zero():
     market = {"ticker": "KXMLBGAME-X-DET", "yes_sub_title": "Detroit",
+              "expected_expiration_time": GAME_SETTLES,
               "status": "active", "yes_ask": 45, "yes_bid": 41}
     sigs = ss.evaluate_market(market, [GAME], None)
     assert sigs and all(s["steam"] is None for s in sigs), \
@@ -141,6 +151,7 @@ def test_no_prior_line_records_steam_as_unknown_not_zero():
 
 def test_is_home_is_recorded_for_moneylines():
     market = {"ticker": "KXMLBGAME-X-DET", "yes_sub_title": "Detroit",
+              "expected_expiration_time": GAME_SETTLES,
               "status": "active", "yes_ask": 45, "yes_bid": 41}
     sigs = ss.evaluate_market(market, [GAME], None)
     for s in sigs:
@@ -153,6 +164,7 @@ def test_old_steam_gate_still_works_when_enabled(monkeypatch):
     monkeypatch.setattr(ss, "SPORTS_REQUIRE_STEAM", True)
     monkeypatch.setattr(ss, "SPORTS_MIN_MOVE", 0.05)
     market = {"ticker": "KXMLBGAME-X-DET", "yes_sub_title": "Detroit",
+              "expected_expiration_time": GAME_SETTLES,
               "status": "active", "yes_ask": 45, "yes_bid": 41}
     assert ss.evaluate_market(market, [GAME], None) == []      # no history
     p_home = ss.fair_home_prob(GAME)
@@ -201,6 +213,7 @@ def test_confidence_floor_skips_coin_flips(monkeypatch):
                     {"name": "Alpha Cats", "price": 1.95},
                     {"name": "Beta Dogs", "price": 1.95}]}]}]}
     market = {"ticker": "T", "yes_sub_title": "Beta Dogs", "status": "active",
+              "expected_expiration_time": _in_hours(9),
               "yes_ask": 40, "yes_bid": 37}
     assert ss.evaluate_market(market, [game], None) == []    # 50% < 60% floor
 
@@ -357,3 +370,94 @@ def test_missing_headers_do_not_crash(tmp_path, monkeypatch):
     class R:
         pass
     ss._note_quota(R())                       # must not raise
+
+
+# --- the championship-future bug (2026-08-07) -------------------------------
+#
+# The bot bought 30 shares of KXWNBA-26-ATL — Atlanta to win the WNBA title —
+# at 8c, because SERIES pointed at the season championship series instead of
+# the per-game one. match_team saw the label "Atlanta", matched it to Atlanta's
+# game tonight, priced a 66% game win probability against an 8c futures quote
+# and reported a 58c edge. Nothing downstream objected; Kelly staked the
+# maximum precisely because the number was absurd.
+#
+# Three independent guards now have to fail together for that to recur.
+
+def test_series_tickers_are_per_game_not_season_futures():
+    # KXWNBA and KXNBA are "Women's Pro Basketball Champion" and "2027 Pro
+    # Basketball Champion". The per-game series carry the GAME suffix.
+    for cfg in ss.SERIES:
+        assert cfg["series"].endswith("GAME"), (
+            f"{cfg['series']} is not a per-game series — a season futures "
+            "ticker here prices a title bet off one game's win probability")
+
+
+def test_covers_game_accepts_a_market_settling_after_the_game():
+    market = {"ticker": "KXMLBGAME-X-DET",
+              "expected_expiration_time": _in_hours(9)}   # game starts in 6h
+    assert ss.covers_game(market, GAME)
+
+
+def test_covers_game_rejects_a_season_future():
+    # The real one: KXWNBA-26-ATL expires 2026-12-01, months after tonight.
+    future = {"ticker": "KXWNBA-26-ATL",
+              "expected_expiration_time": _in_hours(24 * 116)}
+    assert not ss.covers_game(future, GAME)
+
+
+def test_covers_game_rejects_a_market_settling_before_the_game_starts():
+    early = {"ticker": "X", "expected_expiration_time": _in_hours(1)}
+    assert not ss.covers_game(early, GAME)
+
+
+def test_covers_game_fails_closed_without_timestamps():
+    # Same convention match_team follows: skip what cannot be placed, never
+    # guess. A market with no settlement time cannot be tied to a game.
+    assert not ss.covers_game({"ticker": "X"}, GAME)
+    assert not ss.covers_game({"expected_expiration_time": _in_hours(9)},
+                              {"home_team": "Washington Nationals"})
+
+
+def test_covers_game_prefers_expected_expiration_over_close_time():
+    # close_time runs days past a game (KXMLBGAME closes 3 days out), so using
+    # it as the primary would let a genuine game market fail the window.
+    market = {"expected_expiration_time": _in_hours(9),
+              "close_time": _in_hours(72)}
+    assert ss.covers_game(market, GAME)
+    assert ss.market_expiry(market) == ss.parse_iso(market[
+        "expected_expiration_time"])
+
+
+def test_evaluate_market_refuses_a_future_that_names_a_playing_team():
+    # End to end: the exact shape of the trade that lost real money. The label
+    # matches a team playing tonight and the price is wildly off our game
+    # model, which is precisely what made it look like free money.
+    future = {"ticker": "KXWNBA-26-ATL", "yes_sub_title": "Detroit",
+              "status": "active",
+              "expected_expiration_time": _in_hours(24 * 116),
+              "yes_ask": 8, "yes_bid": 7}
+    assert ss.evaluate_market(future, [GAME], None) == []
+
+
+def test_edge_ceiling_rejects_an_implausible_edge():
+    assert ss.edge_ok(10.0, "T")
+    assert not ss.edge_ok(ss.SPORTS_MAX_EDGE_CENTS + 0.1, "T")
+    assert not ss.edge_ok(1.0, "T")            # still floors on fees
+    assert ss.edge_ok(ss.SPORTS_MAX_EDGE_CENTS, "T")   # boundary is inclusive
+
+
+def test_edge_ceiling_blocks_a_signal_even_when_the_market_is_the_right_game():
+    # The ceiling is the backstop that does not depend on knowing WHY the
+    # number is wrong — a bad devig or a stale quote gets caught too.
+    market = {"ticker": "KXMLBGAME-X-DET", "yes_sub_title": "Detroit",
+              "status": "active", "expected_expiration_time": GAME_SETTLES,
+              "yes_ask": 8, "yes_bid": 7}
+    assert ss.evaluate_market(market, [GAME], None) == []
+
+
+def test_edge_ceiling_is_configurable(monkeypatch):
+    monkeypatch.setattr(ss, "SPORTS_MAX_EDGE_CENTS", 60.0)
+    market = {"ticker": "KXMLBGAME-X-DET", "yes_sub_title": "Detroit",
+              "status": "active", "expected_expiration_time": GAME_SETTLES,
+              "yes_ask": 8, "yes_bid": 7}
+    assert ss.evaluate_market(market, [GAME], None)

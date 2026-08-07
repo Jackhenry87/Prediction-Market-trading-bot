@@ -142,6 +142,13 @@ jobs:
           # Steam is measured, not required — requiring it meant always buying
           # the post-move price, which is why CLV was -6.0c.
           SPORTS_REQUIRE_STEAM: ${{ vars.SPORTS_REQUIRE_STEAM || 'false' }}
+          # Sanity ceiling on edge. A devigged consensus of the same public
+          # books Kalshi reads cannot disagree by 58c; when it appears to, we
+          # priced the wrong contract. On 2026-08-07 exactly that bought a WNBA
+          # championship future because the series ticker pointed at the season
+          # market instead of the game. Kelly stakes hardest where the number is
+          # most absurd, so the ceiling has to sit upstream of sizing.
+          SPORTS_MAX_EDGE_CENTS: ${{ vars.SPORTS_MAX_EDGE_CENTS || '25' }}
           SPORTS_LEAGUES: ${{ vars.SPORTS_LEAGUES || 'mlb,nba,nfl,nhl,wnba' }}
           SPORTS_MAX_ML_PER_DAY: ${{ vars.SPORTS_MAX_ML_PER_DAY || '2' }}
           SPORTS_MAX_TOTALS_PER_DAY: ${{ vars.SPORTS_MAX_TOTALS_PER_DAY || '2' }}

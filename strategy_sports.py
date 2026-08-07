@@ -51,12 +51,19 @@ log = get_logger("strategy_sports")
 # series ticker. A sport out of season is skipped automatically (no games);
 # a wrong Kalshi ticker just returns no events and is skipped with a warning
 # — correct any that never produce events after the first live run.
+#
+# The *GAME suffix is load-bearing. `KXWNBA` and `KXNBA` are the SEASON
+# CHAMPIONSHIP series ("Women's Pro Basketball Champion", "2027 Pro Basketball
+# Champion"), not tonight's game. On 2026-08-07 that mismatch bought 30 shares
+# of Atlanta-to-win-the-title at 8c because match_team saw the label "Atlanta",
+# compared it to Atlanta's *game* win probability of 66%, and reported a 58c
+# edge. The per-game series are KXWNBAGAME / KXNBAGAME.
 SERIES = [
     dict(series="KXMLBGAME", sport="baseball_mlb", name="MLB"),
-    dict(series="KXNBA", sport="basketball_nba", name="NBA"),
+    dict(series="KXNBAGAME", sport="basketball_nba", name="NBA"),
     dict(series="KXNFLGAME", sport="americanfootball_nfl", name="NFL"),
     dict(series="KXNHLGAME", sport="icehockey_nhl", name="NHL"),
-    dict(series="KXWNBA", sport="basketball_wnba", name="WNBA"),
+    dict(series="KXWNBAGAME", sport="basketball_wnba", name="WNBA"),
 ]
 # Rebuilt 2026-07-08 into a SELECTIVE sharp-line tracker (owner call): the
 # old model bet every EV gap and bled. Now it follows where the sharp money
@@ -75,6 +82,23 @@ ODDS_REGIONS = "us"
 MIN_START_H = 0.15    # skip games starting within ~10 min (execution risk)
 MAX_START_H = 36.0    # and beyond 36h (odds too soft that far out)
 MIN_EDGE_CENTS = 5.0
+
+# An edge this big is not an opportunity, it is a bug. Our own model is a
+# devigged consensus of the same public books Kalshi's traders read; a genuine
+# disagreement is a few cents. The 58c "edge" that bought a championship future
+# came from comparing a game probability to a season-long price, and nothing in
+# the pipeline objected — the sizing model happily staked the maximum because a
+# larger edge always looks better to Kelly. This ceiling is the backstop for
+# every mismatch of that shape, including ones nobody has thought of yet.
+SPORTS_MAX_EDGE_CENTS = float(os.getenv("SPORTS_MAX_EDGE_CENTS", "25"))
+
+# A market must settle on the GAME we priced. Game markets expire within a few
+# hours of the first pitch/tip; a championship market expires months later. The
+# window is deliberately loose (extra innings, overtime, rain delays) because it
+# only has to separate "this game" from "some other contract about this team".
+EXPIRY_LEAD_H = float(os.getenv("SPORTS_EXPIRY_LEAD_H", "2"))
+EXPIRY_LAG_H = float(os.getenv("SPORTS_EXPIRY_LAG_H", "12"))
+
 PAPER_LOG = Path(__file__).resolve().parent / "paper_trades_sports.csv"
 LINE_HISTORY = Path(__file__).resolve().parent / "sports_line_history.json"
 
@@ -256,7 +280,7 @@ def evaluate_total_market(market: dict, mean: float, move: float = None) -> list
     if (yes_ask and 0 < yes_ask < 100 and p_over >= SPORTS_MIN_CONFIDENCE
             and steam_ok(True)):
         ev = 100.0 * p_over - yes_ask - taker_fee_cents(yes_ask)
-        if ev >= MIN_EDGE_CENTS:
+        if edge_ok(ev, market.get("ticker")):
             signals.append(dict(side="yes", price_cents=yes_ask,
                                 model_prob=p_over, ev_cents=ev,
                                 steam=(move if move is not None else None)))
@@ -265,7 +289,7 @@ def evaluate_total_market(market: dict, mean: float, move: float = None) -> list
             and steam_ok(False)):
         no_price = 100.0 - yes_bid
         ev = 100.0 * (1.0 - p_over) - no_price - taker_fee_cents(no_price)
-        if ev >= MIN_EDGE_CENTS:
+        if edge_ok(ev, market.get("ticker")):
             signals.append(dict(side="no", price_cents=no_price,
                                 model_prob=1.0 - p_over, ev_cents=ev,
                                 steam=(-move if move is not None else None)))
@@ -288,12 +312,71 @@ def save_line_history(hist: dict) -> None:
     LINE_HISTORY.write_text(json.dumps(hist, indent=0, sort_keys=True))
 
 
-def hours_until(iso_time: str):
+def parse_iso(iso_time):
+    """UTC datetime from an API timestamp, or None if it isn't one."""
+    if not iso_time:
+        return None
     try:
         t = datetime.fromisoformat(str(iso_time).replace("Z", "+00:00"))
     except ValueError:
         return None
+    return t if t.tzinfo else t.replace(tzinfo=timezone.utc)
+
+
+def hours_until(iso_time: str):
+    t = parse_iso(iso_time)
+    if t is None:
+        return None
     return (t - datetime.now(timezone.utc)).total_seconds() / 3600.0
+
+
+def market_expiry(market: dict):
+    """When this market is expected to settle. `close_time` is the last moment
+    trading is allowed and runs days past a game, so it is only the fallback —
+    `expected_expiration_time` is the one that tracks the event itself."""
+    for field in ("expected_expiration_time", "close_time",
+                  "latest_expiration_time"):
+        t = parse_iso(market.get(field))
+        if t is not None:
+            return t
+    return None
+
+
+def covers_game(market: dict, game: dict) -> bool:
+    """Does this Kalshi market settle on THIS game?
+
+    Team names alone cannot answer that: "Atlanta" appears on tonight's
+    moneyline and on the season championship future alike, and match_team is
+    happy with both. Settlement time separates them — a game market expires
+    hours after first pitch, a futures market months later.
+
+    Unknown timestamps return False. Refusing to trade a market we cannot place
+    in time is the same convention match_team already follows for a team name
+    it cannot place in a game: skip rather than guess."""
+    start = parse_iso(game.get("commence_time"))
+    expiry = market_expiry(market)
+    if start is None or expiry is None:
+        return False
+    lead = (start - expiry).total_seconds() / 3600.0     # expiry before start
+    lag = (expiry - start).total_seconds() / 3600.0      # expiry after start
+    return lead <= EXPIRY_LEAD_H and lag <= EXPIRY_LAG_H
+
+
+def edge_ok(ev_cents: float, ticker: str = "") -> bool:
+    """Is this edge in the range a real disagreement can produce?
+
+    Both ends matter. Below MIN_EDGE_CENTS the fee eats it; above
+    SPORTS_MAX_EDGE_CENTS it is not an edge at all but a sign we priced the
+    wrong contract, and that end is the dangerous one — Kelly stakes hardest
+    exactly where the number is most absurd."""
+    if ev_cents < MIN_EDGE_CENTS:
+        return False
+    if ev_cents > SPORTS_MAX_EDGE_CENTS:
+        log.warning("SKIP %s: %.1fc edge exceeds the %.0fc sanity ceiling — "
+                    "treating this as a mispriced match, not an opportunity",
+                    ticker or "?", ev_cents, SPORTS_MAX_EDGE_CENTS)
+        return False
+    return True
 
 
 def _words(text: str) -> set:
@@ -404,6 +487,15 @@ def evaluate_market(market: dict, games: list, history: dict = None) -> list:
     if not matched:
         return []
     game, side = matched
+    if not covers_game(market, game):
+        # The label named a team that plays tonight, but this contract does not
+        # settle on tonight's game — a championship future, a series price, a
+        # season win total. Pricing it off a single game's win probability is
+        # how we bought Atlanta at 8c to win the WNBA title.
+        log.warning("SKIP %s: settles %s, not near %s kickoff — not this game",
+                    market.get("ticker"),
+                    (market_expiry(market) or "?"), game.get("commence_time"))
+        return []
     p_fair = fair_home_prob(game)
     if p_fair is None:
         return None  # game found but no usable odds
@@ -438,7 +530,7 @@ def evaluate_market(market: dict, games: list, history: dict = None) -> list:
     if (yes_ask and 0 < yes_ask < 100 and steam_ok(side)
             and p >= SPORTS_MIN_CONFIDENCE):
         ev = 100.0 * p - yes_ask - taker_fee_cents(yes_ask)
-        if ev >= MIN_EDGE_CENTS:
+        if edge_ok(ev, market.get("ticker")):
             signals.append(dict(side="yes", price_cents=yes_ask,
                                 model_prob=p, ev_cents=ev,
                                 steam=steam_for(side), backing=side))
@@ -447,7 +539,7 @@ def evaluate_market(market: dict, games: list, history: dict = None) -> list:
             and (1.0 - p) >= SPORTS_MIN_CONFIDENCE):
         no_price = 100.0 - yes_bid
         ev = 100.0 * (1.0 - p) - no_price - taker_fee_cents(no_price)
-        if ev >= MIN_EDGE_CENTS:
+        if edge_ok(ev, market.get("ticker")):
             signals.append(dict(side="no", price_cents=no_price,
                                 model_prob=1.0 - p, ev_cents=ev,
                                 steam=steam_for(other), backing=other))
@@ -582,6 +674,16 @@ def scan(api_key: str) -> list:
             et = event.get("event_ticker") or event.get("ticker") or ""
             for market in event.get("markets") or []:
                 if market.get("status") not in (None, "active", "open"):
+                    continue
+                # Same settlement check the moneyline path applies. A totals
+                # ladder is per-game today, but the title match that got us
+                # here is as loose as match_team was, so hold it to the same
+                # standard rather than trusting the ticker convention.
+                if not covers_game(market, game):
+                    log.warning("SKIP %s: settles %s, not near %s start",
+                                market.get("ticker"),
+                                (market_expiry(market) or "?"),
+                                game.get("commence_time"))
                     continue
                 for s in evaluate_total_market(market, mean, move):
                     if s["ticker"] in held:
