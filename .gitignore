@@ -37,3 +37,8 @@ paperbook/paperbook.db
 clv_sports.csv
 CLV_SCOREBOARD.md
 paper_trades_favorite.csv
+# The live bot appends to this on every order, so it is state, not the frozen
+# history it used to be. Tracking it on main AND restoring it from bot-state
+# is what broke the persist step. Full history lives on bot-state and in
+# main's git history.
+executed_trades.csv

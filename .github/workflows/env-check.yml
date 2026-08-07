@@ -1,8 +1,11 @@
 name: env-check
 
-# Manual diagnostic. Verifies the ODDS_API_KEY secret and compares the Kalshi
-# demo and prod venues for usable market data. Runs on this branch so it can
-# be triggered before the branch is merged.
+# Manual diagnostic, run on demand. Verifies the ODDS_API_KEY secret and
+# compares the Kalshi demo and prod venues for usable market data.
+#
+# It used to also fire on every push to a feature branch, which was scaffolding
+# for testing before that branch merged. Removed: it burned a run on every
+# push and served no purpose once the work landed.
 #
 # The odds check uses the FREE /v4/sports endpoint by default and spends zero
 # of the 500 monthly credits. Set spend=true to also make one metered call
@@ -15,8 +18,6 @@ on:
         description: 'Also make ONE metered odds call (costs 2 credits)'
         type: boolean
         default: false
-  push:
-    branches: [claude/repo-review-feedback-kz86wt]
 
 permissions:
   contents: read
