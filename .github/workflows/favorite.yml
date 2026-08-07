@@ -133,7 +133,13 @@ jobs:
           done
           if git ls-remote --exit-code --heads origin bot-state >/dev/null; then
             git fetch --depth=1 origin bot-state
-            git checkout -B bot-state origin/bot-state
+            # -f is required, not cosmetic: the restore step above rewrites
+            # state files that may also be tracked on main, which leaves the
+            # tree dirty. A plain checkout then refuses to switch branches
+            # ("local changes would be overwritten") and the run dies AFTER
+            # placing orders — trades made, state lost. Discarding is safe
+            # because every state file was already copied to $RUNNER_TEMP.
+            git checkout -f -B bot-state origin/bot-state
           else
             git checkout --orphan bot-state
             git rm -rf --cached . >/dev/null
