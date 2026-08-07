@@ -25,20 +25,20 @@ __pycache__/
 paperbook/paperbook.db
 
 # Live bot state — belongs on the `bot-state` branch, never on main.
-# The paper-favorite workflow restores these at the start of a run and pushes
-# them to bot-state at the end.
+# The favorite workflow restores these at the start of a run and pushes them
+# back to bot-state at the end.
 #
-# These rules used to list executed_trades.csv / trade_history.csv /
+# These rules once listed executed_trades.csv / trade_history.csv /
 # paper_trades*.csv, all of which were tracked anyway and force-added by the
-# workflows (`git add -f`), so the ignore file was documenting a policy that
-# nothing followed. Those files are now a FROZEN historical record of real
-# money and stay tracked on main deliberately; only files a running bot
-# rewrites are ignored here.
+# workflows (`git add -f`), so the file documented a policy nothing followed.
+# What is listed here now is exactly what a running bot rewrites — tracking any
+# of it on main as well is what broke the state-persist step (a dirty tree
+# blocks the branch switch, after orders are already placed).
 clv_sports.csv
 CLV_SCOREBOARD.md
 paper_trades_favorite.csv
-# The live bot appends to this on every order, so it is state, not the frozen
-# history it used to be. Tracking it on main AND restoring it from bot-state
-# is what broke the persist step. Full history lives on bot-state and in
-# main's git history.
+paper_trades_sports.csv
+sports_line_history.json
+odds_quota.json
+arb_scan.csv
 executed_trades.csv

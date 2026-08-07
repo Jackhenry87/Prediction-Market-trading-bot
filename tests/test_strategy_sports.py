@@ -97,41 +97,69 @@ def test_evaluate_market_finds_gap_with_steam():
 
 
 def test_steam_gate_blocks_without_prior_line():
-    # No history -> we can't confirm the line moved -> no trade (conservative).
+    # Steam is no longer a precondition. Requiring the line to have already
+    # moved toward us meant entering AFTER the move, which is why the model
+    # measured -6.0c CLV. With no history at all we now still trade.
     market = {"ticker": "KXMLBGAME-X-DET", "yes_sub_title": "Detroit",
               "status": "active", "yes_ask": 45, "yes_bid": 41}
-    assert ss.evaluate_market(market, [GAME], {}) == []
-    assert ss.evaluate_market(market, [GAME], None) == []
+    assert ss.evaluate_market(market, [GAME], {})
+    assert ss.evaluate_market(market, [GAME], None)
 
 
-def test_steam_gate_blocks_when_line_moves_against():
-    # Line moved TOWARD the home side (home_prob rose to ~0.38 from 0.30),
-    # i.e. against Detroit -> backing Detroit is blocked.
+def test_line_moving_against_us_no_longer_blocks():
+    # Line moved toward HOME, i.e. away from Detroit. Backing Detroit is now
+    # allowed — being early is the point — but the signal must SAY it is early.
     against = {"game1": {"home_prob": 0.30}}
     market = {"ticker": "KXMLBGAME-X-DET", "yes_sub_title": "Detroit",
               "status": "active", "yes_ask": 45, "yes_bid": 41}
-    assert ss.evaluate_market(market, [GAME], against) == []
+    sigs = ss.evaluate_market(market, [GAME], against)
+    yes = [s for s in sigs if s["side"] == "yes"]
+    assert yes, "an early entry must still produce a signal"
+    assert yes[0]["steam"] < 0, "backing the side the line moved away from is negative steam"
 
 
-def test_steam_can_be_disabled(monkeypatch):
-    monkeypatch.setattr(ss, "SPORTS_REQUIRE_STEAM", False)
+def test_steam_is_signed_per_side():
+    p_home = ss.fair_home_prob(GAME)
+    # line drifted 6 points toward Detroit (the away side) since last look
+    hist = {"game1": {"home_prob": round(p_home + 0.06, 4)}}
     market = {"ticker": "KXMLBGAME-X-DET", "yes_sub_title": "Detroit",
               "status": "active", "yes_ask": 45, "yes_bid": 41}
-    # with the gate off, the edge alone is enough even without any history
-    signals = ss.evaluate_market(market, [GAME], None)
-    assert any(s["side"] == "yes" for s in signals)
+    sigs = ss.evaluate_market(market, [GAME], hist)
+    for s in sigs:
+        assert s["steam"] is not None
+        # backing Detroit (away) is positive steam; backing home is negative
+        assert (s["steam"] > 0) == (s["backing"] == "away")
 
 
-def test_steam_min_move_threshold(monkeypatch):
-    # require a 5-point move; a 2-point drift toward Detroit isn't enough
+def test_no_prior_line_records_steam_as_unknown_not_zero():
+    market = {"ticker": "KXMLBGAME-X-DET", "yes_sub_title": "Detroit",
+              "status": "active", "yes_ask": 45, "yes_bid": 41}
+    sigs = ss.evaluate_market(market, [GAME], None)
+    assert sigs and all(s["steam"] is None for s in sigs), \
+        "unknown movement must be None, not 0.0 — 0 would read as 'no move'"
+
+
+def test_is_home_is_recorded_for_moneylines():
+    market = {"ticker": "KXMLBGAME-X-DET", "yes_sub_title": "Detroit",
+              "status": "active", "yes_ask": 45, "yes_bid": 41}
+    sigs = ss.evaluate_market(market, [GAME], None)
+    for s in sigs:
+        assert s["is_home"] == (s["backing"] == "home")
+
+
+def test_old_steam_gate_still_works_when_enabled(monkeypatch):
+    # The gate is off by default but must remain functional, so the
+    # chase-steam hypothesis can be re-tested against real CLV later.
+    monkeypatch.setattr(ss, "SPORTS_REQUIRE_STEAM", True)
     monkeypatch.setattr(ss, "SPORTS_MIN_MOVE", 0.05)
+    market = {"ticker": "KXMLBGAME-X-DET", "yes_sub_title": "Detroit",
+              "status": "active", "yes_ask": 45, "yes_bid": 41}
+    assert ss.evaluate_market(market, [GAME], None) == []      # no history
     p_home = ss.fair_home_prob(GAME)
     small = {"game1": {"home_prob": round(p_home + 0.02, 4)}}
-    market = {"ticker": "KXMLBGAME-X-DET", "yes_sub_title": "Detroit",
-              "status": "active", "yes_ask": 45, "yes_bid": 41}
-    assert ss.evaluate_market(market, [GAME], small) == []
+    assert ss.evaluate_market(market, [GAME], small) == []     # 2pt < 5pt bar
     big = {"game1": {"home_prob": round(p_home + 0.10, 4)}}
-    assert ss.evaluate_market(market, [GAME], big)   # 10-pt move clears 5-pt bar
+    assert ss.evaluate_market(market, [GAME], big)             # 10pt clears it
 
 
 def test_line_history_roundtrip(tmp_path, monkeypatch):
@@ -273,3 +301,59 @@ def test_leagues_configurable(monkeypatch):
     assert ss.league_enabled(by_name["MLB"])
     assert ss.league_enabled(by_name["WNBA"])
     assert not ss.league_enabled(by_name["NBA"])     # excluded by the Variable
+
+
+# --- odds API credit budget -------------------------------------------------
+# The free tier is 500 credits/month and a call costs markets x regions = 2.
+# The previous generation burned a month in ~3 days, then got 401 for the rest
+# of it while every workflow still reported success.
+
+def test_budget_left_defaults_true_when_unknown(tmp_path, monkeypatch):
+    monkeypatch.setattr(ss, "ODDS_QUOTA_FILE", tmp_path / "none.json")
+    assert ss.budget_left() is True          # never blocks before we've looked
+
+
+def test_budget_blocks_at_the_reserve(tmp_path, monkeypatch):
+    q = tmp_path / "q.json"
+    monkeypatch.setattr(ss, "ODDS_QUOTA_FILE", q)
+    monkeypatch.setattr(ss, "ODDS_MIN_REMAINING", 50)
+    q.write_text('{"remaining": 51}')
+    assert ss.budget_left() is True
+    q.write_text('{"remaining": 50}')
+    assert ss.budget_left() is False         # at the reserve, not just under
+    q.write_text('{"remaining": 3}')
+    assert ss.budget_left() is False
+
+
+def test_fetch_refuses_to_spend_below_reserve(tmp_path, monkeypatch):
+    q = tmp_path / "q.json"
+    q.write_text('{"remaining": 10}')
+    monkeypatch.setattr(ss, "ODDS_QUOTA_FILE", q)
+    monkeypatch.setattr(ss, "ODDS_MIN_REMAINING", 50)
+
+    def _boom(*a, **k):
+        raise AssertionError("must not spend a credit below the reserve")
+    monkeypatch.setattr(ss.requests, "get", _boom)
+    import pytest
+    with pytest.raises(ss.OddsBudgetExhausted):
+        ss.fetch_games("key", "baseball_mlb")
+
+
+def test_quota_headers_are_recorded(tmp_path, monkeypatch):
+    q = tmp_path / "q.json"
+    monkeypatch.setattr(ss, "ODDS_QUOTA_FILE", q)
+
+    class R:
+        headers = {"x-requests-remaining": "418", "x-requests-used": "82",
+                   "x-requests-last": "2"}
+    ss._note_quota(R())
+    import json
+    assert json.loads(q.read_text())["remaining"] == 418
+
+
+def test_missing_headers_do_not_crash(tmp_path, monkeypatch):
+    monkeypatch.setattr(ss, "ODDS_QUOTA_FILE", tmp_path / "q.json")
+
+    class R:
+        pass
+    ss._note_quota(R())                       # must not raise

@@ -22,16 +22,18 @@ from kalshi_client import KalshiClient
 from kalshi_exposure import ExposureError, current_exposure_usd
 from ledger import log_execution
 from safety import check_order, scaled_exposure_cap, scaled_order_cap
+from sizing import size_position
 from trade_logger import get_logger, setup_logging
 
 log = get_logger("sports_runner")
 
 POLL_SECONDS = int(os.getenv("SPORTS_POLL_SECONDS", "900"))    # 15 min
 RUN_MINUTES = float(os.getenv("SPORTS_RUN_MINUTES", "110"))
-ORDER_PCT = float(os.getenv("SPORTS_ORDER_PCT", "3"))          # % bankroll/pick
 
 
 def contracts_for(budget_usd: float, price_cents: float) -> int:
+    """Kept for the tests that pin the old flat-stake arithmetic. Live sizing
+    goes through sizing.size_position — see the note in sports_pass."""
     if price_cents <= 0:
         return 0
     return int(budget_usd * 100 // price_cents)
@@ -41,9 +43,14 @@ def sports_pass(client, settings, session: dict) -> int:
     """One scan-and-place pass. Returns orders placed."""
     from dataclasses import replace
 
-    from auto_trade import event_of, maker_price
+    from auto_trade import event_of
     try:
         results = strategy_sports.scan(settings.odds_api_key)
+    except strategy_sports.OddsBudgetExhausted as exc:
+        # Expected, not a fault: we deliberately stop short of spending the
+        # last of the monthly quota so a reserve survives to the reset.
+        log.info("Sports scan skipped — %s", exc)
+        return 0
     except Exception as exc:
         log.error("Sports scan failed: %s", exc)
         return 0
@@ -79,9 +86,16 @@ def sports_pass(client, settings, session: dict) -> int:
         if (ticker in held or ticker in session["placed"]
                 or event in session["events"]):
             continue
-        budget = bankroll * ORDER_PCT / 100.0
-        count = contracts_for(budget, price)
+        # Size off THIS pick's edge, not a flat percentage. A flat stake bets
+        # the same on a 5c edge and a 15c edge, which either overbets the weak
+        # picks or underbets the strong ones. size_position applies quarter
+        # Kelly (f* = edge / (100 - entry)) with a hard bankroll cap, and
+        # returns ZERO contracts when the edge cannot pay for one — never a
+        # token bet rounded up.
+        plan = size_position(bankroll, price, s.get("ev_cents", 0.0))
+        count = plan["contracts"]
         if count < 1:
+            log.info("SKIP %s: %s", ticker, plan["reason"])
             continue
         notional = count * price / 100.0
         problems = check_order(settings, "BUY", price / 100.0, count, exposure)
@@ -89,15 +103,24 @@ def sports_pass(client, settings, session: dict) -> int:
             for p in problems:
                 log.warning("BLOCKED %s: %s", ticker, p)
             continue
-        log.info("SHARP PLAY: buy %s %d x %s @ %.0fc ($%.2f, %.1fc edge) | %s",
+        log.info("SHARP PLAY: buy %s %d x %s @ %.0fc ($%.2f, %.1fc edge, "
+                 "steam %s, home=%s) | %s | %s",
                  s["side"], count, ticker, price, notional,
-                 s.get("ev_cents", 0), s.get("subtitle", ""))
+                 s.get("ev_cents", 0),
+                 "n/a" if s.get("steam") is None else f"{s['steam']:+.3f}",
+                 s.get("is_home"), s.get("subtitle", ""), plan["reason"])
         if settings.dry_run:
             log.info("DRY_RUN: not sent.")
             session["placed"].add(ticker)
             session["events"].add(event)
             continue
-        placed_price = maker_price(price, "sports")
+        # TAKE, do not rest. The favourite model rested one cent inside the
+        # book and filled 0 of 7 orders while every market moved away from it —
+        # a resting bid only fills when the price comes DOWN to you, i.e. on
+        # the trades where you were wrong. The signal price is already the ask
+        # (evaluate_market prices at yes_ask and subtracts taker_fee_cents), so
+        # placing AT it crosses and actually gets filled.
+        placed_price = int(round(price))
         try:
             order = client.create_limit_order(ticker, s["side"], "buy",
                                               count, placed_price)

@@ -44,7 +44,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  STATE_FILES: paper_trades_favorite.csv clv_sports.csv CLV_SCOREBOARD.md executed_trades.csv
+  STATE_FILES: paper_trades_favorite.csv paper_trades_sports.csv sports_line_history.json odds_quota.json clv_sports.csv CLV_SCOREBOARD.md executed_trades.csv
 
 jobs:
   trade:
@@ -99,7 +99,12 @@ jobs:
           # --- daily circuit breakers ---
           # Bound the worst realistic DAY, which no other cap does: the
           # exposure cap alone would let ~90% of a $50 bankroll out in one run.
-          MAX_ORDERS_PER_DAY: ${{ vars.MAX_ORDERS_PER_DAY || '8' }}
+          # 0 = place nothing. The favourite model is wound down: it filled
+          # 0 of 7 orders while every market moved away from its resting bid,
+          # because a bid below fair value only fills when the price falls to
+          # you — i.e. only on the trades where you were wrong. The runner
+          # still executes so its TTL sweep cancels the stale bids it left.
+          MAX_ORDERS_PER_DAY: ${{ vars.MAX_ORDERS_PER_DAY || '0' }}
           MAX_DAILY_DEPLOY_USD: ${{ vars.MAX_DAILY_DEPLOY_USD || '15' }}
           # Correlated bets are one bet. The first live scan returned 12 of 14
           # signals resolving off a single CPI print; without this, one theme
@@ -110,6 +115,44 @@ jobs:
           # picked off after the market walked away from it.
           RESTING_TTL_H: ${{ vars.RESTING_TTL_H || '6' }}
         run: python favorite_runner.py
+
+      - name: Sports — sharp consensus vs Kalshi (TAKER)
+        # The live strategy. Takes the ask instead of resting inside it, sizes
+        # each pick off its own edge at quarter Kelly, and records signed steam
+        # and home/away on every signal so CLV can test which of them predicts
+        # beating the close.
+        env:
+          KALSHI_API_KEY_ID: ${{ secrets.KALSHI_API_KEY_ID }}
+          KALSHI_PRIVATE_KEY_PATH: kalshi_prod.pem
+          KALSHI_ENV: ${{ vars.KALSHI_ENV || 'prod' }}
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          KILL_SWITCH: ${{ vars.KILL_SWITCH || 'false' }}
+          DRY_RUN: ${{ inputs.dry_run || vars.DRY_RUN || 'false' }}
+          MAX_ORDER_SIZE: ${{ vars.MAX_ORDER_SIZE || '3' }}
+          MAX_TOTAL_EXPOSURE: ${{ vars.MAX_TOTAL_EXPOSURE || '45' }}
+          MAX_ORDER_BANKROLL_PCT: ${{ vars.MAX_ORDER_BANKROLL_PCT || '5' }}
+          MAX_ORDER_ABS: ${{ vars.MAX_ORDER_ABS || '5' }}
+          MAX_EXPOSURE_BANKROLL_PCT: ${{ vars.MAX_EXPOSURE_BANKROLL_PCT || '90' }}
+          MAX_EXPOSURE_ABS: ${{ vars.MAX_EXPOSURE_ABS || '55' }}
+          KELLY_FRACTION: ${{ vars.KELLY_FRACTION || '0.25' }}
+          MAX_BANKROLL_PCT: ${{ vars.MAX_BANKROLL_PCT || '5' }}
+          # 0.52, not 0.60: the old floor excluded the whole 50-60c band, which
+          # is where sharp-vs-Kalshi disagreement is widest.
+          SPORTS_MIN_CONFIDENCE: ${{ vars.SPORTS_MIN_CONFIDENCE || '0.52' }}
+          # Steam is measured, not required — requiring it meant always buying
+          # the post-move price, which is why CLV was -6.0c.
+          SPORTS_REQUIRE_STEAM: ${{ vars.SPORTS_REQUIRE_STEAM || 'false' }}
+          SPORTS_LEAGUES: ${{ vars.SPORTS_LEAGUES || 'mlb,nba,nfl,nhl,wnba' }}
+          SPORTS_MAX_ML_PER_DAY: ${{ vars.SPORTS_MAX_ML_PER_DAY || '2' }}
+          SPORTS_MAX_TOTALS_PER_DAY: ${{ vars.SPORTS_MAX_TOTALS_PER_DAY || '2' }}
+          # The free Odds API tier is 500 credits/month and a call costs
+          # markets x regions = 2. One pass per run at ~1 in-season league is
+          # ~2 credits; at ~24 runs/day that is ~1440/month, so --once and the
+          # in-season filter (a free endpoint) are what keep us inside budget.
+          # Stop before the quota is gone so a reserve survives to the reset.
+          ODDS_MIN_REMAINING: ${{ vars.ODDS_MIN_REMAINING || '50' }}
+          SPORTS_RUN_MINUTES: '0'
+        run: python sports_runner.py --once
 
       - name: Snapshot open prices, confirm fills, score CLV
         # Runs every cycle regardless of whether anything was placed. This is

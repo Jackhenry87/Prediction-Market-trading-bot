@@ -17,10 +17,13 @@ query odds only for sports that are actually active). Soccer is
 deliberately excluded: its 3-way lines (draw) need different devig math
 and Kalshi structuring.
 
-Line-movement (steam) filter: we only take a side when the sharp fair
-probability has moved TOWARD it since the previous run — confirmation that
-smart money agrees. The prior line is remembered in sports_line_history.json
-(committed by the workflow). Toggle with SPORTS_REQUIRE_STEAM / SPORTS_MIN_MOVE.
+Line movement is RECORDED, not required. Requiring the sharp line to have
+already moved toward our side meant entering after the move — "betting the
+post-steam price is not capturing edge but paying fair value, minus the vig" —
+and the model measured -6.0c CLV doing exactly that. Every signal now carries a
+SIGNED `steam` (positive = late, negative = early) plus `is_home`, so CLV can
+tell us which actually predicts beating the close. The prior line lives in
+sports_line_history.json. SPORTS_REQUIRE_STEAM=true restores the old gate.
 
     python strategy_sports.py     # read-only scan, no orders
 """
@@ -75,21 +78,32 @@ MIN_EDGE_CENTS = 5.0
 PAPER_LOG = Path(__file__).resolve().parent / "paper_trades_sports.csv"
 LINE_HISTORY = Path(__file__).resolve().parent / "sports_line_history.json"
 
-# Line-movement (steam) filter. We only take a side when the sharp fair
-# probability has moved TOWARD that side since we last looked — i.e. smart
-# money is agreeing with us, not fading us. A gap that appears while the
-# sharp line is drifting against you is usually the market telling you
-# something you don't know. Requires at least one prior observation of the
-# game (so the very first sighting never trades). Disable with
-# SPORTS_REQUIRE_STEAM=false; SPORTS_MIN_MOVE sets how big the move must be.
+# Line-movement (steam). RECORDED ON EVERY SIGNAL, GATED ON BY DEFAULT NO MORE.
+#
+# This used to require the sharp probability to have already moved TOWARD our
+# side before entering. That is chasing steam, and the betting literature is
+# blunt about where it leads: "by chasing steam it is very difficult to get
+# closing line value — betting the post-steam price is not capturing edge but
+# paying fair value, minus the vig." Entering only after the move mechanically
+# guarantees we buy at or behind the new price, and the model duly measured
+# **-6.0c average CLV** over its 9 scored bets. The filter was not unlucky, it
+# was pointed the wrong way.
+#
+# So the move is now a MEASURED FEATURE rather than a precondition: every
+# signal carries a SIGNED `steam` value (positive = the line moved toward us
+# before we bet, negative = we are early / fading the drift), and the CLV
+# tracker scores the bet either way. Once enough bets are scored we can test
+# which sign actually predicts beating the close, instead of assuming.
+#
+# Set SPORTS_REQUIRE_STEAM=true to restore the old gate.
 SPORTS_REQUIRE_STEAM = os.getenv(
-    "SPORTS_REQUIRE_STEAM", "true").strip().lower() not in ("false", "0", "no")
-# require a REAL sharp move (default 1 probability point since last look),
-# not any drift — noise-sized moves were half the losing bets
+    "SPORTS_REQUIRE_STEAM", "false").strip().lower() not in ("false", "0", "no")
 SPORTS_MIN_MOVE = float(os.getenv("SPORTS_MIN_MOVE", "0.01"))   # prob points
-# only back a side the sharp price makes a genuine favorite — skip the
-# coin-flip games where variance dominates any thin edge
-SPORTS_MIN_CONFIDENCE = float(os.getenv("SPORTS_MIN_CONFIDENCE", "0.60"))
+# How confident the sharp price must make our side. Lowered from 0.60 to 0.52:
+# the old floor excluded the entire 50-60c band, which is where sharp-vs-Kalshi
+# disagreement is widest and where the favourite-longshot bias (the other
+# model's thesis) does not apply. The EV floor still does the real filtering.
+SPORTS_MIN_CONFIDENCE = float(os.getenv("SPORTS_MIN_CONFIDENCE", "0.52"))
 # SEPARATE daily budgets: a few moneyline plays AND a few over/under plays,
 # each capped independently and each taking only its best by edge.
 SPORTS_MAX_ML_PER_DAY = int(os.getenv("SPORTS_MAX_ML_PER_DAY", "2"))
@@ -245,7 +259,7 @@ def evaluate_total_market(market: dict, mean: float, move: float = None) -> list
         if ev >= MIN_EDGE_CENTS:
             signals.append(dict(side="yes", price_cents=yes_ask,
                                 model_prob=p_over, ev_cents=ev,
-                                steam=abs(move or 0.0)))
+                                steam=(move if move is not None else None)))
     yes_bid = price_cents(market, "yes_bid")
     if (yes_bid and 0 < yes_bid < 100 and (1.0 - p_over) >= SPORTS_MIN_CONFIDENCE
             and steam_ok(False)):
@@ -254,9 +268,11 @@ def evaluate_total_market(market: dict, mean: float, move: float = None) -> list
         if ev >= MIN_EDGE_CENTS:
             signals.append(dict(side="no", price_cents=no_price,
                                 model_prob=1.0 - p_over, ev_cents=ev,
-                                steam=abs(move or 0.0)))
+                                steam=(-move if move is not None else None)))
     for s in signals:
-        s.update(ticker=market.get("ticker"), subtitle=label)
+        # totals have no home/away side; None keeps the column honest rather
+        # than defaulting to False and inventing a category
+        s.update(ticker=market.get("ticker"), subtitle=label, is_home=None)
     return signals
 
 
@@ -304,18 +320,74 @@ def in_season_sports(api_key: str) -> set:
     """Sport keys currently active. The /v4/sports listing costs zero
     API credits, so this lets us pull paid odds only for live leagues."""
     resp = requests.get(SPORTS_LIST_URL, params={"apiKey": api_key}, timeout=20)
+    _note_quota(resp)          # free call, but the headers still tell us where we stand
     resp.raise_for_status()
     return {s["key"] for s in resp.json()
             if s.get("active") and not s.get("has_outrights")}
 
 
+class OddsBudgetExhausted(RuntimeError):
+    """Raised instead of spending the last of the monthly odds quota."""
+
+
+# The Odds API free tier is 500 credits a MONTH, and a call costs
+# markets x regions — h2h+totals over us = 2 credits per league per call.
+# The previous generation ran ~5 leagues every 15 minutes and burned the whole
+# month in ~3 days, then returned 401 for the remaining 27 while every workflow
+# still reported success. Never again: refuse to spend below a reserve, and
+# record what the API says is left so the reserve survives a process restart.
+ODDS_MIN_REMAINING = float(os.getenv("ODDS_MIN_REMAINING", "50"))
+ODDS_QUOTA_FILE = Path(__file__).resolve().parent / "odds_quota.json"
+
+
+def read_quota() -> dict:
+    try:
+        return json.loads(ODDS_QUOTA_FILE.read_text())
+    except (FileNotFoundError, ValueError):
+        return {}
+
+
+def _note_quota(resp) -> None:
+    """Persist what the API reports about our remaining credits."""
+    headers = getattr(resp, "headers", None) or {}
+    rem = headers.get("x-requests-remaining")
+    if rem is None:
+        return
+    try:
+        remaining = float(rem)
+    except ValueError:
+        return
+    try:
+        ODDS_QUOTA_FILE.write_text(json.dumps(dict(
+            remaining=remaining,
+            used=headers.get("x-requests-used"),
+            last_call_cost=headers.get("x-requests-last"),
+            checked=datetime.now(timezone.utc).isoformat(timespec="seconds"))))
+    except OSError:
+        pass
+    if remaining <= ODDS_MIN_REMAINING:
+        log.warning("Odds API credits down to %.0f (reserve %.0f) — pausing "
+                    "paid odds calls until the monthly reset.",
+                    remaining, ODDS_MIN_REMAINING)
+
+
+def budget_left() -> bool:
+    """False when the last known balance is at or under the reserve."""
+    rem = read_quota().get("remaining")
+    return True if rem is None else float(rem) > ODDS_MIN_REMAINING
+
+
 def fetch_games(api_key: str, sport: str) -> list:
+    if not budget_left():
+        raise OddsBudgetExhausted(
+            f"odds credits at or below the {ODDS_MIN_REMAINING:.0f} reserve")
     resp = requests.get(
         ODDS_URL.format(sport=sport),
         params={"apiKey": api_key, "regions": ODDS_REGIONS,
                 "markets": "h2h,totals", "oddsFormat": "decimal"},
         timeout=20,
     )
+    _note_quota(resp)
     resp.raise_for_status()
     games = []
     for game in resp.json():
@@ -352,6 +424,15 @@ def evaluate_market(market: dict, games: list, history: dict = None) -> list:
         toward = move_home if back_side == "home" else -move_home
         return toward >= SPORTS_MIN_MOVE
 
+    # SIGNED steam, per side: positive means the sharp line moved toward the
+    # side we are backing (we are late), negative means it moved away (we are
+    # early, or fading the drift). Recorded, never assumed — see the note on
+    # SPORTS_REQUIRE_STEAM.
+    def steam_for(back_side: str):
+        if move_home is None:
+            return None
+        return move_home if back_side == "home" else -move_home
+
     signals = []
     yes_ask = price_cents(market, "yes_ask")
     if (yes_ask and 0 < yes_ask < 100 and steam_ok(side)
@@ -360,7 +441,7 @@ def evaluate_market(market: dict, games: list, history: dict = None) -> list:
         if ev >= MIN_EDGE_CENTS:
             signals.append(dict(side="yes", price_cents=yes_ask,
                                 model_prob=p, ev_cents=ev,
-                                steam=abs(move_home or 0.0)))
+                                steam=steam_for(side), backing=side))
     yes_bid = price_cents(market, "yes_bid")
     if (yes_bid and 0 < yes_bid < 100 and steam_ok(other)
             and (1.0 - p) >= SPORTS_MIN_CONFIDENCE):
@@ -369,9 +450,15 @@ def evaluate_market(market: dict, games: list, history: dict = None) -> list:
         if ev >= MIN_EDGE_CENTS:
             signals.append(dict(side="no", price_cents=no_price,
                                 model_prob=1.0 - p, ev_cents=ev,
-                                steam=abs(move_home or 0.0)))
+                                steam=steam_for(other), backing=other))
     for s in signals:
-        s.update(ticker=market.get("ticker"), subtitle=label)
+        # is_home records whether the side we backed is the home team. The
+        # home-underdog edge is real in the literature but largely arbitraged
+        # away (Gray & Gray: profitable 7 of 8 seasons, then 3 of 11; recent
+        # work finds the NFL home bias "nearly eliminated"). So it is logged as
+        # a feature to test against our own CLV, NOT used to adjust the price.
+        s.update(ticker=market.get("ticker"), subtitle=label,
+                 is_home=(s.get("backing") == "home"))
     return signals
 
 
