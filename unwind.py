@@ -137,7 +137,13 @@ def main() -> int:
         min_price = float(sys.argv[sys.argv.index("--min-price") + 1])
 
     try:
-        settings = load_kalshi_settings(require_market=False)
+        # require_trading=False on purpose. MAX_ORDER_SIZE and the exposure
+        # caps bound how much risk may be OPENED; an exit reduces exposure by
+        # definition, so demanding them here only creates a way to be locked
+        # out of closing a position — a small MAX_ORDER_SIZE would block the
+        # sale of a larger holding. The first run failed exactly this way.
+        settings = load_kalshi_settings(require_market=False,
+                                        require_trading=False)
     except ConfigError as exc:
         log.error("Configuration error: %s", exc)
         return 1
