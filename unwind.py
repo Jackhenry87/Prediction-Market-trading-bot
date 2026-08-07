@@ -61,6 +61,50 @@ def position_for(positions: dict, ticker: str):
     return None
 
 
+def describe_account(client, ticker: str) -> None:
+    """Log what the exchange actually says, before we act on it.
+
+    Written after two rounds of guessing wrong. executed_trades.csv records an
+    order at PLACEMENT, so a row there proves only that we asked — reading it
+    as a fill is how the 8c WNBA buy got reported as a held position it never
+    was. Balance deltas between runs are no better: cash moves for fills,
+    cancels, settlements and reserved orders alike, and they are not
+    distinguishable after the fact. This prints the primary sources instead."""
+    try:
+        log.info("Cash balance: $%.2f", client.get_balance_cents() / 100.0)
+    except Exception as exc:
+        log.warning("Balance unavailable: %s", exc)
+    try:
+        positions = (client.get_positions() or {}).get("market_positions") or []
+        live = [p for p in positions
+                if float(p.get("position", 0) or 0) != 0]
+        log.info("Open positions: %d", len(live))
+        for p in live:
+            log.info("   %s qty=%s exposure=%s", p.get("ticker"),
+                     p.get("position"), p.get("market_exposure",
+                                              p.get("market_exposure_dollars", "?")))
+    except Exception as exc:
+        log.warning("Positions unavailable: %s", exc)
+    try:
+        orders = client.get_resting_orders() or []
+        log.info("Resting orders: %d", len(orders))
+        for o in orders:
+            log.info("   %s %s x%s @ %s (id %s)", o.get("ticker"),
+                     o.get("side"), o.get("remaining_count", o.get("count")),
+                     o.get("price", o.get("yes_price")), o.get("order_id"))
+    except Exception as exc:
+        log.warning("Resting orders unavailable: %s", exc)
+    try:
+        fills = [f for f in (client.get_fills() or [])
+                 if f.get("ticker") == ticker]
+        log.info("Fills recorded for %s: %d", ticker, len(fills))
+        for f in fills:
+            log.info("   %s %s x%s @ %s", f.get("created_time"), f.get("side"),
+                     f.get("count"), f.get("yes_price", f.get("price")))
+    except Exception as exc:
+        log.warning("Fills unavailable: %s", exc)
+
+
 def cancel_resting_in(client, ticker: str, dry_run: bool = True) -> int:
     """Pull any of our own unfilled orders in this market. Returns the count.
 
@@ -122,6 +166,8 @@ def exit_price(client, ticker: str, side: str):
 def unwind(client, ticker: str, min_price: float = 1.0,
            dry_run: bool = True) -> int:
     """Sell out of `ticker`. Returns contracts sold (0 if nothing was done)."""
+    describe_account(client, ticker)
+
     # Order matters: kill the unfilled orders BEFORE selling. Otherwise our own
     # resting buy sits in the book while we try to sell into it, and Kalshi's
     # self-trade prevention rejects the sale.

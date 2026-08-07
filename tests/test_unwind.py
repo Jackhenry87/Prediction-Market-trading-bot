@@ -9,10 +9,11 @@ import unwind
 
 
 class FakeClient:
-    def __init__(self, positions=None, market=None, resting=None):
+    def __init__(self, positions=None, market=None, resting=None, fills=None):
         self._positions = positions or {"market_positions": []}
         self._market = market or {}
         self._resting = resting or []
+        self._fills = fills or []
         self.orders = []
         self.cancelled = []
 
@@ -21,6 +22,12 @@ class FakeClient:
 
     def get_resting_orders(self):
         return list(self._resting)
+
+    def get_balance_cents(self):
+        return 5000
+
+    def get_fills(self, min_ts=None):
+        return list(self._fills)
 
     def cancel_order(self, order_id):
         self.cancelled.append(order_id)
@@ -35,11 +42,12 @@ class FakeClient:
         return {"order_id": "o1"}
 
 
-def _client(qty=30, yes_bid=7, yes_ask=8, ticker="KXWNBA-26-ATL", resting=None):
+def _client(qty=30, yes_bid=7, yes_ask=8, ticker="KXWNBA-26-ATL", resting=None,
+            fills=None):
     return FakeClient(
         positions={"market_positions": [{"ticker": ticker, "position": qty}]},
         market={"ticker": ticker, "yes_bid": yes_bid, "yes_ask": yes_ask},
-        resting=resting)
+        resting=resting, fills=fills)
 
 
 # --- it must never be able to open a position ------------------------------
@@ -251,4 +259,33 @@ def test_a_failing_resting_lookup_does_not_stop_the_sale():
     def boom():
         raise RuntimeError("orders endpoint down")
     c.get_resting_orders = boom
+    assert unwind.unwind(c, "KXWNBA-26-ATL", dry_run=False) == 30
+
+
+# --- it must report what the exchange says, not what we assume --------------
+
+def test_describe_account_reports_without_trading():
+    c = _client(qty=30, resting=[{"ticker": "T", "order_id": "o"}],
+                fills=[{"ticker": "KXWNBA-26-ATL", "count": 30}])
+    unwind.describe_account(c, "KXWNBA-26-ATL")
+    assert c.orders == [] and c.cancelled == []
+
+
+def test_describe_account_survives_every_endpoint_failing():
+    # A diagnostic that crashes takes the exit down with it. Each source is
+    # independent and optional.
+    c = _client(qty=30)
+    for name in ("get_balance_cents", "get_positions", "get_resting_orders",
+                 "get_fills"):
+        def boom(*a, **k):
+            raise RuntimeError("down")
+        setattr(c, name, boom)
+    unwind.describe_account(c, "T")        # must not raise
+
+
+def test_a_broken_diagnostic_does_not_block_the_sale():
+    c = _client(qty=30)
+    def boom(*a, **k):
+        raise RuntimeError("down")
+    c.get_fills = boom
     assert unwind.unwind(c, "KXWNBA-26-ATL", dry_run=False) == 30
