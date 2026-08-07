@@ -5,10 +5,16 @@
 
 WHAT THIS DOES
 --------------
-Drains notifications forwarded by the owner's phone (see follow_webhook),
-turns each into a Kalshi ticker, asks OUR OWN models what the market is
-worth, and — only if our model agrees there is an edge — places a
-quarter-Kelly order sized against OUR bankroll.
+Polls his trade history straight from Kalshi (see follow_feed), asks OUR OWN
+models what each market is worth, and — only if our model agrees there is an
+edge — places a quarter-Kelly order sized against OUR bankroll.
+
+No phone is involved. An earlier design forwarded push notifications off the
+owner's iPhone, which needed a market, side and price typed in by hand and
+was solving the wrong problem: a notification says only THAT he traded.
+Polling `/v1/users/{u}/trades` says WHAT he traded, with the exact ticker,
+side, price and size, bounded by the poll interval rather than by push
+latency plus a human.
 
 His trade is the trigger. Our model is the reason. Our bankroll is the size.
 
@@ -49,9 +55,7 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
-import requests
-
-import follow_parse
+import follow_feed
 import follow_prob
 import follow_resolve
 import ledger
@@ -68,7 +72,6 @@ log = get_logger("follow_runner")
 
 ROOT = Path(__file__).resolve().parent
 PAPER_LOG = ROOT / "follow_trades.csv"
-CURSOR_PATH = ROOT / "follow_cursor.txt"
 # The shared execution ledgers, held as module constants and passed to the
 # ledger calls EXPLICITLY. `ledger.log_execution(path=EXEC_LOG)` binds its
 # default at import time, so a test that patches `ledger.EXEC_LOG` would
@@ -81,9 +84,8 @@ COPY_LOG = ledger.COPY_LOG
 ENABLED = os.getenv("FOLLOW_ENABLED", "false").lower() == "true"
 DRY_RUN = os.getenv("FOLLOW_DRY_RUN", "true").lower() == "true"
 USERNAME = os.getenv("FOLLOW_USERNAME", "blushing.wildebeest7119").strip()
-WEBHOOK_URL = os.getenv("FOLLOW_WEBHOOK_URL", "").strip().rstrip("/")
-WEBHOOK_KEY = os.getenv("FOLLOW_WEBHOOK_KEY", "").strip()
-POLL_SECONDS = float(os.getenv("FOLLOW_POLL_SECONDS", "10"))
+# Detection latency ceiling: we learn of a trade within one poll.
+POLL_SECONDS = float(os.getenv("FOLLOW_POLL_SECONDS", "20"))
 RUN_MINUTES = float(os.getenv("FOLLOW_RUN_MINUTES", "110"))
 MAX_SLIP_CENTS = float(os.getenv("FOLLOW_MAX_SLIP_CENTS", "3"))
 MIN_PRICE_CENTS = float(os.getenv("FOLLOW_MIN_PRICE_CENTS", "10"))
@@ -99,57 +101,6 @@ PAPER_COLUMNS = [
     "edge_cents", "kelly_full", "kelly_used", "contracts", "cost_usd",
     "his_stake_usd", "his_contracts", "order_id", "outcome", "clv_cents",
 ]
-
-UNPARSED_LOG = ROOT / "follow_unparsed.log"
-
-
-# ------------------------------ ingestion ------------------------------
-
-def read_cursor() -> int:
-    try:
-        return int(CURSOR_PATH.read_text().strip() or 0)
-    except (OSError, ValueError):
-        return 0
-
-
-def write_cursor(value: int) -> None:
-    try:
-        CURSOR_PATH.write_text(str(int(value)))
-    except OSError as exc:
-        log.warning("cursor write failed: %s", exc)
-
-
-def drain(since: int) -> list:
-    """Notifications newer than `since`, from the webhook.
-
-    Returns [] on any transport failure — a flaky network must never look
-    like 'he placed a trade', and the cursor is only advanced on success.
-    """
-    if not WEBHOOK_URL:
-        log.warning("FOLLOW_WEBHOOK_URL not set — nothing to drain")
-        return []
-    try:
-        resp = requests.get(f"{WEBHOOK_URL}/follow/pending",
-                            params={"since": since},
-                            headers={"X-API-Key": WEBHOOK_KEY}, timeout=10)
-        resp.raise_for_status()
-        return resp.json().get("events", []) or []
-    except Exception as exc:
-        log.warning("drain failed: %s", exc)
-        return []
-
-
-def record_unparsed(text: str) -> None:
-    """Keep every notification we could not read, verbatim.
-
-    We have never seen a real one of these, so the parser's patterns are
-    assumptions. This file is how an assumption becomes a fix.
-    """
-    try:
-        with open(UNPARSED_LOG, "a") as fh:
-            fh.write(f"--- {datetime.now(timezone.utc).isoformat()}\n{text}\n")
-    except OSError:
-        pass
 
 
 # ------------------------------- ledger --------------------------------
@@ -205,28 +156,56 @@ def evaluate(our_p: float, price: float) -> dict:
 
 # ------------------------------ the pass -------------------------------
 
-def handle(client, settings, event: dict, state: dict) -> bool:
-    """Process one notification. Returns True if an order was placed."""
-    text = event.get("text") or ""
-    signal = follow_parse.parse_notification(text, expect_username=USERNAME)
-    if not signal:
-        record_unparsed(text)
-        log.info("unparsed or not-our-trader notification (%d chars)",
-                 len(text))
+def resolve(client, signal: dict) -> dict:
+    """Signal -> {'ticker', 'event_ticker', 'market'} or None.
+
+    The feed usually hands us a ticker outright, which makes the whole prose
+    matching problem disappear — no team-name tokenising, no ambiguity between
+    a game's moneyline and totals events, no series walk. We still have to
+    fetch the market for its labels and strikes, which follow_prob needs.
+
+    `follow_resolve` stays as the fallback for records that carry only a
+    title and outcome. It is already written and proven against live data, so
+    keeping it costs nothing and covers a shape we cannot rule out.
+    """
+    ticker = signal.get("ticker")
+    if ticker:
+        try:
+            market = client.get_market(ticker)
+        except Exception as exc:
+            log.warning("market fetch failed for %s: %s", ticker, exc)
+            return None
+        return dict(ticker=ticker, market=market,
+                    event_ticker=market.get("event_ticker")
+                    or event_of(ticker))
+    return follow_resolve.resolve_ticker(client, signal)
+
+
+def handle(client, settings, signal: dict, state: dict) -> bool:
+    """Process one trade of his. Returns True if an order was placed."""
+    if not signal or not signal.get("side"):
+        log.info("skipping a record with no readable side: %s",
+                 {k: v for k, v in (signal or {}).items() if k != "raw"})
         return False
 
-    log.info("SIGNAL from %s: %s / %s (%s%s)", signal["username"],
-             signal.get("market_title"), signal.get("outcome_text"),
+    # Exits are a different (and unbuilt) strategy — copying an entry and
+    # ignoring the exit is already half a strategy; copying a SALE as a buy
+    # would be backwards.
+    if signal.get("action") in ("sell", "sold"):
+        log.info("skipping a sale — exits are out of scope for v1")
+        return False
+
+    log.info("TRADE by %s: %s (%s%s)", signal.get("username"),
+             signal.get("ticker") or signal.get("market_title"),
              signal["side"],
              f" @ {signal['price_cents']}c"
              if signal.get("price_cents") else "")
 
-    base = dict(username=signal["username"], side=signal["side"],
+    base = dict(username=signal.get("username"), side=signal["side"],
                 his_price_cents=signal.get("price_cents") or "",
-                his_stake_usd=signal.get("stake_usd") or "",
                 his_contracts=signal.get("contracts") or "")
 
-    hit = follow_resolve.resolve_ticker(client, signal)
+    hit = resolve(client, signal)
     if not hit:
         log_decision(decision="skip", reason="could not resolve to a ticker",
                      **base)
@@ -357,21 +336,23 @@ def handle(client, settings, event: dict, state: dict) -> bool:
 
 
 def run_once(client, settings, state: dict) -> int:
-    cursor = read_cursor()
-    events = drain(cursor)
-    if not events:
+    """One poll of his activity, then decide on anything new.
+
+    A FeedError is an OUTAGE, not silence. It is re-raised to the caller so
+    a broken feed is loud — an empty poll and a dead endpoint look identical
+    from here, and mistaking the second for the first would leave the copier
+    apparently healthy and permanently blind.
+    """
+    signals = follow_feed.poll(client)
+    if not signals:
         return 0
-    log.info("drained %d notification(s)", len(events))
     placed = 0
-    highest = cursor
-    for ev in events:
+    for sig in signals:
         try:
-            if handle(client, settings, ev, state):
+            if handle(client, settings, sig, state):
                 placed += 1
         except Exception as exc:
-            log.error("handler crashed on event %s: %s", ev.get("id"), exc)
-        highest = max(highest, int(ev.get("id", 0)))
-    write_cursor(highest)
+            log.error("handler crashed on %s: %s", sig.get("ticker"), exc)
     return placed
 
 
@@ -401,7 +382,12 @@ def main() -> int:
     deadline = time.time() + RUN_MINUTES * 60
     total = 0
     while True:
-        total += run_once(client, settings, state)
+        try:
+            total += run_once(client, settings, state)
+        except follow_feed.FeedError as exc:
+            # Loud and fatal. A feed we cannot read is not "he is quiet".
+            log.error("FEED DOWN — %s", exc)
+            return 1
         if once or time.time() >= deadline:
             break
         time.sleep(POLL_SECONDS)

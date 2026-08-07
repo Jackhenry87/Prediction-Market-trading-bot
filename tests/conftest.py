@@ -54,10 +54,12 @@ def _isolate_state_files(tmp_path, monkeypatch):
                             tmp_path / "copy_trades.csv")
         monkeypatch.setattr(follow_runner, "PAPER_LOG",
                             tmp_path / "follow_trades.csv")
-        monkeypatch.setattr(follow_runner, "CURSOR_PATH",
-                            tmp_path / "follow_cursor.txt")
-        monkeypatch.setattr(follow_runner, "UNPARSED_LOG",
-                            tmp_path / "follow_unparsed.log")
+        import follow_feed
+        # The feed's cold-start cursor. If a test wrote to the real one it
+        # would mark live trades as already seen, and the copier would go
+        # silently blind to them.
+        monkeypatch.setattr(follow_feed, "STATE_PATH",
+                            tmp_path / "follow_seen.json")
     except ImportError:
         pass
 

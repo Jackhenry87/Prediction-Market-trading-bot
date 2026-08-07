@@ -199,55 +199,65 @@ python -m pytest -q           # 283 tests
 
 ## Copy-trading a leaderboard trader
 
-`follow_*.py` mirrors a Kalshi leaderboard account you follow. It is **off by
-default** (`FOLLOW_ENABLED=false`) and **paper by default**
-(`FOLLOW_DRY_RUN=true`).
+`follow_*.py` mirrors a Kalshi leaderboard account. It is **off by default**
+(`FOLLOW_ENABLED=false`) and **paper by default** (`FOLLOW_DRY_RUN=true`).
 
-### What Kalshi does and does not expose
+### How it sees his trades
 
-There is no API that attributes a trade to an account. Verified against the
-live API:
+Kalshi's *public* API cannot attribute a trade to anyone — `GET
+/trade-api/v2/markets/trades` carries no user field, and `/leaderboard` and
+`/social/*` are 404. But the routes its own app uses do exist:
 
-| Endpoint | Result |
+| Path | Response |
 |---|---|
-| `GET /trade-api/v2/markets/trades` | works, but carries **no user field** |
-| `/trade-api/v2/users/<name>`, `/leaderboard`, `/social/*` | 404 |
-| `/v1/users/<name>` | 401 — browser session token, not the RSA API key |
+| `/v1/users/{username}/trades` | 401 — exists, needs auth |
+| `/v1/users/{username}/positions` | 401 — exists, needs auth |
+| `/v1/users/{username}/orders` | 401 — exists, needs auth |
+| `/v1/users/{username}/nonsense` | 404 — the router knows the real ones |
 
-Kalshi's emails are marketing, your own fills, and settlements. None of them
-mention a followed trader. So the only thing that knows he traded is the
-**push notification on your phone**, and the pipeline is built around that.
+`follow_feed.py` polls `/trades` every `FOLLOW_POLL_SECONDS` (20s default) and
+diffs the result, so detection is bounded by the poll interval and carries the
+exact ticker, side, price and size.
 
-### Wiring the iOS Shortcut
+**These are undocumented endpoints.** They can change or close without notice,
+so the feed **fails loudly**: a `FeedError` stops the runner rather than
+returning an empty list, because a silent feed is indistinguishable from "he
+stopped trading" — the failure mode that would leave the copier looking
+healthy and permanently blind.
 
-1. Deploy the receiver (`follow-webhook` in `paperbook/render.yaml`) and set
-   `FOLLOW_WEBHOOK_KEY` in the Render dashboard. Generate one with
-   `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
-   The endpoint returns 503 until that key is set — an unauthenticated trade
-   trigger would let anyone on the internet place orders on your account.
-2. On the phone: **Shortcuts → Automation → New → App/Notification →
-   Kalshi → Run Immediately**, with one action:
+### Setup
 
-   - **Get Contents of URL**
-   - URL: `https://<your-service>.onrender.com/follow/notify`
-   - Method: `POST`, Request Body: `JSON`
-   - Headers: `X-API-Key: <FOLLOW_WEBHOOK_KEY>`
-   - Body fields: `title` → *Notification Title*, `body` → *Notification Body*
+1. Fill in your Kalshi API key and `.pem` path in `.env` (needed for trading
+   regardless).
+2. Find out which auth Kalshi accepts on `/v1`:
 
-   Both fields are kept; the market name usually lives in the title.
-3. Run `follow_runner.py` (see `deploy/follow-runner.service`). It drains the
-   webhook every `FOLLOW_POLL_SECONDS` (10s), so end-to-end latency is a few
-   seconds plus however long Kalshi's push and iOS take.
+   ```bash
+   python follow_feed.py --probe
+   ```
+
+   It tries the RSA API key first, then `FOLLOW_SESSION_TOKEN`, and prints the
+   response shape and field names. If the API key works you never need to
+   refresh anything. If it does not, paste a session token from a logged-in
+   browser into `FOLLOW_SESSION_TOKEN` — those **expire**, and the feed alarms
+   when one that was working stops.
+3. Run `follow_runner.py` (see `deploy/follow-runner.service`).
+
+**The first run copies nothing.** `follow_feed` seeds every trade already on
+his record as "already seen" and logs `COLD START: seeded N existing
+trade(s)`. Without that, arming the copier would replay his ~123 historical
+trades as ~123 simultaneous orders into markets that mostly settled weeks ago.
+The cursor persists in `follow_seen.json`, so a restart is equally safe.
 
 ### How a copy is decided
 
 His trade is the **trigger**; our own model is the **reason**; our bankroll is
 the **size**.
 
-1. `follow_parse` reads the notification. Wrong trader, a sale, or anything
-   unreadable → dropped (unreadable bodies land in `follow_unparsed.log`).
-2. `follow_resolve` turns "Los Angeles D vs Chicago C" / "Chicago C" into a
-   ticker, searching one series at a time. Ambiguity resolves to nothing.
+1. `follow_feed` polls and diffs; new trades only, entries only (sales are
+   skipped — copying an exit as a buy would be backwards).
+2. The feed usually names a ticker, so no prose matching is needed.
+   `follow_resolve` remains the fallback when only a title and outcome come
+   back; ambiguity there resolves to nothing rather than a guess.
 3. `follow_prob` asks **our** models for `p`. **No model view → no order.**
    Coverage is roughly a third of his activity (MLB/NBA moneylines, totals,
    first-inning runs); soccer, golf, tennis, UFC, spreads and combos are
@@ -258,8 +268,8 @@ the **size**.
 
 ### Why it is this suspicious
 
-His public profile reads +$442,763 on $2.6M volume, Top 1% P&L. Reconstructed
-from his 115 settled positions:
+His profile reads +$442,763 on $2.6M volume, Top 1% P&L. Reconstructed from
+his 115 settled positions:
 
 - 61W–54L (53.0%) — 0.7σ from a coin flip on that sample;
 - his top 5 trades are $586,308, **131% of his net profit**. Excluding them
@@ -268,13 +278,13 @@ from his 115 settled positions:
   $20,000.00 …), which is hand-typed sizing, not Kelly output — there is no
   sizing model of his to copy;
 - he moves 100k–390k contracts per position, so **his own order is the price
-  move**. `FOLLOW_MAX_SLIP_CENTS` (default 3¢) skips any signal where the
-  line has already run past his entry, because that is his impact, not his
-  edge.
+  move**. `FOLLOW_MAX_SLIP_CENTS` (default 3¢) skips any signal where the line
+  has already run past his entry. Polling shortens our lag; it does not make
+  us early.
 
 Run `python follow_scoreboard.py` to write `FOLLOW_SCOREBOARD.md`. Flip
-`FOLLOW_DRY_RUN=false` only when that shows a positive settled net after
-fees — his record is not evidence that *we* profit.
+`FOLLOW_DRY_RUN=false` only when that shows a positive settled net after fees
+— his record is not evidence that *we* profit.
 
 ## Other components
 
