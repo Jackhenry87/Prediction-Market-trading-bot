@@ -9,10 +9,12 @@ name: favorite
 # the safety gate, from a phone, with no code change. DRY_RUN=true is the
 # softer option — it logs the exact orders and sends nothing.
 #
-# SIZE: units come from sizing.py (quarter Kelly on each signal's own edge),
-# not a flat stake. On a $50 bankroll that is 1-2 contracts, $1.14-$2.50.
-# Three independent ceilings sit above it: the sizing model's own 5% cap,
-# MAX_ORDER_BANKROLL_PCT at the safety gate, and the absolute MAX_ORDER_ABS.
+# SIZE: units come from sizing.py (Kelly on each signal's own edge), not a flat
+# stake. The SPORTS step runs FULL Kelly capped at 20% of bankroll (owner call,
+# 2026-08-08) — on a $40 bankroll that is up to ~$8 a bet. Four ceilings sit
+# above it: the sizing model's own MAX_BANKROLL_PCT, MAX_ORDER_BANKROLL_PCT at
+# the safety gate, the absolute MAX_ORDER_ABS, and SPORTS_MAX_DAILY_USD, which
+# is the only one that bounds a DAY rather than a single order.
 #
 # CADENCE: deliberately 30 minutes, not tighter. Two separate GitHub behaviours
 # punish a fast cron:
@@ -118,9 +120,9 @@ jobs:
 
       - name: Sports — sharp consensus vs Kalshi (TAKER)
         # The live strategy. Takes the ask instead of resting inside it, sizes
-        # each pick off its own edge at quarter Kelly, and records signed steam
-        # and home/away on every signal so CLV can test which of them predicts
-        # beating the close.
+        # each pick off its own edge at full Kelly, and records signed steam,
+        # home/away and underdog on every signal so CLV can test which of them
+        # predicts beating the close. None of the three is priced in.
         env:
           KALSHI_API_KEY_ID: ${{ secrets.KALSHI_API_KEY_ID }}
           KALSHI_PRIVATE_KEY_PATH: kalshi_prod.pem
@@ -130,15 +132,30 @@ jobs:
           DRY_RUN: ${{ inputs.dry_run || vars.DRY_RUN || 'false' }}
           MAX_ORDER_SIZE: ${{ vars.MAX_ORDER_SIZE || '3' }}
           MAX_TOTAL_EXPOSURE: ${{ vars.MAX_TOTAL_EXPOSURE || '45' }}
-          MAX_ORDER_BANKROLL_PCT: ${{ vars.MAX_ORDER_BANKROLL_PCT || '5' }}
-          MAX_ORDER_ABS: ${{ vars.MAX_ORDER_ABS || '5' }}
+          # Raised with the sizing model: a 5% gate here would silently clip
+          # every 20% bet the sizer produced, and the order would look sized
+          # while actually being capped somewhere else entirely.
+          MAX_ORDER_BANKROLL_PCT: ${{ vars.MAX_ORDER_BANKROLL_PCT || '20' }}
+          MAX_ORDER_ABS: ${{ vars.MAX_ORDER_ABS || '10' }}
           MAX_EXPOSURE_BANKROLL_PCT: ${{ vars.MAX_EXPOSURE_BANKROLL_PCT || '90' }}
           MAX_EXPOSURE_ABS: ${{ vars.MAX_EXPOSURE_ABS || '55' }}
-          KELLY_FRACTION: ${{ vars.KELLY_FRACTION || '0.25' }}
-          MAX_BANKROLL_PCT: ${{ vars.MAX_BANKROLL_PCT || '5' }}
-          # 0.52, not 0.60: the old floor excluded the whole 50-60c band, which
-          # is where sharp-vs-Kalshi disagreement is widest.
-          SPORTS_MIN_CONFIDENCE: ${{ vars.SPORTS_MIN_CONFIDENCE || '0.52' }}
+          # FULL Kelly with a 20%-of-bankroll ceiling (owner call, 2026-08-08).
+          # Full Kelly maximises growth only if the edge estimate is right, and
+          # on this account it still has zero scored CLV samples. The ceiling
+          # and the daily cap below are what bound being wrong.
+          KELLY_FRACTION: ${{ vars.KELLY_FRACTION || '1.0' }}
+          MAX_BANKROLL_PCT: ${{ vars.MAX_BANKROLL_PCT || '20' }}
+          # 0.25, not 0.52. A floor above 0.50 could only ever back FAVOURITES —
+          # an underdog is a side the model puts under 50% by definition — and
+          # the moneyline leg reported "0 qualifying" on every run of its life.
+          # This opens the 25-50% band and stops there: below it the
+          # favourite-longshot bias makes apparent edge more likely to be our
+          # own model error than a real mispricing.
+          SPORTS_MIN_PROB: ${{ vars.SPORTS_MIN_PROB || '0.25' }}
+          # Bounds the DAY. SPORTS_MAX_*_PER_DAY cap how MANY bets, never how
+          # much money; four picks at up to 20% each is ~80% of the bankroll
+          # between two sunrises. Orders are trimmed to fit, not dropped.
+          SPORTS_MAX_DAILY_USD: ${{ vars.SPORTS_MAX_DAILY_USD || '18' }}
           # Steam is measured, not required — requiring it meant always buying
           # the post-move price, which is why CLV was -6.0c.
           SPORTS_REQUIRE_STEAM: ${{ vars.SPORTS_REQUIRE_STEAM || 'false' }}

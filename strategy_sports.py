@@ -127,7 +127,27 @@ SPORTS_MIN_MOVE = float(os.getenv("SPORTS_MIN_MOVE", "0.01"))   # prob points
 # the old floor excluded the entire 50-60c band, which is where sharp-vs-Kalshi
 # disagreement is widest and where the favourite-longshot bias (the other
 # model's thesis) does not apply. The EV floor still does the real filtering.
-SPORTS_MIN_CONFIDENCE = float(os.getenv("SPORTS_MIN_CONFIDENCE", "0.52"))
+#
+# 0.52 STRUCTURALLY EXCLUDED EVERY UNDERDOG. An underdog is a side our model
+# puts below 50% by definition, so a floor above 0.50 could only ever back
+# favourites — and the moneyline leg duly reported "0 qualifying" on every run
+# for its whole life. The gate was not selective, it was closed.
+#
+# The floor is now 0.25, opening the 25-50% band where sharp-vs-Kalshi
+# disagreement is widest. It stops there rather than going lower because the
+# favourite-longshot bias is most severe among true longshots: their prices are
+# systematically inflated, so apparent edge down there is more likely to be our
+# own model error than a real mispricing. Shin's devig already models that bias
+# (which is why this repo uses Shin rather than proportional devig), but
+# modelling a bias is not the same as being immune to it.
+#
+# Whether underdogs actually beat the close is now a question the CLV
+# scoreboard can answer, because `is_underdog` is recorded on every signal.
+# Nothing here assumes they will.
+SPORTS_MIN_PROB = float(os.getenv("SPORTS_MIN_PROB", "0.25"))
+# Back-compat: SPORTS_MIN_CONFIDENCE still works if it is set explicitly.
+SPORTS_MIN_CONFIDENCE = float(
+    os.getenv("SPORTS_MIN_CONFIDENCE", str(SPORTS_MIN_PROB)))
 # SEPARATE daily budgets: a few moneyline plays AND a few over/under plays,
 # each capped independently and each taking only its best by edge.
 SPORTS_MAX_ML_PER_DAY = int(os.getenv("SPORTS_MAX_ML_PER_DAY", "2"))
@@ -544,6 +564,11 @@ def evaluate_market(market: dict, games: list, history: dict = None) -> list:
                                 model_prob=1.0 - p, ev_cents=ev,
                                 steam=steam_for(other), backing=other))
     for s in signals:
+        # is_underdog records whether the side we backed is priced under 50c.
+        # Recorded, not rewarded: the favourite-longshot literature says dogs
+        # are systematically OVERpriced, so this exists to be tested against
+        # our own CLV, exactly like steam and is_home.
+        s["is_underdog"] = s["price_cents"] < 50
         # is_home records whether the side we backed is the home team. The
         # home-underdog edge is real in the literature but largely arbitraged
         # away (Gray & Gray: profitable 7 of 8 seasons, then 3 of 11; recent
@@ -573,6 +598,31 @@ def _sports_placed_today(kind: str = "all", now: datetime = None) -> int:
             if kind == "all" or (kind == "totals") == is_total:
                 n += 1
     return n
+
+
+def sports_deployed_today(now: datetime = None) -> float:
+    """USD of real sports orders placed today, from the executed ledger.
+
+    The per-order caps bound one bet; this bounds the DAY. Both are needed:
+    with full Kelly and a 20% ceiling, the 4-orders-a-day budget alone would
+    permit roughly 80% of the bankroll out the door between two sunrises,
+    which is not what a daily order count was ever meant to allow."""
+    from ledger import EXEC_LOG
+    now = now or datetime.now(timezone.utc)
+    today = now.strftime("%Y-%m-%d")
+    if not EXEC_LOG.exists():
+        return 0.0
+    total = 0.0
+    with open(EXEC_LOG, newline="") as fh:
+        for row in csv.DictReader(fh):
+            if (row.get("model") != "sports"
+                    or not (row.get("placed_at_utc") or "").startswith(today)):
+                continue
+            try:
+                total += float(row.get("cost_usd") or 0)
+            except (TypeError, ValueError):
+                continue
+    return total
 
 
 def scan(api_key: str) -> list:

@@ -461,3 +461,79 @@ def test_edge_ceiling_is_configurable(monkeypatch):
               "status": "active", "expected_expiration_time": GAME_SETTLES,
               "yes_ask": 8, "yes_bid": 7}
     assert ss.evaluate_market(market, [GAME], None)
+
+
+# --- underdogs (owner call, 2026-08-08) ------------------------------------
+#
+# SPORTS_MIN_CONFIDENCE = 0.52 could only ever back favourites: an underdog is
+# a side our model puts under 50% by definition. The moneyline leg reported
+# "0 qualifying" on every run of its life, which was the gate being shut, not
+# the gate being selective.
+
+def test_probability_floor_no_longer_excludes_every_underdog():
+    assert ss.SPORTS_MIN_PROB < 0.50, (
+        "a floor at or above 0.50 makes underdog bets structurally impossible")
+
+
+def test_an_undervalued_underdog_now_produces_a_signal():
+    # Fair for Detroit is ~62%, so Washington (home) is a ~38% dog. Kalshi
+    # asking 30c for Washington YES is a real gap on a genuine underdog.
+    market = {"ticker": "KXMLBGAME-X-WSH", "yes_sub_title": "Washington",
+              "status": "active", "expected_expiration_time": GAME_SETTLES,
+              "yes_ask": 30, "yes_bid": 28}
+    sigs = ss.evaluate_market(market, [GAME], None)
+    yes = [s for s in sigs if s["side"] == "yes"]
+    assert yes, "a 38% dog priced at 30c should clear the gates"
+    assert yes[0]["model_prob"] < 0.50
+    assert yes[0]["is_underdog"] is True
+
+
+def test_true_longshots_stay_out():
+    # Below the floor the favourite-longshot bias is worst and apparent edge is
+    # more likely our own model error. Nothing under SPORTS_MIN_PROB trades.
+    lopsided = dict(GAME, bookmakers=[
+        {"key": "pinnacle", "markets": [{"key": "h2h", "outcomes": [
+            {"name": "Washington Nationals", "price": 12.0},
+            {"name": "Detroit Tigers", "price": 1.04}]}]}])
+    market = {"ticker": "KXMLBGAME-X-WSH", "yes_sub_title": "Washington",
+              "status": "active", "expected_expiration_time": GAME_SETTLES,
+              "yes_ask": 2, "yes_bid": 1}
+    assert [s for s in ss.evaluate_market(market, [lopsided], None)
+            if s["side"] == "yes"] == []
+
+
+def test_is_underdog_is_recorded_on_both_sides():
+    market = {"ticker": "KXMLBGAME-X-DET", "yes_sub_title": "Detroit",
+              "status": "active", "expected_expiration_time": GAME_SETTLES,
+              "yes_ask": 45, "yes_bid": 41}
+    for s in ss.evaluate_market(market, [GAME], None):
+        assert s["is_underdog"] is (s["price_cents"] < 50)
+
+
+def test_a_favourite_is_not_flagged_as_an_underdog():
+    market = {"ticker": "KXMLBGAME-X-DET", "yes_sub_title": "Detroit",
+              "status": "active", "expected_expiration_time": GAME_SETTLES,
+              "yes_ask": 55, "yes_bid": 52}
+    yes = [s for s in ss.evaluate_market(market, [GAME], None)
+           if s["side"] == "yes"]
+    assert yes and yes[0]["is_underdog"] is False
+
+
+def test_the_edge_ceiling_still_applies_to_underdogs():
+    # Opening the floor must not reopen the championship-future hole: a wild
+    # edge on a cheap contract is still a mispriced match, not an opportunity.
+    market = {"ticker": "KXMLBGAME-X-WSH", "yes_sub_title": "Washington",
+              "status": "active", "expected_expiration_time": GAME_SETTLES,
+              "yes_ask": 5, "yes_bid": 4}
+    assert [s for s in ss.evaluate_market(market, [GAME], None)
+            if s["side"] == "yes"] == []
+
+
+def test_explicit_min_confidence_still_overrides(monkeypatch):
+    # Back-compat: anyone who set SPORTS_MIN_CONFIDENCE keeps their gate.
+    monkeypatch.setattr(ss, "SPORTS_MIN_CONFIDENCE", 0.52)
+    market = {"ticker": "KXMLBGAME-X-WSH", "yes_sub_title": "Washington",
+              "status": "active", "expected_expiration_time": GAME_SETTLES,
+              "yes_ask": 30, "yes_bid": 28}
+    assert [s for s in ss.evaluate_market(market, [GAME], None)
+            if s["side"] == "yes"] == []
