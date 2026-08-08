@@ -8,9 +8,15 @@ name: tests
 # No `|| true` anywhere in this file, by design. A step that fails must fail
 # the run.
 
+# Runs on EVERY branch, not just main. `pull_request` alone was a silent gap:
+# GitHub builds a merge ref to test a PR, and when the branch conflicts with
+# main it cannot, so it creates NO check run at all — not a failure, nothing.
+# Three PRs (#61, #64, #65) sat unmergeable with zero CI, and "no failing
+# checks" looks exactly like "checks passed" unless you count them. A push
+# trigger needs no merge ref, so the suite always reports something.
 on:
   push:
-    branches: [main]
+    branches: ['**']
   pull_request:
   workflow_dispatch: {}
 
