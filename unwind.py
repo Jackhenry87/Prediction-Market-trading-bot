@@ -88,19 +88,31 @@ def describe_account(client, ticker: str) -> None:
     try:
         orders = client.get_resting_orders() or []
         log.info("Resting orders: %d", len(orders))
+        from backfill_history import _money
         for o in orders:
-            log.info("   %s %s x%s @ %s (id %s)", o.get("ticker"),
-                     o.get("side"), o.get("remaining_count", o.get("count")),
-                     o.get("price", o.get("yes_price")), o.get("order_id"))
+            log.info("   %s %s x%s @ $%s (id %s)", o.get("ticker"),
+                     o.get("side"),
+                     o.get("remaining_count_fp", o.get("remaining_count",
+                           o.get("count_fp", o.get("count", "?")))),
+                     _money(o, "yes_price") or _money(o, "price") or "?",
+                     o.get("order_id"))
     except Exception as exc:
         log.warning("Resting orders unavailable: %s", exc)
     try:
+        # Use the repo's vintage-aware readers, not raw .get(). This API
+        # returns count_fp / *_dollars, so `f["count"]` and `f["yes_price"]`
+        # are both absent and the first run of this diagnostic printed
+        # "xNone @ None" for every fill — the same shape as the volume_fp bug
+        # that once made the favourite model reject all 4000 markets.
+        from backfill_history import _count, _fill_price_usd, _money
         fills = [f for f in (client.get_fills() or [])
                  if f.get("ticker") == ticker]
         log.info("Fills recorded for %s: %d", ticker, len(fills))
         for f in fills:
-            log.info("   %s %s x%s @ %s", f.get("created_time"), f.get("side"),
-                     f.get("count"), f.get("yes_price", f.get("price")))
+            log.info("   %s %s %s x%g @ $%.2f (fee $%.2f) order %s",
+                     f.get("created_time"), (f.get("action") or "?"),
+                     f.get("side"), _count(f), _fill_price_usd(f),
+                     _money(f, "fee_cost") or 0.0, f.get("order_id", "?"))
     except Exception as exc:
         log.warning("Fills unavailable: %s", exc)
 
