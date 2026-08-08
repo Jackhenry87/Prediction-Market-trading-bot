@@ -30,6 +30,12 @@ log = get_logger("sports_runner")
 POLL_SECONDS = int(os.getenv("SPORTS_POLL_SECONDS", "900"))    # 15 min
 RUN_MINUTES = float(os.getenv("SPORTS_RUN_MINUTES", "110"))
 
+# Bound the DAY, not just the order. The per-order caps and the 4-picks-a-day
+# budget together still permit ~80% of the bankroll out the door in one day at
+# full Kelly with a 20% ceiling, which a daily ORDER COUNT was never meant to
+# allow. This is the cap that answers "can it lose the whole account today?".
+MAX_DAILY_USD = float(os.getenv("SPORTS_MAX_DAILY_USD", "18"))
+
 
 def contracts_for(budget_usd: float, price_cents: float) -> int:
     """Kept for the tests that pin the old flat-stake arithmetic. Live sizing
@@ -78,6 +84,9 @@ def sports_pass(client, settings, session: dict) -> int:
                        max_total_exposure=scaled_exposure_cap(bankroll,
                                                               settings))
     placed = 0
+    deployed_today = strategy_sports.sports_deployed_today()
+    log.info("Deployed today: $%.2f of the $%.2f daily cap",
+             deployed_today, MAX_DAILY_USD)
     flat = [(r, s) for r in results for s in r["signals"]]
     flat.sort(key=lambda rs: -rs[1].get("ev_cents", 0.0))
     for r, s in flat:
@@ -91,28 +100,49 @@ def sports_pass(client, settings, session: dict) -> int:
         # picks or underbets the strong ones. size_position applies quarter
         # Kelly (f* = edge / (100 - entry)) with a hard bankroll cap, and
         # returns ZERO contracts when the edge cannot pay for one — never a
-        # token bet rounded up.
+        # token bet rounded up. KELLY_FRACTION sets how much of full Kelly is
+        # used; the daily dollar cap below is what bounds a bad DAY.
         plan = size_position(bankroll, price, s.get("ev_cents", 0.0))
         count = plan["contracts"]
         if count < 1:
             log.info("SKIP %s: %s", ticker, plan["reason"])
             continue
         notional = count * price / 100.0
+        # Daily dollar brake. Trim to what is left rather than skipping, so a
+        # big first pick does not silently forfeit the rest of the day, but
+        # never place a bet that would breach the cap.
+        remaining = MAX_DAILY_USD - deployed_today
+        if remaining <= 0:
+            log.info("DAILY $ CAP reached ($%.2f of $%.2f) — stopping for today",
+                     deployed_today, MAX_DAILY_USD)
+            break
+        if notional > remaining:
+            count = int(remaining * 100 // price)
+            if count < 1:
+                log.info("SKIP %s: $%.2f left today buys no contracts at %.0fc",
+                         ticker, remaining, price)
+                continue
+            notional = count * price / 100.0
+            log.info("TRIMMED %s to %d contracts ($%.2f) — $%.2f left of the "
+                     "$%.2f daily cap", ticker, count, notional, remaining,
+                     MAX_DAILY_USD)
         problems = check_order(settings, "BUY", price / 100.0, count, exposure)
         if problems:
             for p in problems:
                 log.warning("BLOCKED %s: %s", ticker, p)
             continue
         log.info("SHARP PLAY: buy %s %d x %s @ %.0fc ($%.2f, %.1fc edge, "
-                 "steam %s, home=%s) | %s | %s",
+                 "steam %s, home=%s, dog=%s) | %s | %s",
                  s["side"], count, ticker, price, notional,
                  s.get("ev_cents", 0),
                  "n/a" if s.get("steam") is None else f"{s['steam']:+.3f}",
-                 s.get("is_home"), s.get("subtitle", ""), plan["reason"])
+                 s.get("is_home"), s.get("is_underdog"),
+                 s.get("subtitle", ""), plan["reason"])
         if settings.dry_run:
             log.info("DRY_RUN: not sent.")
             session["placed"].add(ticker)
             session["events"].add(event)
+            deployed_today += notional
             continue
         # TAKE, do not rest. The favourite model rested one cent inside the
         # book and filled 0 of 7 orders while every market moved away from it —
@@ -135,6 +165,7 @@ def sports_pass(client, settings, session: dict) -> int:
         session["placed"].add(ticker)
         session["events"].add(event)
         exposure += notional
+        deployed_today += notional
         placed += 1
     return placed
 
