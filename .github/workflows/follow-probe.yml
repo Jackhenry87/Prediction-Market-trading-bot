@@ -1,0 +1,74 @@
+name: follow-probe
+
+# Read-only diagnostic for the leaderboard copier.
+#
+# The Kalshi credentials live in repo Secrets, which are only available inside
+# a workflow run — they are write-only through the API and are not present in
+# a local or remote dev session. So the probe has to run HERE.
+#
+# It answers the two questions blocking follow_feed:
+#   1. does the RSA API key authenticate against the undocumented /v1 routes?
+#      (evidence says yes: signing with a throwaway key moves the error from
+#      token_authentication_failure to authentication_error/NOT_FOUND, the
+#      same transition /trade-api/v2/portfolio/balance makes)
+#   2. is a key AUTHORISED to read ANOTHER user's positions, or only its own?
+#      A 403 here means the whole copy-trading direction is dead.
+#
+# Strictly GETs. It places no orders, needs no write permission, and cannot
+# touch the bot's state branch. Secret VALUES are masked by Actions in logs;
+# the probe itself only ever prints whether a key is configured, never the key.
+
+on:
+  workflow_dispatch:
+    inputs:
+      username:
+        description: 'Kalshi account to probe'
+        type: string
+        default: blushing.wildebeest7119
+  push:
+    # workflow_dispatch only appears once a workflow is on the default branch,
+    # so the push trigger is what lets this run on the feature branch. Same
+    # pattern env-check.yml uses.
+    branches: [claude/copy-trading-kelly-sizing-pwk4m6]
+    paths:
+      - '.github/workflows/follow-probe.yml'
+      - 'follow_feed.py'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: Write Kalshi key
+        env:
+          KALSHI_PEM: ${{ secrets.KALSHI_PRIVATE_KEY_PEM }}
+        run: printf '%s\n' "$KALSHI_PEM" > kalshi_prod.pem
+
+      - name: Confirm credentials are actually present
+        # A blank secret would otherwise surface as a confusing auth error
+        # rather than "the secret is not set".
+        env:
+          KEY_ID: ${{ secrets.KALSHI_API_KEY_ID }}
+        run: |
+          set -eu
+          test -s kalshi_prod.pem || { echo "KALSHI_PRIVATE_KEY_PEM is empty or unset"; exit 1; }
+          test -n "$KEY_ID" || { echo "KALSHI_API_KEY_ID is empty or unset"; exit 1; }
+          head -1 kalshi_prod.pem   # header line only, never the key body
+
+      - name: Probe the /v1 user routes
+        env:
+          KALSHI_API_KEY_ID: ${{ secrets.KALSHI_API_KEY_ID }}
+          KALSHI_PRIVATE_KEY_PATH: kalshi_prod.pem
+          KALSHI_ENV: ${{ vars.KALSHI_ENV || 'prod' }}
+          FOLLOW_USERNAME: ${{ inputs.username || 'blushing.wildebeest7119' }}
+        run: python follow_feed.py --probe
