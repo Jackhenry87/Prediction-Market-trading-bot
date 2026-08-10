@@ -42,3 +42,4 @@ sports_line_history.json
 odds_quota.json
 arb_scan.csv
 executed_trades.csv
+live_scan.csv
