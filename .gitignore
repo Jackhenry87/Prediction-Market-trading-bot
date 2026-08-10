@@ -40,6 +40,7 @@ paper_trades_favorite.csv
 paper_trades_sports.csv
 sports_line_history.json
 odds_quota.json
+odds_cache.json
 arb_scan.csv
 executed_trades.csv
 live_scan.csv

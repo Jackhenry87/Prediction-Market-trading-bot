@@ -496,10 +496,83 @@ def budget_left() -> bool:
     return True if rem is None else float(rem) > ODDS_MIN_REMAINING
 
 
+# Odds cache. The model must keep evaluating on EVERY run; only the paid
+# refresh is rationed. Without this, "we cannot afford a call right now" and
+# "the model does not run" were the same thing — on 2026-08-10 the free tier
+# hit its reserve and the sports model went completely dark, placing nothing
+# for the rest of the month rather than trading on the lines it already had.
+#
+# The raw payload is cached and re-filtered by start time on every use, so a
+# cached slate naturally drops games that have already begun.
+ODDS_CACHE_FILE = Path(__file__).resolve().parent / "odds_cache.json"
+ODDS_CACHE_TTL_MIN = float(os.getenv("ODDS_CACHE_TTL_MIN", "1200"))   # 20h
+
+
+def _cache_all() -> dict:
+    try:
+        return json.loads(ODDS_CACHE_FILE.read_text())
+    except (FileNotFoundError, ValueError):
+        return {}
+
+
+def cached_odds(sport: str):
+    """(payload, age_minutes) for this sport, or (None, None)."""
+    entry = _cache_all().get(sport)
+    if not isinstance(entry, dict) or "games" not in entry:
+        return None, None
+    fetched = parse_iso(entry.get("fetched_at"))
+    if fetched is None:
+        return None, None
+    age = (datetime.now(timezone.utc) - fetched).total_seconds() / 60.0
+    return entry["games"], age
+
+
+def _cache_store(sport: str, games: list) -> None:
+    data = _cache_all()
+    data[sport] = dict(
+        fetched_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        games=games)
+    try:
+        ODDS_CACHE_FILE.write_text(json.dumps(data))
+    except OSError as exc:
+        log.warning("Could not write the odds cache: %s", exc)
+
+
+def _in_window(games: list) -> list:
+    """Only games inside the tradeable start-time window, evaluated NOW —
+    which is why the cache holds the raw payload rather than the filtered one."""
+    out = []
+    for game in games or []:
+        h = hours_until(game.get("commence_time"))
+        if h is not None and MIN_START_H <= h <= MAX_START_H:
+            out.append(game)
+    return out
+
+
 def fetch_games(api_key: str, sport: str) -> list:
+    """Lines for `sport`, from cache when it is fresh or when credits are gone.
+
+    Order of preference: a fresh cache (free), a paid refresh (2 credits), a
+    STALE cache (free). Only an empty cache with no budget is fatal — running
+    on yesterday's lines is worse than running on today's, and far better than
+    not running, which is what the model did before this existed.
+    """
+    games, age = cached_odds(sport)
+    if games is not None and age is not None and age < ODDS_CACHE_TTL_MIN:
+        log.info("%s: using cached lines (%.0f min old, TTL %.0f)",
+                 sport, age, ODDS_CACHE_TTL_MIN)
+        return _in_window(games)
+
     if not budget_left():
+        if games is not None:
+            log.warning("%s: odds credits at the %.0f reserve — running on "
+                        "STALE cached lines (%.0f min old)",
+                        sport, ODDS_MIN_REMAINING, age or 0.0)
+            return _in_window(games)
         raise OddsBudgetExhausted(
-            f"odds credits at or below the {ODDS_MIN_REMAINING:.0f} reserve")
+            f"odds credits at or below the {ODDS_MIN_REMAINING:.0f} reserve "
+            f"and no cached {sport} lines to fall back on")
+
     resp = requests.get(
         ODDS_URL.format(sport=sport),
         params={"apiKey": api_key, "regions": ODDS_REGIONS,
@@ -508,12 +581,9 @@ def fetch_games(api_key: str, sport: str) -> list:
     )
     _note_quota(resp)
     resp.raise_for_status()
-    games = []
-    for game in resp.json():
-        h = hours_until(game.get("commence_time"))
-        if h is not None and MIN_START_H <= h <= MAX_START_H:
-            games.append(game)
-    return games
+    payload = resp.json()
+    _cache_store(sport, payload)
+    return _in_window(payload)
 
 
 def evaluate_market(market: dict, games: list, history: dict = None) -> list:
