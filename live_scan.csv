@@ -1,0 +1,5 @@
+scanned_at_utc,game,detail,inning,half,score,ticker,backing,model_prob,p_home,price_cents,edge_cents,tradeable
+2026-08-10T23:29:44+00:00,BOS @ TOR,Top 2nd,2,top,0-0,KXMLBGAME-26AUG101907BOSTOR-BOS,away,0.4447,0.5553,57,-14.2,no
+2026-08-10T23:29:44+00:00,BOS @ TOR,Top 2nd,2,top,0-0,KXMLBGAME-26AUG101907BOSTOR-TOR,home,0.5553,0.5553,44,9.8,yes
+2026-08-10T23:29:44+00:00,NYM @ ATL,Top 1st,1,top,1-0,KXMLBGAME-26AUG101915NYMATL-NYM,away,0.6621,0.3379,66,-1.4,no
+2026-08-10T23:29:44+00:00,NYM @ ATL,Top 1st,1,top,1-0,KXMLBGAME-26AUG101915NYMATL-ATL,home,0.3379,0.3379,35,-2.8,no
