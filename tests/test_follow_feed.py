@@ -191,3 +191,35 @@ def test_seen_list_is_bounded(monkeypatch, tmp_path):
     state = {"seen": [str(i) for i in range(50)], "seeded": True}
     ff.save_state(state, tmp_path / "seen.json")
     assert len(json.loads((tmp_path / "seen.json").read_text())["seen"]) == 10
+
+
+# --- auth diagnostics ----------------------------------------------------
+# The taxonomy below was mapped empirically: signing a /v1 request with a
+# throwaway key flips the error from token_authentication_failure to
+# authentication_error/NOT_FOUND, exactly as it does on the v2 portfolio
+# route that is known to accept key auth. Each error therefore means
+# something specific, and the message should say what to do about it.
+
+def test_unknown_key_id_is_named_as_such():
+    msg = ff.diagnose("api_key: HTTP 401 authentication_error NOT_FOUND")
+    assert "KALSHI_API_KEY_ID" in msg and "KALSHI_ENV" in msg
+
+
+def test_unsigned_request_points_at_the_pem():
+    msg = ff.diagnose("api_key: HTTP 401 token_authentication_failure")
+    assert "KALSHI_PRIVATE_KEY_PATH" in msg
+
+
+def test_forbidden_is_flagged_as_fatal_to_the_approach():
+    """Authenticated-but-not-authorised is the one failure no config change
+    fixes — it means Kalshi will not show one account another's positions."""
+    msg = ff.diagnose("api_key: HTTP 403 forbidden")
+    assert "NOT AUTHORISED" in msg
+
+
+def test_a_dead_feed_message_carries_the_diagnosis(monkeypatch, tmp_path):
+    _wire(monkeypatch, {"error": {"code": "authentication_error",
+                                  "details": "NOT_FOUND"}}, status=401)
+    with pytest.raises(ff.FeedError) as exc:
+        ff.poll(FakeClient(), path=tmp_path / "seen.json")
+    assert "KALSHI_API_KEY_ID" in str(exc.value)

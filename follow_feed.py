@@ -38,13 +38,21 @@ rather than returning an empty list when the feed itself is broken.
 AUTH, IN ORDER
 --------------
 1. The RSA API key this repo already signs with (`KalshiClient._headers`
-   signs an arbitrary path, so /v1 is reachable with the existing key). If
-   Kalshi accepts it, nothing ever needs re-capturing.
+   signs an arbitrary path, so /v1 is reachable with the existing key).
 2. `FOLLOW_SESSION_TOKEN`, a bearer token copied out of a logged-in browser.
    Works, but expires — hence the alarm when a token that WAS working stops.
 
-Run `--probe` once to find out which applies; it prints the raw response so
-the normaliser can be pinned to the real field names.
+The key is tried first, and evidence says it is the right order. Signing a
+/v1 request with a THROWAWAY key changes the error from
+`token_authentication_failure` (unsigned) to `authentication_error:
+NOT_FOUND` (key id looked up, not found) — the exact same transition as
+`/trade-api/v2/portfolio/balance`, which is known to accept key auth. So /v1
+processes the KALSHI-ACCESS-* scheme rather than ignoring it.
+
+What that does NOT settle is AUTHORISATION: whether a valid key is allowed to
+read ANOTHER user's positions, or only its own. Authentication and permission
+are different gates, and only a real key answers the second. `--probe` is
+what answers it.
 """
 
 import json
@@ -131,10 +139,43 @@ def fetch(client, path: str, params=None) -> tuple:
         last = f"{mode}: HTTP {resp.status_code} {resp.text[:160]}"
         log.debug("auth attempt %s -> %s", mode, resp.status_code)
 
-    raise FeedError(
-        f"no auth mode could read {path} (last: {last}). If a session token "
-        f"was working and has now started failing, it has expired — refresh "
-        f"FOLLOW_SESSION_TOKEN. The copier is BLIND until this is fixed.")
+    raise FeedError(f"no auth mode could read {path} (last: {last}). "
+                    f"{diagnose(last)} The copier is BLIND until this is "
+                    f"fixed.")
+
+
+def diagnose(detail: str) -> str:
+    """Turn Kalshi's auth errors into the actual next step.
+
+    The taxonomy was mapped by signing a request with a throwaway key and
+    comparing responses, so each of these means something specific rather
+    than just 'auth failed':
+    """
+    d = (detail or "").lower()
+    if "not_found" in d:
+        return ("The key ID was looked up and does not exist — check "
+                "KALSHI_API_KEY_ID matches the key you created, and that "
+                "KALSHI_ENV points at the right environment (a prod key is "
+                "not valid on demo, or vice versa).")
+    if "token_authentication_failure" in d:
+        return ("No credentials reached the endpoint at all — the request "
+                "went out unsigned. Check KALSHI_PRIVATE_KEY_PATH points at "
+                "a readable .pem.")
+    if "403" in d or "forbidden" in d or "permission" in d:
+        return ("Authenticated but NOT AUTHORISED. This is the one failure "
+                "that kills the approach: the key is valid, so Kalshi is "
+                "refusing to show one account another account's positions. "
+                "No amount of credential fixing changes that.")
+    if "session" in d:
+        # The last mode tried was a browser token, and those expire. Say so
+        # here, because a token that worked yesterday and 401s today looks
+        # identical to a broken endpoint from the log alone.
+        return ("A session token was tried and rejected — if it was working "
+                "before, it has EXPIRED. Refresh FOLLOW_SESSION_TOKEN from a "
+                "logged-in browser, or set up an API key so this stops "
+                "recurring.")
+    return ("Unrecognised auth failure — run `python follow_feed.py --probe` "
+            "and send the output.")
 
 
 # ---------------------------- normalising ----------------------------
