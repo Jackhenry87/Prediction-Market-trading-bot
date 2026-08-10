@@ -342,6 +342,26 @@ def probe(client) -> int:
     print(f"  API key configured    : {bool(client.private_key)}")
     print(f"  Session token set     : {bool(SESSION_TOKEN)}\n")
 
+    # CONTROLS. A 403 on another user's data is ambiguous on its own: it could
+    # mean "API keys cannot use /v1 at all" or "cross-account reads are
+    # forbidden". Those imply completely different next steps — the first
+    # leaves a session token worth trying, the second closes the door for
+    # every credential type. Reading our OWN data separates them.
+    print("--- controls (is the key working, and is /v1 open to it?)")
+    for label, path in (
+            ("v2 own balance  (key auth, documented)",
+             "/trade-api/v2/portfolio/balance"),
+            ("v1 own positions", "/v1/users/me/positions"),
+            ("v1 own trades", "/v1/users/self/trades"),
+    ):
+        try:
+            resp = _signed_get(client, path)
+            body = resp.text[:80].replace("\n", " ")
+            print(f"    {resp.status_code}  {label:42} {body}")
+        except Exception as exc:
+            print(f"    ERR  {label:42} {exc}")
+    print()
+
     for label, path in (("trades", TRADES_PATH), ("positions",
                                                   POSITIONS_PATH)):
         p = path.format(u=USERNAME)
