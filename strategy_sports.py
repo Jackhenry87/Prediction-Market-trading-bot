@@ -416,23 +416,73 @@ def edge_ok(ev_cents: float, ticker: str = "", counter: bool = True) -> bool:
 
 
 def _words(text: str) -> set:
+    """Kept for callers that want a loose bag of words. Not used for matching
+    a team any more — see _tokens and label_matches_team."""
     return {w for w in re.split(r"[^A-Za-z]+", (text or "").upper())
             if len(w) >= 3 and w not in ("THE", "LOS", "NEW", "SAN")}
+
+
+def _tokens(text: str) -> list:
+    """ORDERED tokens, keeping short ones. The short ones are the whole point:
+    Kalshi disambiguates same-city teams with a trailing initial."""
+    return [w for w in re.split(r"[^A-Za-z]+", (text or "").upper()) if w]
+
+
+def label_matches_team(label: str, team: str) -> bool:
+    """Does this Kalshi label name this team?
+
+    The old matcher discarded every token shorter than three characters, which
+    threw away exactly the character that disambiguates: "New York Y" and
+    "New York M" both collapsed to {YORK}, matched BOTH New York teams, and
+    were dropped as ambiguous. One live run rejected 71 moneyline candidates
+    that way — more than every other reason combined, and the real reason the
+    moneyline leg never once qualified.
+
+    Kalshi's forms, all seen live: "Boston", "New York Y", "Chicago C",
+    "Chicago WS", "Los Angeles D". So after the city words match exactly, a
+    single remaining token must either PREFIX the nickname ("Y" -> Yankees) or
+    be its INITIALS ("WS" -> White Sox).
+    """
+    lt, tt = _tokens(label), _tokens(team)
+    if not lt or not tt:
+        return False
+    i = 0
+    while i < len(lt) and i < len(tt) and lt[i] == tt[i]:
+        i += 1
+    rest_label, rest_team = lt[i:], tt[i:]
+    if not rest_label:
+        return True                      # label is a leading part of the name
+    if len(rest_label) != 1 or not rest_team:
+        return False
+    token = rest_label[0]
+    if rest_team[0].startswith(token):
+        return True
+    return token == "".join(w[0] for w in rest_team)
 
 
 def match_team(label: str, games: list):
     """Find which game/side a Kalshi team label refers to. Returns
     (game, 'home'|'away') only when the match is unambiguous — one team in
     one game. Anything unclear is skipped rather than guessed."""
+    if not _tokens(label):
+        return None
+    hits = [(g, side) for g in games for side in ("home", "away")
+            if label_matches_team(label, g.get(f"{side}_team"))]
+    if len(hits) == 1:
+        return hits[0]
+    if hits:
+        return None              # genuinely ambiguous, e.g. a bare "New York"
+
+    # Fallback for a NICKNAME-ONLY label ("Yankees"), which is not a leading
+    # part of "New York Yankees" and so cannot match the precise rule. Tried
+    # only when the precise rule found NOTHING, so it can never re-introduce
+    # the same-city ambiguity the precise rule exists to resolve.
     words = _words(label)
     if not words:
         return None
-    hits = []
-    for game in games:
-        for side in ("home", "away"):
-            if words <= _words(game.get(f"{side}_team")):
-                hits.append((game, side))
-    return hits[0] if len(hits) == 1 else None
+    loose = [(g, side) for g in games for side in ("home", "away")
+             if words <= _words(g.get(f"{side}_team"))]
+    return loose[0] if len(loose) == 1 else None
 
 
 def in_season_sports(api_key: str) -> set:

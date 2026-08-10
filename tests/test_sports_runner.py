@@ -150,3 +150,42 @@ def test_deployed_today_survives_a_junk_cost(tmp_path, monkeypatch):
     ])
     monkeypatch.setattr(ledger, "EXEC_LOG", p)
     assert abs(strategy_sports.sports_deployed_today() - 2.13) < 1e-6
+
+
+# --- the per-order ceiling must trim, not block ----------------------------
+#
+# 2026-08-10: "BLOCKED KXMLBTOTAL-...-11: order notional 10.65 USDC exceeds
+# MAX_ORDER_SIZE 10.00". The sizer and the safety gate compute their caps
+# independently, so the one pick that qualified all day died at the gate and
+# nothing was placed. The gate keeps the final say; the order is made to fit.
+
+def test_an_order_over_the_per_order_cap_is_trimmed_not_dropped(monkeypatch):
+    monkeypatch.setattr(sr, "MAX_DAILY_USD", 1000.0)
+    monkeypatch.setattr(strategy_sports, "sports_deployed_today", lambda: 0.0)
+    monkeypatch.setattr(strategy_sports, "scan", _scan_returning(
+        _signal("KXA-1-A", 50, edge=12.0)))
+    monkeypatch.setattr(strategy_sports, "append_paper_trades",
+                        lambda *a, **k: None)
+    monkeypatch.setenv("MAX_ORDER_BANKROLL_PCT", "1")
+    monkeypatch.setenv("MAX_ORDER_ABS", "10")
+    client = _Client(balance=100000)          # big book -> sizer wants a lot
+    settings = FakeSettings(max_order_size=10.0, max_total_exposure=10000.0)
+    sr.sports_pass(client, settings, dict(placed=set(), events=set()))
+    assert client.orders, "the pick must be placed, not blocked"
+    notional = client.orders[0]["count"] * client.orders[0]["price"] / 100.0
+    assert notional <= 10.0 + 1e-9
+
+
+def test_a_cap_too_small_for_one_contract_places_nothing(monkeypatch):
+    monkeypatch.setattr(sr, "MAX_DAILY_USD", 1000.0)
+    monkeypatch.setattr(strategy_sports, "sports_deployed_today", lambda: 0.0)
+    monkeypatch.setattr(strategy_sports, "scan", _scan_returning(
+        _signal("KXA-1-A", 50, edge=12.0)))
+    monkeypatch.setattr(strategy_sports, "append_paper_trades",
+                        lambda *a, **k: None)
+    monkeypatch.setenv("MAX_ORDER_BANKROLL_PCT", "1")
+    monkeypatch.setenv("MAX_ORDER_ABS", "0.20")
+    client = _Client(balance=100000)
+    settings = FakeSettings(max_order_size=0.20, max_total_exposure=10000.0)
+    sr.sports_pass(client, settings, dict(placed=set(), events=set()))
+    assert client.orders == []

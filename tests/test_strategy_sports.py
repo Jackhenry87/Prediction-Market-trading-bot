@@ -698,3 +698,62 @@ def test_each_sport_is_cached_separately(tmp_path, monkeypatch):
     ss._cache_store("baseball_mlb", _payload())
     assert ss.cached_odds("baseball_mlb")[0] is not None
     assert ss.cached_odds("icehockey_nhl") == (None, None)
+
+
+# --- same-city teams (2026-08-10) ------------------------------------------
+#
+# The dominant reason the moneyline leg never qualified. A live run rejected
+# 71 candidates for "no unambiguous team match" — more than every other reason
+# combined — because _words() dropped tokens shorter than three characters,
+# which is exactly the character Kalshi uses to tell same-city teams apart.
+# All of these label forms are real, taken from live KXMLBGAME markets.
+
+CITY_GAMES = [
+    {"home_team": "New York Yankees", "away_team": "Boston Red Sox"},
+    {"home_team": "New York Mets", "away_team": "Pittsburgh Pirates"},
+    {"home_team": "Chicago Cubs", "away_team": "Chicago White Sox"},
+    {"home_team": "Los Angeles Dodgers", "away_team": "Los Angeles Angels"},
+]
+
+
+def test_a_trailing_initial_disambiguates_same_city_teams():
+    for label, expected in [("New York Y", "New York Yankees"),
+                            ("New York M", "New York Mets"),
+                            ("Chicago C", "Chicago Cubs"),
+                            ("Los Angeles D", "Los Angeles Dodgers"),
+                            ("Los Angeles A", "Los Angeles Angels")]:
+        m = ss.match_team(label, CITY_GAMES)
+        assert m, f"{label!r} should resolve to {expected}"
+        assert m[0][f"{m[1]}_team"] == expected
+
+
+def test_initials_disambiguate_a_two_word_nickname():
+    # "WS" is not a prefix of "White" or "Sox" — it is their initials.
+    m = ss.match_team("Chicago WS", CITY_GAMES)
+    assert m and m[0][f"{m[1]}_team"] == "Chicago White Sox"
+
+
+def test_a_bare_city_is_still_refused():
+    for label in ("New York", "Chicago", "Los Angeles"):
+        assert ss.match_team(label, CITY_GAMES) is None
+
+
+def test_a_nickname_only_label_still_matches():
+    # The precise rule cannot match "Yankees" against "New York Yankees", so a
+    # loose fallback runs ONLY when the precise rule found nothing.
+    m = ss.match_team("Yankees", CITY_GAMES)
+    assert m and m[0][f"{m[1]}_team"] == "New York Yankees"
+
+
+def test_the_fallback_cannot_reintroduce_same_city_ambiguity():
+    # "New York Y" must not also match the Mets via the loose rule.
+    assert len([1 for g in CITY_GAMES for s in ("home", "away")
+                if ss.label_matches_team("New York Y", g[f"{s}_team"])]) == 1
+
+
+def test_label_matches_team_is_directional():
+    assert ss.label_matches_team("New York Y", "New York Yankees")
+    assert not ss.label_matches_team("New York Y", "New York Mets")
+    assert not ss.label_matches_team("Chicago C", "Chicago White Sox")
+    assert not ss.label_matches_team("", "New York Mets")
+    assert not ss.label_matches_team("Boston", "")
