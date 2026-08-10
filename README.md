@@ -197,6 +197,62 @@ python clv_tracker.py         # snapshot + scoreboard
 python -m pytest -q           # 283 tests
 ```
 
+## MCP servers
+
+`.mcp.json` configures four MCP servers for Claude Code. They are project-scoped
+and committed, so they load in local sessions and Claude Code web sessions alike;
+`.claude/settings.json` sets `enableAllProjectMcpServers` so they connect without
+a per-session approval prompt. Nothing needs installing by hand — each stdio
+server is fetched by `npx` on first launch.
+
+| Server | What it is for |
+|---|---|
+| `playwright` | Drives a real browser — reading Kalshi/sportsbook pages that have no usable API, checking a rendered page. |
+| `context7` | Up-to-date library docs, fetched live instead of from model memory. Remote HTTP, no API key. |
+| `sequential-thinking` | Scratchpad for structured multi-step reasoning on gnarly problems. |
+| `memory` | Knowledge graph persisted to `.claude/memory.jsonl`. |
+
+Two of them launch through small scripts in `.claude/mcp/` rather than a bare
+`npx` line, because they need environment detection that JSON cannot express:
+
+- **`playwright-mcp.sh`** — web-session containers ship a prebuilt Chromium whose
+  build number does not match the one `@playwright/mcp` expects, route all egress
+  through a local HTTPS proxy that Chromium will not use unless told to, and
+  re-terminate TLS with a CA that lives outside Chromium's NSS store. The script
+  detects all three and passes the matching flags; on a laptop none of the
+  triggers fire and Playwright uses its own managed browser (`npx playwright
+  install chromium` once). It also runs headless — drop `--headless` from the
+  script locally if you want to watch the browser work. If a web session reports
+  `ERR_CERT_AUTHORITY_INVALID`, its image is missing `certutil`; install it once
+  with `apt-get install -y libnss3-tools`.
+- **`memory-mcp.sh`** — the memory server resolves a relative `MEMORY_FILE_PATH`
+  against its own directory inside `node_modules`, and Claude Code does not
+  expand `${CLAUDE_PROJECT_DIR}` in `.mcp.json`, so the script builds the
+  absolute path itself.
+
+`.claude/memory.jsonl` is committed on purpose: web-session containers are wiped
+between sessions, so anything the knowledge graph learns is lost unless it is in
+git. It follows that **the memory file is as public as the repo** — do not let it
+accumulate API keys, account balances, or position sizes.
+
+Adding Codex was considered and skipped. It is not an MCP server; it is the
+OpenAI Codex CLI run in server mode, which needs its own install and OpenAI
+billing. To add it later:
+
+```bash
+npm i -g @openai/codex && codex login
+```
+
+then add to `.mcp.json`:
+
+```json
+"codex": { "type": "stdio", "command": "codex", "args": ["mcp-server"] }
+```
+
+Context7 works keyless but is rate-limited. For higher limits, get a key at
+context7.com/dashboard and add a header to its `.mcp.json` entry:
+`"headers": { "Authorization": "Bearer ${CONTEXT7_API_KEY}" }`.
+
 ## Other components
 
 - `paperbook/` — a free-to-play paper sportsbook web app (FastAPI + SQLite).

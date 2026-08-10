@@ -24,6 +24,11 @@ __pycache__/
 .vscode/
 paperbook/paperbook.db
 
+# Playwright MCP scratch output (page snapshots, console logs, downloads).
+# The knowledge-graph memory file at .claude/memory.jsonl is deliberately NOT
+# ignored — it is committed so memory survives between web sessions.
+.playwright-mcp/
+
 # Live bot state — belongs on the `bot-state` branch, never on main.
 # The favorite workflow restores these at the start of a run and pushes them
 # back to bot-state at the end.
