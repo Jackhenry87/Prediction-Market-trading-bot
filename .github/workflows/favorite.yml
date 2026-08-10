@@ -46,7 +46,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  STATE_FILES: paper_trades_favorite.csv paper_trades_sports.csv sports_line_history.json odds_quota.json clv_sports.csv CLV_SCOREBOARD.md executed_trades.csv
+  STATE_FILES: paper_trades_favorite.csv paper_trades_sports.csv sports_line_history.json odds_quota.json odds_cache.json clv_sports.csv CLV_SCOREBOARD.md executed_trades.csv live_scan.csv
 
 jobs:
   trade:
@@ -166,7 +166,11 @@ jobs:
           # market instead of the game. Kelly stakes hardest where the number is
           # most absurd, so the ceiling has to sit upstream of sizing.
           SPORTS_MAX_EDGE_CENTS: ${{ vars.SPORTS_MAX_EDGE_CENTS || '25' }}
-          SPORTS_LEAGUES: ${{ vars.SPORTS_LEAGUES || 'mlb,nba,nfl,nhl,wnba' }}
+          # MLB only while the free tier is exhausted. NFL and NHL are
+          # "active" out of season, so each run spent 2 credits on them and got
+          # zero games inside the 36h window — 4 of every 8 credits bought
+          # nothing. Restore the full list when the quota resets.
+          SPORTS_LEAGUES: ${{ vars.SPORTS_LEAGUES || 'mlb' }}
           SPORTS_MAX_ML_PER_DAY: ${{ vars.SPORTS_MAX_ML_PER_DAY || '2' }}
           SPORTS_MAX_TOTALS_PER_DAY: ${{ vars.SPORTS_MAX_TOTALS_PER_DAY || '2' }}
           # The free Odds API tier is 500 credits/month and a call costs
@@ -174,9 +178,38 @@ jobs:
           # ~2 credits; at ~24 runs/day that is ~1440/month, so --once and the
           # in-season filter (a free endpoint) are what keep us inside budget.
           # Stop before the quota is gone so a reserve survives to the reset.
-          ODDS_MIN_REMAINING: ${{ vars.ODDS_MIN_REMAINING || '50' }}
+          # Reserve lowered 50 -> 10. At 50 the reserve equalled the whole
+          # remaining balance, so the model could never spend a credit AND had
+          # no cache to fall back on: it went completely dark. 10 leaves a
+          # small buffer while letting the cache be refreshed.
+          ODDS_MIN_REMAINING: ${{ vars.ODDS_MIN_REMAINING || '10' }}
+          # How stale cached lines may get before paying for a refresh. At MLB
+          # only this is ~2 credits/day against ~40 usable, which reaches the
+          # monthly reset. THE MODEL EVALUATES ON EVERY RUN REGARDLESS — only
+          # the paid refresh is rationed.
+          ODDS_CACHE_TTL_MIN: ${{ vars.ODDS_CACHE_TTL_MIN || '1440' }}
           SPORTS_RUN_MINUTES: '0'
         run: python sports_runner.py --once
+
+      - name: Live (in-play) win expectancy vs Kalshi — RECORD ONLY
+        # Places nothing. Records every comparison between our win-expectancy
+        # model and Kalshi's live price so "does an in-play edge exist at our
+        # latency?" gets a measured answer instead of an opinion.
+        #
+        # The first observation was not encouraging: HOU@SD, bottom 2nd, Kalshi
+        # quoted a 1c spread on 2.4M contracts and disagreed with the model by
+        # 1.2c — less than the ~1.7c taker fee. In-play is the TIGHTEST market
+        # on the exchange, not the loosest. Hence measure before trading.
+        #
+        # Costs no odds credits: ESPN's public scoreboard is free and unlimited.
+        # !cancelled() so a Kalshi hiccup in an earlier step cannot silently
+        # skip the measurement.
+        if: ${{ !cancelled() }}
+        env:
+          KALSHI_ENV: ${{ vars.KALSHI_ENV || 'prod' }}
+          LIVE_MIN_EDGE_CENTS: ${{ vars.LIVE_MIN_EDGE_CENTS || '7' }}
+          LIVE_MAX_EDGE_CENTS: ${{ vars.LIVE_MAX_EDGE_CENTS || '20' }}
+        run: python live_scan.py
 
       - name: Snapshot open prices, confirm fills, score CLV
         # Runs every cycle regardless of whether anything was placed. This is

@@ -537,3 +537,164 @@ def test_explicit_min_confidence_still_overrides(monkeypatch):
               "yes_ask": 30, "yes_bid": 28}
     assert [s for s in ss.evaluate_market(market, [GAME], None)
             if s["side"] == "yes"] == []
+
+
+# --- why did nothing qualify? ----------------------------------------------
+#
+# "0 qualifying" was blamed on the series ticker, then the confidence floor,
+# then the settlement guard. Two of those three guesses were wrong. The gates
+# now count themselves so a run answers the question instead of us inferring
+# it from silence.
+
+def test_rejects_are_counted_by_reason():
+    ss.REJECTS.clear()
+    fair = {"ticker": "T", "yes_sub_title": "Detroit", "status": "active",
+            "expected_expiration_time": GAME_SETTLES,
+            "yes_ask": 61, "yes_bid": 58}          # priced right, no edge
+    assert ss.evaluate_market(fair, [GAME], None) == []
+    assert sum(ss.REJECTS.values()) > 0
+    assert any("edge" in why for why in ss.REJECTS)
+
+
+def test_probability_floor_rejection_is_named(monkeypatch):
+    monkeypatch.setattr(ss, "SPORTS_MIN_CONFIDENCE", 0.99)
+    ss.REJECTS.clear()
+    market = {"ticker": "T", "yes_sub_title": "Detroit", "status": "active",
+              "expected_expiration_time": GAME_SETTLES,
+              "yes_ask": 45, "yes_bid": 41}
+    ss.evaluate_market(market, [GAME], None)
+    assert ss.REJECTS["below the probability floor"] == 1
+
+
+def test_settlement_rejection_is_named():
+    ss.REJECTS.clear()
+    future = {"ticker": "KXWNBA-26-ATL", "yes_sub_title": "Detroit",
+              "status": "active", "yes_ask": 8, "yes_bid": 7,
+              "expected_expiration_time": _in_hours(24 * 116)}
+    ss.evaluate_market(future, [GAME], None)
+    assert ss.REJECTS["settles on a different game"] == 1
+
+
+def test_unmatched_team_is_named():
+    ss.REJECTS.clear()
+    market = {"ticker": "T", "yes_sub_title": "Nobody At All",
+              "status": "active", "expected_expiration_time": GAME_SETTLES,
+              "yes_ask": 45, "yes_bid": 41}
+    ss.evaluate_market(market, [GAME], None)
+    assert ss.REJECTS["no unambiguous team match"] == 1
+
+
+def test_counting_never_changes_the_decision():
+    # The instrument must not perturb what it measures.
+    market = {"ticker": "KXMLBGAME-X-DET", "yes_sub_title": "Detroit",
+              "status": "active", "expected_expiration_time": GAME_SETTLES,
+              "yes_ask": 45, "yes_bid": 41}
+    ss.REJECTS.clear()
+    first = ss.evaluate_market(market, [GAME], None)
+    second = ss.evaluate_market(market, [GAME], None)
+    assert first == second and first
+
+
+# --- the odds cache (2026-08-10) -------------------------------------------
+#
+# The free tier hit its reserve and the sports model went COMPLETELY DARK:
+# "we cannot afford a call right now" and "the model does not run" were the
+# same condition. The model must evaluate on every run; only the paid refresh
+# is rationed. Running on yesterday's lines is worse than today's and far
+# better than not running.
+
+def _payload(hours_out=6.0):
+    from datetime import datetime, timedelta, timezone
+    t = (datetime.now(timezone.utc) + timedelta(hours=hours_out)).isoformat()
+    return [{"id": "g1", "commence_time": t,
+             "home_team": "Washington Nationals",
+             "away_team": "Detroit Tigers", "bookmakers": []}]
+
+
+def _use_tmp_cache(tmp_path, monkeypatch):
+    monkeypatch.setattr(ss, "ODDS_CACHE_FILE", tmp_path / "odds_cache.json")
+
+
+def test_a_fresh_cache_is_used_without_spending_a_credit(tmp_path, monkeypatch):
+    _use_tmp_cache(tmp_path, monkeypatch)
+    ss._cache_store("baseball_mlb", _payload())
+
+    def boom(*a, **k):
+        raise AssertionError("must not call the paid endpoint on a fresh cache")
+
+    monkeypatch.setattr(ss.requests, "get", boom)
+    assert len(ss.fetch_games("key", "baseball_mlb")) == 1
+
+
+def test_exhausted_credits_fall_back_to_stale_lines(tmp_path, monkeypatch):
+    # THE fix: with no budget and a cache present, the model keeps running.
+    _use_tmp_cache(tmp_path, monkeypatch)
+    ss._cache_store("baseball_mlb", _payload())
+    monkeypatch.setattr(ss, "ODDS_CACHE_TTL_MIN", 0.0)      # force it stale
+    monkeypatch.setattr(ss, "budget_left", lambda: False)
+    monkeypatch.setattr(ss.requests, "get",
+                        lambda *a, **k: (_ for _ in ()).throw(
+                            AssertionError("no budget: must not call")))
+    assert len(ss.fetch_games("key", "baseball_mlb")) == 1
+
+
+def test_no_budget_and_no_cache_is_still_a_clean_stop(tmp_path, monkeypatch):
+    import pytest
+    _use_tmp_cache(tmp_path, monkeypatch)
+    monkeypatch.setattr(ss, "budget_left", lambda: False)
+    with pytest.raises(ss.OddsBudgetExhausted):
+        ss.fetch_games("key", "baseball_mlb")
+
+
+def test_the_cache_holds_raw_lines_and_refilters_by_start_time(tmp_path,
+                                                               monkeypatch):
+    # A cached slate must drop games that have since started, or a stale cache
+    # would keep offering games already in progress.
+    _use_tmp_cache(tmp_path, monkeypatch)
+    ss._cache_store("baseball_mlb", _payload(hours_out=-1.0))   # already begun
+    monkeypatch.setattr(ss.requests, "get",
+                        lambda *a, **k: (_ for _ in ()).throw(
+                            AssertionError("fresh cache: must not call")))
+    assert ss.fetch_games("key", "baseball_mlb") == []
+
+
+def test_a_stale_cache_triggers_a_paid_refresh_when_budget_allows(tmp_path,
+                                                                  monkeypatch):
+    _use_tmp_cache(tmp_path, monkeypatch)
+    ss._cache_store("baseball_mlb", _payload())
+    monkeypatch.setattr(ss, "ODDS_CACHE_TTL_MIN", 0.0)
+    monkeypatch.setattr(ss, "budget_left", lambda: True)
+    calls = []
+
+    class _Resp:
+        headers = {}
+        def raise_for_status(self): pass
+        def json(self): return _payload()
+
+    def fake_get(*a, **k):
+        calls.append(1)
+        return _Resp()
+
+    monkeypatch.setattr(ss.requests, "get", fake_get)
+    assert len(ss.fetch_games("key", "baseball_mlb")) == 1
+    assert len(calls) == 1
+
+
+def test_a_refresh_replaces_the_cached_lines(tmp_path, monkeypatch):
+    _use_tmp_cache(tmp_path, monkeypatch)
+    ss._cache_store("baseball_mlb", [])
+    games, age = ss.cached_odds("baseball_mlb")
+    assert games == [] and age is not None and age < 1.0
+
+
+def test_an_unreadable_cache_is_not_fatal(tmp_path, monkeypatch):
+    _use_tmp_cache(tmp_path, monkeypatch)
+    (tmp_path / "odds_cache.json").write_text("{ not json")
+    assert ss.cached_odds("baseball_mlb") == (None, None)
+
+
+def test_each_sport_is_cached_separately(tmp_path, monkeypatch):
+    _use_tmp_cache(tmp_path, monkeypatch)
+    ss._cache_store("baseball_mlb", _payload())
+    assert ss.cached_odds("baseball_mlb")[0] is not None
+    assert ss.cached_odds("icehockey_nhl") == (None, None)

@@ -28,6 +28,7 @@ sports_line_history.json. SPORTS_REQUIRE_STEAM=true restores the old gate.
     python strategy_sports.py     # read-only scan, no orders
 """
 
+import collections
 import csv
 import json
 import math
@@ -382,7 +383,18 @@ def covers_game(market: dict, game: dict) -> bool:
     return lead <= EXPIRY_LEAD_H and lag <= EXPIRY_LAG_H
 
 
-def edge_ok(ev_cents: float, ticker: str = "") -> bool:
+# Why moneyline candidates die. Three separate wrong guesses about "0
+# qualifying" — first the series ticker, then the confidence floor, then the
+# settlement guard — is two too many. The gates now count themselves, so the
+# next run says which one is binding instead of us inferring it from silence.
+REJECTS = collections.Counter()
+
+
+def _reject(reason: str) -> None:
+    REJECTS[reason] += 1
+
+
+def edge_ok(ev_cents: float, ticker: str = "", counter: bool = True) -> bool:
     """Is this edge in the range a real disagreement can produce?
 
     Both ends matter. Below MIN_EDGE_CENTS the fee eats it; above
@@ -390,8 +402,12 @@ def edge_ok(ev_cents: float, ticker: str = "") -> bool:
     wrong contract, and that end is the dangerous one — Kelly stakes hardest
     exactly where the number is most absurd."""
     if ev_cents < MIN_EDGE_CENTS:
+        if counter:
+            _reject("edge below floor" if ev_cents > 0 else "no edge")
         return False
     if ev_cents > SPORTS_MAX_EDGE_CENTS:
+        if counter:
+            _reject("edge above sanity ceiling")
         log.warning("SKIP %s: %.1fc edge exceeds the %.0fc sanity ceiling — "
                     "treating this as a mispriced match, not an opportunity",
                     ticker or "?", ev_cents, SPORTS_MAX_EDGE_CENTS)
@@ -480,10 +496,83 @@ def budget_left() -> bool:
     return True if rem is None else float(rem) > ODDS_MIN_REMAINING
 
 
+# Odds cache. The model must keep evaluating on EVERY run; only the paid
+# refresh is rationed. Without this, "we cannot afford a call right now" and
+# "the model does not run" were the same thing — on 2026-08-10 the free tier
+# hit its reserve and the sports model went completely dark, placing nothing
+# for the rest of the month rather than trading on the lines it already had.
+#
+# The raw payload is cached and re-filtered by start time on every use, so a
+# cached slate naturally drops games that have already begun.
+ODDS_CACHE_FILE = Path(__file__).resolve().parent / "odds_cache.json"
+ODDS_CACHE_TTL_MIN = float(os.getenv("ODDS_CACHE_TTL_MIN", "1200"))   # 20h
+
+
+def _cache_all() -> dict:
+    try:
+        return json.loads(ODDS_CACHE_FILE.read_text())
+    except (FileNotFoundError, ValueError):
+        return {}
+
+
+def cached_odds(sport: str):
+    """(payload, age_minutes) for this sport, or (None, None)."""
+    entry = _cache_all().get(sport)
+    if not isinstance(entry, dict) or "games" not in entry:
+        return None, None
+    fetched = parse_iso(entry.get("fetched_at"))
+    if fetched is None:
+        return None, None
+    age = (datetime.now(timezone.utc) - fetched).total_seconds() / 60.0
+    return entry["games"], age
+
+
+def _cache_store(sport: str, games: list) -> None:
+    data = _cache_all()
+    data[sport] = dict(
+        fetched_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        games=games)
+    try:
+        ODDS_CACHE_FILE.write_text(json.dumps(data))
+    except OSError as exc:
+        log.warning("Could not write the odds cache: %s", exc)
+
+
+def _in_window(games: list) -> list:
+    """Only games inside the tradeable start-time window, evaluated NOW —
+    which is why the cache holds the raw payload rather than the filtered one."""
+    out = []
+    for game in games or []:
+        h = hours_until(game.get("commence_time"))
+        if h is not None and MIN_START_H <= h <= MAX_START_H:
+            out.append(game)
+    return out
+
+
 def fetch_games(api_key: str, sport: str) -> list:
+    """Lines for `sport`, from cache when it is fresh or when credits are gone.
+
+    Order of preference: a fresh cache (free), a paid refresh (2 credits), a
+    STALE cache (free). Only an empty cache with no budget is fatal — running
+    on yesterday's lines is worse than running on today's, and far better than
+    not running, which is what the model did before this existed.
+    """
+    games, age = cached_odds(sport)
+    if games is not None and age is not None and age < ODDS_CACHE_TTL_MIN:
+        log.info("%s: using cached lines (%.0f min old, TTL %.0f)",
+                 sport, age, ODDS_CACHE_TTL_MIN)
+        return _in_window(games)
+
     if not budget_left():
+        if games is not None:
+            log.warning("%s: odds credits at the %.0f reserve — running on "
+                        "STALE cached lines (%.0f min old)",
+                        sport, ODDS_MIN_REMAINING, age or 0.0)
+            return _in_window(games)
         raise OddsBudgetExhausted(
-            f"odds credits at or below the {ODDS_MIN_REMAINING:.0f} reserve")
+            f"odds credits at or below the {ODDS_MIN_REMAINING:.0f} reserve "
+            f"and no cached {sport} lines to fall back on")
+
     resp = requests.get(
         ODDS_URL.format(sport=sport),
         params={"apiKey": api_key, "regions": ODDS_REGIONS,
@@ -492,12 +581,9 @@ def fetch_games(api_key: str, sport: str) -> list:
     )
     _note_quota(resp)
     resp.raise_for_status()
-    games = []
-    for game in resp.json():
-        h = hours_until(game.get("commence_time"))
-        if h is not None and MIN_START_H <= h <= MAX_START_H:
-            games.append(game)
-    return games
+    payload = resp.json()
+    _cache_store(sport, payload)
+    return _in_window(payload)
 
 
 def evaluate_market(market: dict, games: list, history: dict = None) -> list:
@@ -505,9 +591,11 @@ def evaluate_market(market: dict, games: list, history: dict = None) -> list:
              or market.get("title") or "")
     matched = match_team(label, games)
     if not matched:
+        _reject("no unambiguous team match")
         return []
     game, side = matched
     if not covers_game(market, game):
+        _reject("settles on a different game")
         # The label named a team that plays tonight, but this contract does not
         # settle on tonight's game — a championship future, a series price, a
         # season win total. Pricing it off a single game's win probability is
@@ -547,6 +635,12 @@ def evaluate_market(market: dict, games: list, history: dict = None) -> list:
 
     signals = []
     yes_ask = price_cents(market, "yes_ask")
+    if not (yes_ask and 0 < yes_ask < 100):
+        _reject("no usable ask")
+    elif not steam_ok(side):
+        _reject("steam gate (SPORTS_REQUIRE_STEAM)")
+    elif p < SPORTS_MIN_CONFIDENCE:
+        _reject("below the probability floor")
     if (yes_ask and 0 < yes_ask < 100 and steam_ok(side)
             and p >= SPORTS_MIN_CONFIDENCE):
         ev = 100.0 * p - yes_ask - taker_fee_cents(yes_ask)
@@ -632,6 +726,7 @@ def scan(api_key: str) -> list:
     The cap reads the executed ledger, which the runner appends to as it
     places, so the budget holds across polls within a session. Result shape
     matches the other models; 'date' carries the event ticker."""
+    REJECTS.clear()      # per-scan, not cumulative across polls
     client = KalshiClient(env="prod")
     history = load_line_history()   # sharp lines as of the previous run
     new_history = {}                # what we'll persist for the next run
@@ -744,6 +839,11 @@ def scan(api_key: str) -> list:
                                           signal=s))
     if new_history:
         save_line_history(new_history)
+
+    if REJECTS:
+        log.info("Moneyline candidates rejected: %s",
+                 ", ".join(f"{n}x {why}"
+                           for why, n in REJECTS.most_common()))
 
     # separate daily budgets: the best few moneylines AND the best few totals
     chosen = []
