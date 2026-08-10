@@ -199,41 +199,64 @@ python -m pytest -q           # 283 tests
 
 ## MCP servers
 
-`.mcp.json` configures four MCP servers for Claude Code. They are project-scoped
-and committed, so they load in local sessions and Claude Code web sessions alike;
-`.claude/settings.json` sets `enableAllProjectMcpServers` so they connect without
-a per-session approval prompt. Nothing needs installing by hand — each stdio
-server is fetched by `npx` on first launch.
+Four MCP servers are configured for Claude Code.
 
 | Server | What it is for |
 |---|---|
 | `playwright` | Drives a real browser — reading Kalshi/sportsbook pages that have no usable API, checking a rendered page. |
 | `context7` | Up-to-date library docs, fetched live instead of from model memory. Remote HTTP, no API key. |
 | `sequential-thinking` | Scratchpad for structured multi-step reasoning on gnarly problems. |
-| `memory` | Knowledge graph persisted to `.claude/memory.jsonl`. |
+| `memory` | Knowledge graph persisted to `~/.claude/memory.jsonl`. |
 
-Two of them launch through small scripts in `.claude/mcp/` rather than a bare
-`npx` line, because they need environment detection that JSON cannot express:
+They are configured at two scopes, deliberately:
 
-- **`playwright-mcp.sh`** — web-session containers ship a prebuilt Chromium whose
-  build number does not match the one `@playwright/mcp` expects, route all egress
-  through a local HTTPS proxy that Chromium will not use unless told to, and
-  re-terminate TLS with a CA that lives outside Chromium's NSS store. The script
-  detects all three and passes the matching flags; on a laptop none of the
-  triggers fire and Playwright uses its own managed browser (`npx playwright
-  install chromium` once). It also runs headless — drop `--headless` from the
-  script locally if you want to watch the browser work. If a web session reports
-  `ERR_CERT_AUTHORITY_INVALID`, its image is missing `certutil`; install it once
-  with `apt-get install -y libnss3-tools`.
-- **`memory-mcp.sh`** — the memory server resolves a relative `MEMORY_FILE_PATH`
-  against its own directory inside `node_modules`, and Claude Code does not
-  expand `${CLAUDE_PROJECT_DIR}` in `.mcp.json`, so the script builds the
-  absolute path itself.
+**This repo, always.** `.mcp.json` is committed, so any session opened on this
+repo gets all four with no setup — including a fresh Claude Code web container.
+`.claude/settings.json` sets `enableAllProjectMcpServers` so they connect without
+a per-session approval prompt. Each stdio server is fetched by `npx` on first
+launch; nothing is installed by hand.
 
-`.claude/memory.jsonl` is committed on purpose: web-session containers are wiped
-between sessions, so anything the knowledge graph learns is lost unless it is in
-git. It follows that **the memory file is as public as the repo** — do not let it
-accumulate API keys, account balances, or position sizes.
+**Every other project.** `.claude/mcp/install.sh` registers the same four at user
+scope (`~/.claude.json`), which applies to every project on the machine:
+
+```bash
+sh .claude/mcp/install.sh          # from a checkout
+# or, anywhere:
+curl -fsSL https://raw.githubusercontent.com/Jackhenry87/Prediction-Market-trading-bot/main/.claude/mcp/install.sh | sh
+```
+
+It is idempotent — re-running upgrades the definitions rather than erroring on
+duplicate names — and it writes absolute paths, so the launcher script works from
+any working directory.
+
+User scope lives in `~/.claude.json`, which an ephemeral web container discards
+on teardown. On a laptop the install is one-time; for **web sessions on other
+repos**, put the `curl | sh` line in the setup script of the Claude Code
+environment (claude.ai/code → environment settings) so it runs per container.
+Sessions on *this* repo need none of that — the committed `.mcp.json` covers them.
+
+`playwright` launches through `.claude/mcp/playwright-mcp.sh` rather than a bare
+`npx` line, because it needs environment detection that JSON cannot express:
+web-session containers ship a prebuilt Chromium whose build number does not match
+the one `@playwright/mcp` expects, route all egress through a local HTTPS proxy
+that Chromium will not use unless told to, and re-terminate TLS with a CA that
+lives outside Chromium's NSS store. The script detects all three and passes the
+matching flags; on a laptop none of the triggers fire and Playwright uses its own
+managed browser (`npx playwright install chromium` once). It also runs headless —
+drop `--headless` from the script locally if you want to watch the browser work.
+If a web session reports `ERR_CERT_AUTHORITY_INVALID`, its image is missing
+`certutil`; install it once with `apt-get install -y libnss3-tools`.
+
+The knowledge graph is a single shared file at `~/.claude/memory.jsonl`, the same
+one in every project. It is **not** in git, so nothing it learns leaks into this
+public repo — and equally, nothing it learns survives a web container being
+wiped. Treat memory written in a web session as disposable; anything that must
+persist belongs in this README or in `HISTORY.md`.
+
+> `.mcp.json` expands `${VAR}` and `${VAR:-default}` from the environment in
+> `command`, `args`, `env`, and `url`, which is how the memory server gets an
+> absolute `${HOME}`-based path with no wrapper script. `${CLAUDE_PROJECT_DIR}`
+> is *not* available here — Claude Code only injects that variable for hooks.
 
 Adding Codex was considered and skipped. It is not an MCP server; it is the
 OpenAI Codex CLI run in server mode, which needs its own install and OpenAI

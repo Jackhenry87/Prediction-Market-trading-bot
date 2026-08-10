@@ -25,8 +25,8 @@ __pycache__/
 paperbook/paperbook.db
 
 # Playwright MCP scratch output (page snapshots, console logs, downloads).
-# The knowledge-graph memory file at .claude/memory.jsonl is deliberately NOT
-# ignored — it is committed so memory survives between web sessions.
+# The knowledge-graph memory file lives outside the repo at ~/.claude/memory.jsonl
+# and is shared across every project, so there is nothing to ignore for it here.
 .playwright-mcp/
 
 # Live bot state — belongs on the `bot-state` branch, never on main.

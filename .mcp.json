@@ -18,9 +18,11 @@
     },
     "memory": {
       "type": "stdio",
-      "command": "sh",
-      "args": [".claude/mcp/memory-mcp.sh"],
-      "env": {}
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "env": {
+        "MEMORY_FILE_PATH": "${HOME}/.claude/memory.jsonl"
+      }
     }
   }
 }
