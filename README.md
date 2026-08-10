@@ -219,6 +219,25 @@ Kalshi's *public* API cannot attribute a trade to anyone — `GET
 diffs the result, so detection is bounded by the poll interval and carries the
 exact ticker, side, price and size.
 
+> **Status: blocked.** A probe with a valid API key (run 2026-08-10 via the
+> `follow-probe` workflow) returned:
+>
+> | request | result |
+> |---|---|
+> | `/trade-api/v2/portfolio/balance` | **200** — the key works |
+> | `/v1/users/me/positions` (our OWN data) | **403** |
+> | `/v1/users/{other}/positions` | **403** |
+>
+> The 403 on our own data is decisive: this is not a cross-account permission
+> gate, **`/v1` does not accept API-key auth at all**. That surface belongs to
+> the web app's session tokens. No key or `KALSHI_ENV` change fixes it.
+>
+> The only remaining route is `FOLLOW_SESSION_TOKEN` — a bearer token copied
+> from a logged-in browser. It should work, since the app itself reads these
+> routes, but it **expires** and relies on undocumented endpoints. Until one
+> is set, the copier cannot see anything and `FOLLOW_ENABLED` should stay
+> false.
+
 **These are undocumented endpoints.** They can change or close without notice,
 so the feed **fails loudly**: a `FeedError` stops the runner rather than
 returning an empty list, because a silent feed is indistinguishable from "he

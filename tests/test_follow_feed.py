@@ -210,11 +210,15 @@ def test_unsigned_request_points_at_the_pem():
     assert "KALSHI_PRIVATE_KEY_PATH" in msg
 
 
-def test_forbidden_is_flagged_as_fatal_to_the_approach():
-    """Authenticated-but-not-authorised is the one failure no config change
-    fixes — it means Kalshi will not show one account another's positions."""
-    msg = ff.diagnose("api_key: HTTP 403 forbidden")
-    assert "NOT AUTHORISED" in msg
+def test_forbidden_names_the_real_cause_not_a_permission_gate():
+    """A bare 403 looks like "authorised for self, forbidden for others", and
+    that reading was wrong. The probe's self-read control showed /v1 403s on
+    OUR OWN data too while the same key gets 200 on v2 — so /v1 rejects
+    API-key auth outright. The message must not send anyone hunting for a
+    permission setting that does not exist."""
+    msg = ff.diagnose("api_key: HTTP 403 null")
+    assert "does not accept API-key auth" in msg
+    assert "FOLLOW_SESSION_TOKEN" in msg
 
 
 def test_a_dead_feed_message_carries_the_diagnosis(monkeypatch, tmp_path):

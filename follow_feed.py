@@ -42,17 +42,22 @@ AUTH, IN ORDER
 2. `FOLLOW_SESSION_TOKEN`, a bearer token copied out of a logged-in browser.
    Works, but expires — hence the alarm when a token that WAS working stops.
 
-The key is tried first, and evidence says it is the right order. Signing a
-/v1 request with a THROWAWAY key changes the error from
-`token_authentication_failure` (unsigned) to `authentication_error:
-NOT_FOUND` (key id looked up, not found) — the exact same transition as
-`/trade-api/v2/portfolio/balance`, which is known to accept key auth. So /v1
-processes the KALSHI-ACCESS-* scheme rather than ignoring it.
+MEASURED RESULT (probe run 2026-08-10, real key, KALSHI_ENV=prod):
 
-What that does NOT settle is AUTHORISATION: whether a valid key is allowed to
-read ANOTHER user's positions, or only its own. Authentication and permission
-are different gates, and only a real key answers the second. `--probe` is
-what answers it.
+    200  /trade-api/v2/portfolio/balance      same key, works
+    403  /v1/users/me/positions               OUR OWN data
+    403  /v1/users/me/trades                  OUR OWN data
+    403  /v1/users/{other}/positions
+    403  /v1/users/{other}/trades
+
+The 403 on our OWN data is the decisive line. It rules out a cross-account
+permission gate and shows /v1 does not accept API-key auth at all — that
+surface belongs to the web app's session tokens. An earlier reading of a
+bare 403 as "authorised for self, forbidden for others" was wrong; the
+self-read control is what caught it.
+
+So mode 1 is currently dead and mode 2 is the only route. Session tokens
+expire, hence the alarm when one that WAS working stops.
 """
 
 import json
@@ -162,10 +167,19 @@ def diagnose(detail: str) -> str:
                 "went out unsigned. Check KALSHI_PRIVATE_KEY_PATH points at "
                 "a readable .pem.")
     if "403" in d or "forbidden" in d or "permission" in d:
-        return ("Authenticated but NOT AUTHORISED. This is the one failure "
-                "that kills the approach: the key is valid, so Kalshi is "
-                "refusing to show one account another account's positions. "
-                "No amount of credential fixing changes that.")
+        # MEASURED, not inferred. A probe run on 2026-08-10 with a valid key:
+        #   200  /trade-api/v2/portfolio/balance   (same key, works)
+        #   403  /v1/users/me/positions            (OUR OWN data)
+        #   403  /v1/users/{other}/positions
+        # 403 on our own data rules out a cross-account permission gate: /v1
+        # simply does not accept API-key auth. Only the web app's session
+        # token reaches this surface.
+        return ("/v1 does not accept API-key auth at all — it 403s on your "
+                "OWN data as well as another user's, while the same key gets "
+                "200 on /trade-api/v2. No key or environment change fixes "
+                "this; these routes are session-token only. Set "
+                "FOLLOW_SESSION_TOKEN from a logged-in browser, accepting "
+                "that it expires.")
     if "session" in d:
         # The last mode tried was a browser token, and those expire. Say so
         # here, because a token that worked yesterday and 401s today looks
