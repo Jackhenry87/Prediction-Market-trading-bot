@@ -757,3 +757,80 @@ def test_label_matches_team_is_directional():
     assert not ss.label_matches_team("Chicago C", "Chicago White Sox")
     assert not ss.label_matches_team("", "New York Mets")
     assert not ss.label_matches_team("Boston", "")
+
+
+# --- not paying to re-price a slate we cannot bet on yet --------------------
+#
+# 500 credits a month is 250 calls at h2h+totals over one region, so every
+# avoided call is ~0.4% of the month. A US slate is clustered in the evening,
+# so skipping overnight refreshes is close to a 2x saving on a fixed TTL.
+
+def test_no_refresh_when_the_next_game_is_far_away(tmp_path, monkeypatch):
+    _use_tmp_cache(tmp_path, monkeypatch)
+    ss._cache_store("baseball_mlb", _payload(hours_out=20.0))
+    monkeypatch.setattr(ss, "ODDS_CACHE_TTL_MIN", 0.0)     # cache is stale
+    monkeypatch.setattr(ss, "ODDS_REFRESH_LEAD_H", 14.0)
+    monkeypatch.setattr(ss, "budget_left", lambda: True)
+    monkeypatch.setattr(ss.requests, "get",
+                        lambda *a, **k: (_ for _ in ()).throw(
+                            AssertionError("next game is 20h out: must not pay")))
+    ss.fetch_games("key", "baseball_mlb")      # must not raise
+
+
+def test_a_refresh_does_happen_once_a_game_is_near(tmp_path, monkeypatch):
+    _use_tmp_cache(tmp_path, monkeypatch)
+    ss._cache_store("baseball_mlb", _payload(hours_out=3.0))
+    monkeypatch.setattr(ss, "ODDS_CACHE_TTL_MIN", 0.0)
+    monkeypatch.setattr(ss, "ODDS_REFRESH_LEAD_H", 14.0)
+    monkeypatch.setattr(ss, "budget_left", lambda: True)
+    calls = []
+
+    class _Resp:
+        headers = {}
+        def raise_for_status(self): pass
+        def json(self): return _payload(hours_out=3.0)
+
+    monkeypatch.setattr(ss.requests, "get",
+                        lambda *a, **k: (calls.append(1), _Resp())[1])
+    ss.fetch_games("key", "baseball_mlb")
+    assert len(calls) == 1
+
+
+def test_an_empty_cache_still_refreshes(tmp_path, monkeypatch):
+    # The lead-time gate must never be able to prevent the FIRST fetch, or a
+    # cold start would never acquire lines at all.
+    _use_tmp_cache(tmp_path, monkeypatch)
+    monkeypatch.setattr(ss, "budget_left", lambda: True)
+    calls = []
+
+    class _Resp:
+        headers = {}
+        def raise_for_status(self): pass
+        def json(self): return _payload()
+
+    monkeypatch.setattr(ss.requests, "get",
+                        lambda *a, **k: (calls.append(1), _Resp())[1])
+    ss.fetch_games("key", "baseball_mlb")
+    assert len(calls) == 1
+
+
+def test_a_slate_of_only_finished_games_does_not_freeze_the_cache(tmp_path,
+                                                                  monkeypatch):
+    # Every start time in the past means there is no positive lead time. That
+    # must NOT read as "nothing is near", or yesterday's finished slate would
+    # block every future refresh and the model would never see a new game.
+    _use_tmp_cache(tmp_path, monkeypatch)
+    ss._cache_store("baseball_mlb", _payload(hours_out=-5.0))
+    monkeypatch.setattr(ss, "ODDS_CACHE_TTL_MIN", 0.0)
+    monkeypatch.setattr(ss, "budget_left", lambda: True)
+    calls = []
+
+    class _Resp:
+        headers = {}
+        def raise_for_status(self): pass
+        def json(self): return _payload(hours_out=3.0)
+
+    monkeypatch.setattr(ss.requests, "get",
+                        lambda *a, **k: (calls.append(1), _Resp())[1])
+    assert len(ss.fetch_games("key", "baseball_mlb")) == 1
+    assert len(calls) == 1, "a stale, all-finished slate must trigger a refresh"

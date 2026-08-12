@@ -557,6 +557,12 @@ def budget_left() -> bool:
 ODDS_CACHE_FILE = Path(__file__).resolve().parent / "odds_cache.json"
 ODDS_CACHE_TTL_MIN = float(os.getenv("ODDS_CACHE_TTL_MIN", "1200"))   # 20h
 
+# Only pay for a refresh when a game is within this many hours. The whole
+# monthly budget is 500 credits = 250 calls at h2h+totals over one region, so
+# every avoided call is ~0.4% of the month. A US sport's slate is clustered in
+# the evening, so gating on proximity skips the overnight refreshes entirely.
+ODDS_REFRESH_LEAD_H = float(os.getenv("ODDS_REFRESH_LEAD_H", "14"))
+
 
 def _cache_all() -> dict:
     try:
@@ -612,6 +618,22 @@ def fetch_games(api_key: str, sport: str) -> list:
         log.info("%s: using cached lines (%.0f min old, TTL %.0f)",
                  sport, age, ODDS_CACHE_TTL_MIN)
         return _in_window(games)
+
+    # Do not pay to re-price a slate we cannot bet on yet. Lines matter as the
+    # game approaches; refreshing at 06:00 UTC when the first pitch is fourteen
+    # hours away buys a number that will have moved before it is usable. The
+    # cached slate tells us when the next game starts, so this costs nothing to
+    # check. Overnight is roughly half the day for a US sport, so skipping it
+    # is close to a 2x saving on a fixed TTL.
+    if games is not None:
+        soonest = min((h for h in (hours_until(g.get("commence_time"))
+                                   for g in games) if h is not None and h > 0),
+                      default=None)
+        if soonest is not None and soonest > ODDS_REFRESH_LEAD_H:
+            log.info("%s: next game %.1fh away (> %.0fh lead) — keeping the "
+                     "%.0f min old cache instead of spending a credit",
+                     sport, soonest, ODDS_REFRESH_LEAD_H, age or 0.0)
+            return _in_window(games)
 
     if not budget_left():
         if games is not None:

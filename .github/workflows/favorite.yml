@@ -188,6 +188,14 @@ jobs:
           # monthly reset. THE MODEL EVALUATES ON EVERY RUN REGARDLESS — only
           # the paid refresh is rationed.
           ODDS_CACHE_TTL_MIN: ${{ vars.ODDS_CACHE_TTL_MIN || '1440' }}
+          # Do not pay to re-price a slate we cannot bet on yet. Budget maths:
+          # 500 credits/month / (markets x regions = 2) = 250 calls = 8.3/day,
+          # i.e. a 3h TTL is the exact break-even at one league. The 24h TTL
+          # above is set for the ~40 credits left until the September reset;
+          # drop it to 180 once the quota rolls over. This lead-time gate is
+          # what makes that affordable — it skips the overnight refreshes on a
+          # slate that is clustered in the evening.
+          ODDS_REFRESH_LEAD_H: ${{ vars.ODDS_REFRESH_LEAD_H || '14' }}
           SPORTS_RUN_MINUTES: '0'
         run: python sports_runner.py --once
 
