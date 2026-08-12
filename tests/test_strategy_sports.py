@@ -921,3 +921,47 @@ def test_per_kind_ceilings_default_to_the_pool_and_do_not_reserve():
     # reserved-slot behaviour this replaced.
     assert ss.SPORTS_MAX_ML_PER_DAY >= ss.SPORTS_MAX_PER_DAY
     assert ss.SPORTS_MAX_TOTALS_PER_DAY >= ss.SPORTS_MAX_PER_DAY
+
+
+# --- the fallback must not cross teams (2026-08-12, real money) ------------
+#
+# The loose fallback added hours earlier bought "Los Angeles A" priced off the
+# DODGERS. The Angels game had already started and been filtered out, so the
+# precise rule found nothing; _words("Los Angeles A") is {ANGELES} — "LOS" is
+# a stopword and "A" is too short to survive — which is a subset of
+# {ANGELES, DODGERS}. Both games were the same night in the same city, so
+# covers_game could not separate them either, and a 21.4c "edge" against a
+# 45-74 team cleared the 25c ceiling and staked 19% of the bankroll.
+
+LA_DODGERS_ONLY = [{"home_team": "Los Angeles Dodgers",
+                    "away_team": "Kansas City Royals"}]
+
+
+def test_a_city_label_never_falls_back_onto_the_other_city_team():
+    assert ss.match_team("Los Angeles A", LA_DODGERS_ONLY) is None
+
+
+def test_the_same_trap_for_the_other_two_shared_cities():
+    assert ss.match_team("New York Y",
+                         [{"home_team": "New York Mets",
+                           "away_team": "Atlanta Braves"}]) is None
+    assert ss.match_team("Chicago WS",
+                         [{"home_team": "Chicago Cubs",
+                           "away_team": "Milwaukee Brewers"}]) is None
+
+
+def test_the_precise_rule_still_matches_its_own_city_team():
+    m = ss.match_team("Los Angeles D", LA_DODGERS_ONLY)
+    assert m and m[0]["home_team"] == "Los Angeles Dodgers"
+
+
+def test_a_bare_nickname_still_falls_back():
+    m = ss.match_team("Yankees", [{"home_team": "New York Yankees",
+                                   "away_team": "Boston Red Sox"}])
+    assert m and m[0]["home_team"] == "New York Yankees"
+
+
+def test_only_single_token_labels_may_fall_back():
+    # A multi-token label names a city it must match precisely or not at all.
+    assert ss.match_team("Dodgers", LA_DODGERS_ONLY) is not None
+    assert ss.match_team("Los Angeles Q", LA_DODGERS_ONLY) is None
