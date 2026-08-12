@@ -41,6 +41,8 @@ from statistics import NormalDist
 
 import requests
 
+import pitchers
+
 from kalshi_client import KalshiClient
 from strategy_weather import (price_cents, score_pending_paper_trades,
                               taker_fee_cents)
@@ -101,6 +103,19 @@ SPORTS_MAX_EDGE_CENTS = float(os.getenv("SPORTS_MAX_EDGE_CENTS", "25"))
 # hours of the first pitch/tip; a championship market expires months later. The
 # window is deliberately loose (extra innings, overtime, rain delays) because it
 # only has to separate "this game" from "some other contract about this team".
+# Above this claimed edge, the STARTING PITCHING must not contradict the side
+# we are backing. Below it, the pitcher check is recorded but not enforced.
+#
+# The books already price the starters, so this cannot sharpen our fair value —
+# it would be double-counting the same information. What it catches is a number
+# that is not about this game at all. Both bad trades this month were exactly
+# that: a WNBA championship future priced off one game (58c "edge"), and "Los
+# Angeles A" priced off the DODGERS (21.4c "edge") while the Angels ran a 7.27
+# ERA starter against Texas's 3.56. Neither was an edge; both were a different
+# game. A large edge that the pitching flatly contradicts is the signature.
+SPORTS_CORROBORATE_ABOVE_CENTS = float(
+    os.getenv("SPORTS_CORROBORATE_ABOVE_CENTS", "10"))
+
 EXPIRY_LEAD_H = float(os.getenv("SPORTS_EXPIRY_LEAD_H", "2"))
 EXPIRY_LAG_H = float(os.getenv("SPORTS_EXPIRY_LAG_H", "12"))
 
@@ -696,7 +711,8 @@ def fetch_games(api_key: str, sport: str) -> list:
     return _in_window(payload)
 
 
-def evaluate_market(market: dict, games: list, history: dict = None) -> list:
+def evaluate_market(market: dict, games: list, history: dict = None,
+                    matchups: dict = None) -> list:
     label = (market.get("yes_sub_title") or market.get("subtitle")
              or market.get("title") or "")
     matched = match_team(label, games)
@@ -767,6 +783,27 @@ def evaluate_market(market: dict, games: list, history: dict = None) -> list:
             signals.append(dict(side="no", price_cents=no_price,
                                 model_prob=1.0 - p, ev_cents=ev,
                                 steam=steam_for(other), backing=other))
+    # Starting pitching: recorded on every signal, ENFORCED only above
+    # SPORTS_CORROBORATE_ABOVE_CENTS. Missing data fails open — vetoing every
+    # game with an unannounced starter would disable the model on mornings when
+    # lineups are not yet posted, a worse failure than the one it prevents.
+    mu = (matchups or {}).get(game.get("id"))
+    kept = []
+    for s in signals:
+        s["home_era"] = (mu or {}).get("home_era")
+        s["away_era"] = (mu or {}).get("away_era")
+        s["pitcher_lean"] = pitchers.favours(mu)
+        if (s["ev_cents"] >= SPORTS_CORROBORATE_ABOVE_CENTS
+                and not pitchers.supports_side(mu, s["backing"])):
+            _reject("pitching contradicts a large edge")
+            log.warning("SKIP %s: %.1fc edge backing %s, but the starters "
+                        "favour %s (home ERA %s vs away ERA %s)",
+                        market.get("ticker"), s["ev_cents"], s["backing"],
+                        s["pitcher_lean"], s["home_era"], s["away_era"])
+            continue
+        kept.append(s)
+    signals = kept
+
     for s in signals:
         # is_underdog records whether the side we backed is priced under 50c.
         # Recorded, not rewarded: the favourite-longshot literature says dogs
@@ -837,6 +874,20 @@ def scan(api_key: str) -> list:
     places, so the budget holds across polls within a session. Result shape
     matches the other models; 'date' carries the event ticker."""
     REJECTS.clear()      # per-scan, not cumulative across polls
+
+    # Probable starters for every scheduled game, once per scan. Free endpoint,
+    # no key, no odds credits — the same scoreboard live_state already polls.
+    # A failure here must not stop the model: the pitcher check is a veto on
+    # implausible edges, not a precondition for trading, so an empty map simply
+    # means nothing gets vetoed.
+    try:
+        _pm = pitchers.matchups()
+        log.info("Probable starters loaded for %d scheduled game(s)", len(_pm))
+    except Exception as exc:
+        log.warning("Pitcher matchups unavailable (%s) — edges will not be "
+                    "corroborated this scan", exc)
+        _pm = []
+
     client = KalshiClient(env="prod")
     history = load_line_history()   # sharp lines as of the previous run
     new_history = {}                # what we'll persist for the next run
@@ -871,6 +922,18 @@ def scan(api_key: str) -> list:
         if not games:
             continue
 
+        # Keyed by the odds-API game id. The team matcher is INJECTED so this
+        # cannot become a second, subtly different naming rule — the one that
+        # crossed the Angels with the Dodgers was exactly that kind of drift.
+        matchup_by_id = {}
+        for g in games:
+            if not g.get("id"):
+                continue
+            found = pitchers.find(_pm, g.get("home_team"), g.get("away_team"),
+                                  label_matches_team)
+            if found:
+                matchup_by_id[g["id"]] = found
+
         now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
         for g in games:            # steam memory: sharp win-prob AND total
             if not g.get("id"):
@@ -897,7 +960,8 @@ def scan(api_key: str) -> list:
             for market in event.get("markets") or []:
                 if market.get("status") not in (None, "active", "open"):
                     continue
-                for s in evaluate_market(market, games, history) or []:
+                for s in evaluate_market(market, games, history,
+                                         matchup_by_id) or []:
                     if s["ticker"] in held:
                         continue
                     ml_cands.append(dict(event_ticker=event_ticker,

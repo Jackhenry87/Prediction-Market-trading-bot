@@ -247,7 +247,8 @@ def test_ml_daily_budget_caps_scan(monkeypatch):
     monkeypatch.setattr(ss, "fetch_games", lambda k, s: [
         {"id": "g", "home_team": "A A", "away_team": "B B", "bookmakers": []}])
     # five qualifying plays with ascending edge -> only the top 2 come back
-    monkeypatch.setattr(ss, "evaluate_market", lambda m, g, h: [dict(
+    monkeypatch.setattr(ss, "evaluate_market",
+                        lambda m, g, h, mu=None: [dict(
         side="yes", price_cents=50, model_prob=0.7,
         ev_cents=float(m["ticker"][1:]), steam=0.02,
         ticker=m["ticker"], subtitle="x")])
