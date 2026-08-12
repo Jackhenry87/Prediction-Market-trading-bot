@@ -222,6 +222,20 @@ jobs:
           # what makes that affordable — it skips the overnight refreshes on a
           # slate that is clustered in the evening.
           ODDS_REFRESH_LEAD_H: ${{ vars.ODDS_REFRESH_LEAD_H || '14' }}
+          # WHEN to spend the day's one paid refresh. Measured across every open
+          # KXMLBGAME market on 2026-08-12: Kalshi's makers hold a 1c spread
+          # from 8h out to 40h, so buying early gains no width — median volume
+          # 8,250 at 8-16h, 2,963 at 16-28h, 196 at 28-40h, and beyond 40h the
+          # book is dead (0 volume, 4c). What varies is the OTHER side: an
+          # overnight sportsbook line is soft and low-limit, so a "sharp
+          # consensus" taken at 04:00 UTC is a consensus of nobody. 14-16 UTC is
+          # 10am-12pm ET, when real limits are up — it catches 1pm ET day games
+          # at 1-3h out and 7-9pm ET games at 7-11h out.
+          ODDS_REFRESH_WINDOW_UTC: ${{ vars.ODDS_REFRESH_WINDOW_UTC || '14-16' }}
+          # The window must never starve the model. GitHub dropped 32 of an
+          # expected 48 scheduled runs on a measured day, so a two-hour window
+          # can be missed entirely; past this age the clock is ignored.
+          ODDS_CACHE_HARD_MAX_MIN: ${{ vars.ODDS_CACHE_HARD_MAX_MIN || '2160' }}
           SPORTS_RUN_MINUTES: '0'
         run: python sports_runner.py --once
 

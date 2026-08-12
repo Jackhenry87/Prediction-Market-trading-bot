@@ -99,10 +99,6 @@ MIN_EDGE_CENTS = 5.0
 # every mismatch of that shape, including ones nobody has thought of yet.
 SPORTS_MAX_EDGE_CENTS = float(os.getenv("SPORTS_MAX_EDGE_CENTS", "25"))
 
-# A market must settle on the GAME we priced. Game markets expire within a few
-# hours of the first pitch/tip; a championship market expires months later. The
-# window is deliberately loose (extra innings, overtime, rain delays) because it
-# only has to separate "this game" from "some other contract about this team".
 # Above this claimed edge, the STARTING PITCHING must not contradict the side
 # we are backing. Below it, the pitcher check is recorded but not enforced.
 #
@@ -116,6 +112,10 @@ SPORTS_MAX_EDGE_CENTS = float(os.getenv("SPORTS_MAX_EDGE_CENTS", "25"))
 SPORTS_CORROBORATE_ABOVE_CENTS = float(
     os.getenv("SPORTS_CORROBORATE_ABOVE_CENTS", "10"))
 
+# A market must settle on the GAME we priced. Game markets expire within a few
+# hours of the first pitch/tip; a championship market expires months later. The
+# window is deliberately loose (extra innings, overtime, rain delays) because it
+# only has to separate "this game" from "some other contract about this team".
 EXPIRY_LEAD_H = float(os.getenv("SPORTS_EXPIRY_LEAD_H", "2"))
 EXPIRY_LAG_H = float(os.getenv("SPORTS_EXPIRY_LAG_H", "12"))
 
@@ -616,6 +616,58 @@ ODDS_CACHE_TTL_MIN = float(os.getenv("ODDS_CACHE_TTL_MIN", "1200"))   # 20h
 # the evening, so gating on proximity skips the overnight refreshes entirely.
 ODDS_REFRESH_LEAD_H = float(os.getenv("ODDS_REFRESH_LEAD_H", "14"))
 
+# Preferred UTC hours for spending the day's one paid refresh, as "start-end".
+#
+# Measured against every open KXMLBGAME market on 2026-08-12:
+#
+#   time to first pitch   markets   median volume   median spread
+#   8-16h                      12           8,250              1c
+#   16-28h                     18           2,963              1c
+#   28-40h                     12             196              1c
+#   40h+                       34               0              4c
+#
+# Two things follow. Kalshi's makers quote 1c out to 40 hours, so going early
+# buys no extra width — the "thin book is a sloppy book" intuition is simply
+# wrong here. And beyond 40h the market is dead, which MAX_START_H already
+# excludes.
+#
+# So the choice is about the OTHER side of the comparison. Overnight sportsbook
+# lines are soft and low-limit; a "sharp consensus" taken at 04:00 UTC is a
+# consensus of nobody. By late morning ET the real limits are up. 14-16 UTC
+# (10am-12pm ET) catches the 1pm ET day games at 1-3h out and the 7-9pm ET
+# games at 7-11h out, while Kalshi volume is still a few thousand rather than
+# the millions it reaches in play.
+#
+# Empty string disables the preference. This is a PREFERENCE, not a gate: see
+# ODDS_CACHE_HARD_MAX_MIN.
+ODDS_REFRESH_WINDOW_UTC = os.getenv("ODDS_REFRESH_WINDOW_UTC", "14-16")
+
+# The window must never be able to starve the model. GitHub drops scheduled
+# runs (16 of an expected 48 on a measured day), so the two-hour window can be
+# missed entirely. Past this age the refresh happens whatever the clock says.
+ODDS_CACHE_HARD_MAX_MIN = float(os.getenv("ODDS_CACHE_HARD_MAX_MIN", "2160"))
+
+
+def in_refresh_window(now: datetime = None) -> bool:
+    """Is the clock inside the preferred paid-refresh window?
+
+    An unset or malformed window means "no preference" — a bad config value
+    must not silently stop the model from ever buying fresh lines.
+    """
+    spec = (ODDS_REFRESH_WINDOW_UTC or "").strip()
+    if not spec:
+        return True
+    try:
+        start, end = (int(x) for x in spec.split("-", 1))
+    except (ValueError, TypeError):
+        log.warning("ODDS_REFRESH_WINDOW_UTC=%r is not 'start-end' — ignoring",
+                    ODDS_REFRESH_WINDOW_UTC)
+        return True
+    hour = (now or datetime.now(timezone.utc)).hour
+    if start <= end:
+        return start <= hour < end
+    return hour >= start or hour < end        # a window that wraps midnight
+
 
 def _cache_all() -> dict:
     try:
@@ -687,6 +739,16 @@ def fetch_games(api_key: str, sport: str) -> list:
                      "%.0f min old cache instead of spending a credit",
                      sport, soonest, ODDS_REFRESH_LEAD_H, age or 0.0)
             return _in_window(games)
+
+    # Prefer to spend the day's one refresh when the books are sharpest. Never
+    # let that preference starve the model: past the hard age limit, or with no
+    # cache at all, the clock is ignored.
+    if (games is not None and age is not None
+            and age < ODDS_CACHE_HARD_MAX_MIN and not in_refresh_window()):
+        log.info("%s: outside the %s UTC refresh window — keeping the %.0f min "
+                 "old cache rather than buying lines while the books are soft",
+                 sport, ODDS_REFRESH_WINDOW_UTC, age)
+        return _in_window(games)
 
     if not budget_left():
         if games is not None:
