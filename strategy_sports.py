@@ -153,10 +153,23 @@ SPORTS_MIN_PROB = float(os.getenv("SPORTS_MIN_PROB", "0.25"))
 # Back-compat: SPORTS_MIN_CONFIDENCE still works if it is set explicitly.
 SPORTS_MIN_CONFIDENCE = float(
     os.getenv("SPORTS_MIN_CONFIDENCE", str(SPORTS_MIN_PROB)))
-# SEPARATE daily budgets: a few moneyline plays AND a few over/under plays,
-# each capped independently and each taking only its best by edge.
-SPORTS_MAX_ML_PER_DAY = int(os.getenv("SPORTS_MAX_ML_PER_DAY", "2"))
-SPORTS_MAX_TOTALS_PER_DAY = int(os.getenv("SPORTS_MAX_TOTALS_PER_DAY", "2"))
+# ONE daily budget across both bet types, filled by edge (owner call,
+# 2026-08-10: "whatever the bot is most confident in that day").
+#
+# It used to be two reserved pools of 2. Reserved slots mean the day's best
+# four picks are NOT what gets taken: if moneylines show nothing, their two
+# slots simply go unused while a fifth-best total is left on the table — and
+# moneylines showed nothing on every run for a week. A single pool ranked by
+# edge takes the four the model is actually most confident in, whatever they
+# are.
+#
+# The per-kind ceilings survive as OPTIONAL limits, unset by default, for
+# capping concentration in one bet type if CLV ever shows it deserves it.
+SPORTS_MAX_PER_DAY = int(os.getenv("SPORTS_MAX_PER_DAY", "4"))
+SPORTS_MAX_ML_PER_DAY = int(os.getenv("SPORTS_MAX_ML_PER_DAY",
+                                      str(SPORTS_MAX_PER_DAY)))
+SPORTS_MAX_TOTALS_PER_DAY = int(os.getenv("SPORTS_MAX_TOTALS_PER_DAY",
+                                          str(SPORTS_MAX_PER_DAY)))
 
 # --- over/under (totals) ---
 # Kalshi "Over X.5 runs" ladders per league. We devig the book's total to an
@@ -928,17 +941,29 @@ def scan(api_key: str) -> list:
                  ", ".join(f"{n}x {why}"
                            for why, n in REJECTS.most_common()))
 
-    # separate daily budgets: the best few moneylines AND the best few totals
-    chosen = []
-    for cands, kind, cap in ((ml_cands, "ml", SPORTS_MAX_ML_PER_DAY),
-                             (tot_cands, "totals", SPORTS_MAX_TOTALS_PER_DAY)):
-        placed = _sports_placed_today(kind)
-        budget = max(0, cap - placed)
-        cands.sort(key=lambda c: -c["signal"]["ev_cents"])
-        take = cands[:budget]
-        log.info("Sports %s: %d qualifying, %d placed today, budget %d -> %d",
-                 kind, len(cands), placed, budget, len(take))
-        chosen.extend(take)
+    # ONE budget, filled by edge, whatever the bet type. Per-kind ceilings
+    # still apply if someone sets them, but they no longer RESERVE slots — an
+    # empty moneyline day no longer costs the day two picks.
+    for cands, kind in ((ml_cands, "ml"), (tot_cands, "totals")):
+        log.info("Sports %s: %d qualifying, %d placed today", kind,
+                 len(cands), _sports_placed_today(kind))
+
+    budget = max(0, SPORTS_MAX_PER_DAY - _sports_placed_today("all"))
+    pool = sorted(ml_cands + tot_cands,
+                  key=lambda c: -c["signal"]["ev_cents"])
+    chosen, per_kind = [], {"ml": _sports_placed_today("ml"),
+                            "totals": _sports_placed_today("totals")}
+    caps = {"ml": SPORTS_MAX_ML_PER_DAY, "totals": SPORTS_MAX_TOTALS_PER_DAY}
+    for c in pool:
+        if len(chosen) >= budget:
+            break
+        kind = "totals" if "TOTAL" in c["signal"]["ticker"].upper() else "ml"
+        if per_kind[kind] >= caps[kind]:
+            continue
+        per_kind[kind] += 1
+        chosen.append(c)
+    log.info("Sports: %d candidate(s) across both types, budget %d -> taking "
+             "%d by edge", len(pool), budget, len(chosen))
 
     by_event = {}
     for c in chosen:

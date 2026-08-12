@@ -870,3 +870,54 @@ def test_totals_signals_also_record_is_underdog():
     for s in sigs:
         assert s["is_underdog"] is (s["price_cents"] < 50)
         assert s["is_home"] is None          # a total has no home side
+
+
+# --- one budget, filled by edge (owner call, 2026-08-10) -------------------
+#
+# "whatever has the most edge that day". It used to be two RESERVED pools of
+# two, so on a day when moneylines showed nothing those two slots went unused
+# while better totals were left on the table — and moneylines showed nothing on
+# every run for a week.
+
+def _cand(ticker, edge):
+    return dict(event_ticker=ticker.rsplit("-", 1)[0], title="t", league="MLB",
+                signal=dict(ticker=ticker, ev_cents=edge, side="no",
+                            price_cents=50, model_prob=0.6))
+
+
+def _take(monkeypatch, cands, placed=0, cap=4):
+    monkeypatch.setattr(ss, "SPORTS_MAX_PER_DAY", cap)
+    monkeypatch.setattr(ss, "SPORTS_MAX_ML_PER_DAY", cap)
+    monkeypatch.setattr(ss, "SPORTS_MAX_TOTALS_PER_DAY", cap)
+    monkeypatch.setattr(ss, "_sports_placed_today", lambda kind="all": placed)
+    pool = sorted(cands, key=lambda c: -c["signal"]["ev_cents"])
+    budget = max(0, cap - placed)
+    return [c["signal"]["ticker"] for c in pool[:budget]]
+
+
+def test_an_empty_moneyline_day_gives_every_slot_to_totals(monkeypatch):
+    tot = [_cand(f"KXMLBTOTAL-{i}-11", 9 - i) for i in range(5)]
+    taken = _take(monkeypatch, tot, cap=4)
+    assert len(taken) == 4, "reserved slots must not be wasted on an empty leg"
+
+
+def test_the_pool_is_ranked_by_edge_across_both_types(monkeypatch):
+    cands = [_cand("KXMLBGAME-1-DET", 12.0),      # ml, best
+             _cand("KXMLBTOTAL-2-11", 9.0),       # totals
+             _cand("KXMLBGAME-3-BOS", 6.0),       # ml
+             _cand("KXMLBTOTAL-4-11", 3.0)]       # totals, worst
+    taken = _take(monkeypatch, cands, cap=2)
+    assert taken == ["KXMLBGAME-1-DET", "KXMLBTOTAL-2-11"]
+
+
+def test_the_pooled_budget_still_counts_what_was_placed_today(monkeypatch):
+    cands = [_cand(f"KXMLBTOTAL-{i}-11", 9 - i) for i in range(5)]
+    assert len(_take(monkeypatch, cands, placed=3, cap=4)) == 1
+    assert _take(monkeypatch, cands, placed=4, cap=4) == []
+
+
+def test_per_kind_ceilings_default_to_the_pool_and_do_not_reserve():
+    # Unset per-kind vars must not bind, or they would silently re-create the
+    # reserved-slot behaviour this replaced.
+    assert ss.SPORTS_MAX_ML_PER_DAY >= ss.SPORTS_MAX_PER_DAY
+    assert ss.SPORTS_MAX_TOTALS_PER_DAY >= ss.SPORTS_MAX_PER_DAY

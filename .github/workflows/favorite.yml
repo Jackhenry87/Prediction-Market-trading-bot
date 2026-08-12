@@ -171,8 +171,11 @@ jobs:
           # zero games inside the 36h window — 4 of every 8 credits bought
           # nothing. Restore the full list when the quota resets.
           SPORTS_LEAGUES: ${{ vars.SPORTS_LEAGUES || 'mlb' }}
-          SPORTS_MAX_ML_PER_DAY: ${{ vars.SPORTS_MAX_ML_PER_DAY || '2' }}
-          SPORTS_MAX_TOTALS_PER_DAY: ${{ vars.SPORTS_MAX_TOTALS_PER_DAY || '2' }}
+          # ONE budget across both bet types, filled by edge. Two reserved
+          # pools of 2 meant an empty moneyline day wasted two slots while
+          # better totals went untaken — and moneylines were empty every run
+          # for a week. Leave the per-kind vars unset so they do not bind.
+          SPORTS_MAX_PER_DAY: ${{ vars.SPORTS_MAX_PER_DAY || '4' }}
           # The free Odds API tier is 500 credits/month and a call costs
           # markets x regions = 2. One pass per run at ~1 in-season league is
           # ~2 credits; at ~24 runs/day that is ~1440/month, so --once and the
@@ -183,18 +186,19 @@ jobs:
           # no cache to fall back on: it went completely dark. 10 leaves a
           # small buffer while letting the cache be refreshed.
           ODDS_MIN_REMAINING: ${{ vars.ODDS_MIN_REMAINING || '4' }}
-          # ONE MARKET, NOT TWO, until the quota resets. A call costs
-          # markets x regions, so "totals" alone is 1 credit against 2 for
-          # "h2h,totals" — and that factor of two is exactly the difference
-          # between guaranteeing a daily refresh and falling short of one:
-          #   46 usable credits / 2 = 23 calls over ~27 days = 0.85/day
-          #   46 usable credits / 1 = 46 calls over ~27 days = 1.70/day
-          # Totals is the leg that has produced every qualifying signal and 4
-          # of 5 real trades; moneylines have produced none, though the
-          # same-city matcher fix has only just given them a fair chance.
-          # RESTORE TO 'h2h,totals' AT THE RESET — this is a budget decision,
-          # not a judgement that moneylines do not work.
-          ODDS_MARKETS: ${{ vars.ODDS_MARKETS || 'totals' }}
+          # BOTH markets. The daily budget is one pool filled by edge, so
+          # the model needs both bet types on the table to pick the best of
+          # them — fetching totals only would decide the question by removing
+          # half the candidates.
+          #
+          # The cost is honest: a call is markets x regions = 2 credits, so
+          # 46 usable credits buy 23 refreshes across the ~27 days to reset —
+          # about 0.85 a day, not quite one. The lead-time gate concentrates
+          # those on days with games, so in practice it is a refresh on most
+          # days rather than every day. Halving it to one market would buy the
+          # daily guarantee at the price of the choice, which is the wrong
+          # trade now that the budget is pooled.
+          ODDS_MARKETS: ${{ vars.ODDS_MARKETS || 'h2h,totals' }}
           # How stale cached lines may get before paying for a refresh. At MLB
           # only this is ~2 credits/day against ~40 usable, which reaches the
           # monthly reset. THE MODEL EVALUATES ON EVERY RUN REGARDLESS — only
