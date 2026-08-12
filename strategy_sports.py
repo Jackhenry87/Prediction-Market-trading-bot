@@ -498,9 +498,23 @@ def match_team(label: str, games: list):
         return None              # genuinely ambiguous, e.g. a bare "New York"
 
     # Fallback for a NICKNAME-ONLY label ("Yankees"), which is not a leading
-    # part of "New York Yankees" and so cannot match the precise rule. Tried
-    # only when the precise rule found NOTHING, so it can never re-introduce
-    # the same-city ambiguity the precise rule exists to resolve.
+    # part of "New York Yankees" and so cannot match the precise rule.
+    #
+    # RESTRICTED TO A SINGLE TOKEN, and that restriction is load-bearing. The
+    # first version applied it to any label the precise rule missed, and on
+    # 2026-08-12 it bought "Los Angeles A" priced off the DODGERS: the Angels'
+    # game had already started and been filtered out, so the precise rule found
+    # nothing, and _words("Los Angeles A") is {ANGELES} — "LOS" is a stopword
+    # and "A" is too short to survive — which is a subset of
+    # {ANGELES, DODGERS}. Both games were that same night in that same city, so
+    # covers_game could not tell them apart either, and a 21.4c "edge" against
+    # a 45-74 team passed the 25c ceiling and staked 19% of the bankroll.
+    #
+    # A multi-token label names a city it must match precisely or not at all.
+    # Only a bare nickname may fall back.
+    tokens = _tokens(label)
+    if len(tokens) != 1:
+        return None
     words = _words(label)
     if not words:
         return None
