@@ -858,3 +858,15 @@ def test_the_markets_parameter_is_configurable(tmp_path, monkeypatch):
     ss.fetch_games("key", "baseball_mlb")
     assert seen["markets"] == "totals"
     assert seen["regions"] == "us"          # cost is markets x regions
+
+
+def test_totals_signals_also_record_is_underdog():
+    # With ODDS_MARKETS=totals every signal we produce is a totals signal, so
+    # a field only set on moneylines would be absent from all of the data.
+    m = {"ticker": "KXMLBTOTAL-X-11", "yes_sub_title": "Over 10.5",
+         "status": "active", "floor_strike": 10.5, "yes_ask": 45, "yes_bid": 43}
+    sigs = ss.evaluate_total_market(m, mean=11.0)
+    assert sigs, "expected a signal to inspect"
+    for s in sigs:
+        assert s["is_underdog"] is (s["price_cents"] < 50)
+        assert s["is_home"] is None          # a total has no home side

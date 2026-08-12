@@ -189,3 +189,49 @@ def test_a_cap_too_small_for_one_contract_places_nothing(monkeypatch):
     settings = FakeSettings(max_order_size=0.20, max_total_exposure=10000.0)
     sr.sports_pass(client, settings, dict(placed=set(), events=set()))
     assert client.orders == []
+
+
+# --- the exposure cap must trim too ----------------------------------------
+#
+# The third cap that blocked instead of trimming, and the one that bites
+# hardest: exposure only GROWS as positions accumulate, so once the book is
+# nearly full every later pick was discarded outright. With $7 of headroom an
+# $8 order was lost entirely rather than cut to $7. The symptom is
+# indistinguishable from "the model found nothing".
+
+def _run_with(monkeypatch, settings, balance=100000, edge=12.0, price=50):
+    monkeypatch.setattr(sr, "MAX_DAILY_USD", 1000.0)
+    monkeypatch.setattr(strategy_sports, "sports_deployed_today", lambda: 0.0)
+    monkeypatch.setattr(strategy_sports, "scan", _scan_returning(
+        _signal("KXA-1-A", price, edge=edge)))
+    monkeypatch.setattr(strategy_sports, "append_paper_trades",
+                        lambda *a, **k: None)
+    monkeypatch.setenv("MAX_ORDER_BANKROLL_PCT", "100")
+    monkeypatch.setenv("MAX_ORDER_ABS", "1000")
+    monkeypatch.setenv("MAX_EXPOSURE_BANKROLL_PCT", "100")
+    monkeypatch.setenv("MAX_EXPOSURE_ABS", str(settings.max_total_exposure))
+    client = _Client(balance=balance)
+    sr.sports_pass(client, settings, dict(placed=set(), events=set()))
+    return client
+
+
+def test_an_order_over_the_exposure_headroom_is_trimmed(monkeypatch):
+    # current_exposure_usd is 0 for a fake client with no positions, so the
+    # headroom IS the cap here; a tiny cap must still produce a small order.
+    s = FakeSettings(max_order_size=1000.0, max_total_exposure=7.0)
+    c = _run_with(monkeypatch, s)
+    assert c.orders, "the pick must be trimmed to fit, not discarded"
+    notional = c.orders[0]["count"] * c.orders[0]["price"] / 100.0
+    assert notional <= 7.0 + 1e-9
+
+
+def test_no_exposure_headroom_places_nothing(monkeypatch):
+    s = FakeSettings(max_order_size=1000.0, max_total_exposure=0.0)
+    c = _run_with(monkeypatch, s)
+    assert c.orders == []
+
+
+def test_headroom_too_small_for_one_contract_places_nothing(monkeypatch):
+    s = FakeSettings(max_order_size=1000.0, max_total_exposure=0.30)
+    c = _run_with(monkeypatch, s, price=50)
+    assert c.orders == []

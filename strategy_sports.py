@@ -320,8 +320,15 @@ def evaluate_total_market(market: dict, mean: float, move: float = None) -> list
                                 steam=(-move if move is not None else None)))
     for s in signals:
         # totals have no home/away side; None keeps the column honest rather
-        # than defaulting to False and inventing a category
-        s.update(ticker=market.get("ticker"), subtitle=label, is_home=None)
+        # than defaulting to False and inventing a category.
+        #
+        # is_underdog IS set, and means "we backed the cheaper side" — not an
+        # underdog TEAM, which a total does not have. Without it every totals
+        # signal carried None, and with ODDS_MARKETS=totals that is every
+        # signal we produce, so the feature CLV is meant to test would have
+        # been absent from 100% of the data it was added to explain.
+        s.update(ticker=market.get("ticker"), subtitle=label, is_home=None,
+                 is_underdog=s["price_cents"] < 50)
     return signals
 
 
