@@ -126,6 +126,47 @@ def sports_pass(client, settings, session: dict) -> int:
             log.info("TRIMMED %s to %d contracts ($%.2f) — $%.2f left of the "
                      "$%.2f daily cap", ticker, count, notional, remaining,
                      MAX_DAILY_USD)
+        # Trim to the per-order ceiling instead of losing the trade to it.
+        # A qualifying pick was BLOCKED on 2026-08-10 for "notional 10.65 USDC
+        # exceeds MAX_ORDER_SIZE 10.00": the sizer and the safety gate compute
+        # their caps independently, so a bet the sizer thought was legal died
+        # at the gate and nothing was placed. The gate must still have the
+        # final say — this only makes the order fit it.
+        if notional > settings.max_order_size > 0:
+            fitted = int(settings.max_order_size * 100 // price)
+            if fitted < 1:
+                log.info("SKIP %s: per-order cap $%.2f buys no contracts at "
+                         "%.0fc", ticker, settings.max_order_size, price)
+                continue
+            log.info("TRIMMED %s to %d contracts ($%.2f) — per-order cap $%.2f",
+                     ticker, fitted, fitted * price / 100.0,
+                     settings.max_order_size)
+            count, notional = fitted, fitted * price / 100.0
+
+        # Trim to the remaining EXPOSURE headroom — the third cap that blocked
+        # instead of trimming. This one bites hardest as the book fills: with
+        # $7 of headroom left an $8 pick was discarded outright, and since
+        # exposure only grows as positions accumulate, every later pick was
+        # lost the same way. Full Kelly makes the orders big enough to reach it
+        # early. The symptom is indistinguishable from "the model found
+        # nothing", which is why it survived this long.
+        headroom = settings.max_total_exposure - exposure
+        if headroom <= 0:
+            log.info("SKIP %s: no exposure headroom ($%.2f of $%.2f used)",
+                     ticker, exposure, settings.max_total_exposure)
+            continue
+        if notional > headroom:
+            fitted = int(headroom * 100 // price)
+            if fitted < 1:
+                log.info("SKIP %s: $%.2f of exposure headroom buys no "
+                         "contracts at %.0fc", ticker, headroom, price)
+                continue
+            log.info("TRIMMED %s to %d contracts ($%.2f) — $%.2f exposure "
+                     "headroom of $%.2f", ticker, fitted,
+                     fitted * price / 100.0, headroom,
+                     settings.max_total_exposure)
+            count, notional = fitted, fitted * price / 100.0
+
         problems = check_order(settings, "BUY", price / 100.0, count, exposure)
         if problems:
             for p in problems:

@@ -80,6 +80,10 @@ def league_enabled(cfg: dict) -> bool:
 SPORTS_LIST_URL = "https://api.the-odds-api.com/v4/sports/"
 ODDS_URL = "https://api.the-odds-api.com/v4/sports/{sport}/odds/"
 ODDS_REGIONS = "us"
+# A call costs markets x regions. "h2h,totals" over "us" is 2 credits; ONE
+# market is 1. That factor of two is the difference between guaranteeing a
+# daily refresh on a depleted quota and falling ~25% short of one.
+ODDS_MARKETS = os.getenv("ODDS_MARKETS", "h2h,totals")
 MIN_START_H = 0.15    # skip games starting within ~10 min (execution risk)
 MAX_START_H = 36.0    # and beyond 36h (odds too soft that far out)
 MIN_EDGE_CENTS = 5.0
@@ -149,10 +153,23 @@ SPORTS_MIN_PROB = float(os.getenv("SPORTS_MIN_PROB", "0.25"))
 # Back-compat: SPORTS_MIN_CONFIDENCE still works if it is set explicitly.
 SPORTS_MIN_CONFIDENCE = float(
     os.getenv("SPORTS_MIN_CONFIDENCE", str(SPORTS_MIN_PROB)))
-# SEPARATE daily budgets: a few moneyline plays AND a few over/under plays,
-# each capped independently and each taking only its best by edge.
-SPORTS_MAX_ML_PER_DAY = int(os.getenv("SPORTS_MAX_ML_PER_DAY", "2"))
-SPORTS_MAX_TOTALS_PER_DAY = int(os.getenv("SPORTS_MAX_TOTALS_PER_DAY", "2"))
+# ONE daily budget across both bet types, filled by edge (owner call,
+# 2026-08-10: "whatever the bot is most confident in that day").
+#
+# It used to be two reserved pools of 2. Reserved slots mean the day's best
+# four picks are NOT what gets taken: if moneylines show nothing, their two
+# slots simply go unused while a fifth-best total is left on the table — and
+# moneylines showed nothing on every run for a week. A single pool ranked by
+# edge takes the four the model is actually most confident in, whatever they
+# are.
+#
+# The per-kind ceilings survive as OPTIONAL limits, unset by default, for
+# capping concentration in one bet type if CLV ever shows it deserves it.
+SPORTS_MAX_PER_DAY = int(os.getenv("SPORTS_MAX_PER_DAY", "4"))
+SPORTS_MAX_ML_PER_DAY = int(os.getenv("SPORTS_MAX_ML_PER_DAY",
+                                      str(SPORTS_MAX_PER_DAY)))
+SPORTS_MAX_TOTALS_PER_DAY = int(os.getenv("SPORTS_MAX_TOTALS_PER_DAY",
+                                          str(SPORTS_MAX_PER_DAY)))
 
 # --- over/under (totals) ---
 # Kalshi "Over X.5 runs" ladders per league. We devig the book's total to an
@@ -316,8 +333,15 @@ def evaluate_total_market(market: dict, mean: float, move: float = None) -> list
                                 steam=(-move if move is not None else None)))
     for s in signals:
         # totals have no home/away side; None keeps the column honest rather
-        # than defaulting to False and inventing a category
-        s.update(ticker=market.get("ticker"), subtitle=label, is_home=None)
+        # than defaulting to False and inventing a category.
+        #
+        # is_underdog IS set, and means "we backed the cheaper side" — not an
+        # underdog TEAM, which a total does not have. Without it every totals
+        # signal carried None, and with ODDS_MARKETS=totals that is every
+        # signal we produce, so the feature CLV is meant to test would have
+        # been absent from 100% of the data it was added to explain.
+        s.update(ticker=market.get("ticker"), subtitle=label, is_home=None,
+                 is_underdog=s["price_cents"] < 50)
     return signals
 
 
@@ -416,23 +440,73 @@ def edge_ok(ev_cents: float, ticker: str = "", counter: bool = True) -> bool:
 
 
 def _words(text: str) -> set:
+    """Kept for callers that want a loose bag of words. Not used for matching
+    a team any more — see _tokens and label_matches_team."""
     return {w for w in re.split(r"[^A-Za-z]+", (text or "").upper())
             if len(w) >= 3 and w not in ("THE", "LOS", "NEW", "SAN")}
+
+
+def _tokens(text: str) -> list:
+    """ORDERED tokens, keeping short ones. The short ones are the whole point:
+    Kalshi disambiguates same-city teams with a trailing initial."""
+    return [w for w in re.split(r"[^A-Za-z]+", (text or "").upper()) if w]
+
+
+def label_matches_team(label: str, team: str) -> bool:
+    """Does this Kalshi label name this team?
+
+    The old matcher discarded every token shorter than three characters, which
+    threw away exactly the character that disambiguates: "New York Y" and
+    "New York M" both collapsed to {YORK}, matched BOTH New York teams, and
+    were dropped as ambiguous. One live run rejected 71 moneyline candidates
+    that way — more than every other reason combined, and the real reason the
+    moneyline leg never once qualified.
+
+    Kalshi's forms, all seen live: "Boston", "New York Y", "Chicago C",
+    "Chicago WS", "Los Angeles D". So after the city words match exactly, a
+    single remaining token must either PREFIX the nickname ("Y" -> Yankees) or
+    be its INITIALS ("WS" -> White Sox).
+    """
+    lt, tt = _tokens(label), _tokens(team)
+    if not lt or not tt:
+        return False
+    i = 0
+    while i < len(lt) and i < len(tt) and lt[i] == tt[i]:
+        i += 1
+    rest_label, rest_team = lt[i:], tt[i:]
+    if not rest_label:
+        return True                      # label is a leading part of the name
+    if len(rest_label) != 1 or not rest_team:
+        return False
+    token = rest_label[0]
+    if rest_team[0].startswith(token):
+        return True
+    return token == "".join(w[0] for w in rest_team)
 
 
 def match_team(label: str, games: list):
     """Find which game/side a Kalshi team label refers to. Returns
     (game, 'home'|'away') only when the match is unambiguous — one team in
     one game. Anything unclear is skipped rather than guessed."""
+    if not _tokens(label):
+        return None
+    hits = [(g, side) for g in games for side in ("home", "away")
+            if label_matches_team(label, g.get(f"{side}_team"))]
+    if len(hits) == 1:
+        return hits[0]
+    if hits:
+        return None              # genuinely ambiguous, e.g. a bare "New York"
+
+    # Fallback for a NICKNAME-ONLY label ("Yankees"), which is not a leading
+    # part of "New York Yankees" and so cannot match the precise rule. Tried
+    # only when the precise rule found NOTHING, so it can never re-introduce
+    # the same-city ambiguity the precise rule exists to resolve.
     words = _words(label)
     if not words:
         return None
-    hits = []
-    for game in games:
-        for side in ("home", "away"):
-            if words <= _words(game.get(f"{side}_team")):
-                hits.append((game, side))
-    return hits[0] if len(hits) == 1 else None
+    loose = [(g, side) for g in games for side in ("home", "away")
+             if words <= _words(g.get(f"{side}_team"))]
+    return loose[0] if len(loose) == 1 else None
 
 
 def in_season_sports(api_key: str) -> set:
@@ -507,6 +581,12 @@ def budget_left() -> bool:
 ODDS_CACHE_FILE = Path(__file__).resolve().parent / "odds_cache.json"
 ODDS_CACHE_TTL_MIN = float(os.getenv("ODDS_CACHE_TTL_MIN", "1200"))   # 20h
 
+# Only pay for a refresh when a game is within this many hours. The whole
+# monthly budget is 500 credits = 250 calls at h2h+totals over one region, so
+# every avoided call is ~0.4% of the month. A US sport's slate is clustered in
+# the evening, so gating on proximity skips the overnight refreshes entirely.
+ODDS_REFRESH_LEAD_H = float(os.getenv("ODDS_REFRESH_LEAD_H", "14"))
+
 
 def _cache_all() -> dict:
     try:
@@ -563,6 +643,22 @@ def fetch_games(api_key: str, sport: str) -> list:
                  sport, age, ODDS_CACHE_TTL_MIN)
         return _in_window(games)
 
+    # Do not pay to re-price a slate we cannot bet on yet. Lines matter as the
+    # game approaches; refreshing at 06:00 UTC when the first pitch is fourteen
+    # hours away buys a number that will have moved before it is usable. The
+    # cached slate tells us when the next game starts, so this costs nothing to
+    # check. Overnight is roughly half the day for a US sport, so skipping it
+    # is close to a 2x saving on a fixed TTL.
+    if games is not None:
+        soonest = min((h for h in (hours_until(g.get("commence_time"))
+                                   for g in games) if h is not None and h > 0),
+                      default=None)
+        if soonest is not None and soonest > ODDS_REFRESH_LEAD_H:
+            log.info("%s: next game %.1fh away (> %.0fh lead) — keeping the "
+                     "%.0f min old cache instead of spending a credit",
+                     sport, soonest, ODDS_REFRESH_LEAD_H, age or 0.0)
+            return _in_window(games)
+
     if not budget_left():
         if games is not None:
             log.warning("%s: odds credits at the %.0f reserve — running on "
@@ -576,7 +672,7 @@ def fetch_games(api_key: str, sport: str) -> list:
     resp = requests.get(
         ODDS_URL.format(sport=sport),
         params={"apiKey": api_key, "regions": ODDS_REGIONS,
-                "markets": "h2h,totals", "oddsFormat": "decimal"},
+                "markets": ODDS_MARKETS, "oddsFormat": "decimal"},
         timeout=20,
     )
     _note_quota(resp)
@@ -845,17 +941,29 @@ def scan(api_key: str) -> list:
                  ", ".join(f"{n}x {why}"
                            for why, n in REJECTS.most_common()))
 
-    # separate daily budgets: the best few moneylines AND the best few totals
-    chosen = []
-    for cands, kind, cap in ((ml_cands, "ml", SPORTS_MAX_ML_PER_DAY),
-                             (tot_cands, "totals", SPORTS_MAX_TOTALS_PER_DAY)):
-        placed = _sports_placed_today(kind)
-        budget = max(0, cap - placed)
-        cands.sort(key=lambda c: -c["signal"]["ev_cents"])
-        take = cands[:budget]
-        log.info("Sports %s: %d qualifying, %d placed today, budget %d -> %d",
-                 kind, len(cands), placed, budget, len(take))
-        chosen.extend(take)
+    # ONE budget, filled by edge, whatever the bet type. Per-kind ceilings
+    # still apply if someone sets them, but they no longer RESERVE slots — an
+    # empty moneyline day no longer costs the day two picks.
+    for cands, kind in ((ml_cands, "ml"), (tot_cands, "totals")):
+        log.info("Sports %s: %d qualifying, %d placed today", kind,
+                 len(cands), _sports_placed_today(kind))
+
+    budget = max(0, SPORTS_MAX_PER_DAY - _sports_placed_today("all"))
+    pool = sorted(ml_cands + tot_cands,
+                  key=lambda c: -c["signal"]["ev_cents"])
+    chosen, per_kind = [], {"ml": _sports_placed_today("ml"),
+                            "totals": _sports_placed_today("totals")}
+    caps = {"ml": SPORTS_MAX_ML_PER_DAY, "totals": SPORTS_MAX_TOTALS_PER_DAY}
+    for c in pool:
+        if len(chosen) >= budget:
+            break
+        kind = "totals" if "TOTAL" in c["signal"]["ticker"].upper() else "ml"
+        if per_kind[kind] >= caps[kind]:
+            continue
+        per_kind[kind] += 1
+        chosen.append(c)
+    log.info("Sports: %d candidate(s) across both types, budget %d -> taking "
+             "%d by edge", len(pool), budget, len(chosen))
 
     by_event = {}
     for c in chosen:

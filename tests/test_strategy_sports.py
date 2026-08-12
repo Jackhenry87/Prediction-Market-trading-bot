@@ -698,3 +698,226 @@ def test_each_sport_is_cached_separately(tmp_path, monkeypatch):
     ss._cache_store("baseball_mlb", _payload())
     assert ss.cached_odds("baseball_mlb")[0] is not None
     assert ss.cached_odds("icehockey_nhl") == (None, None)
+
+
+# --- same-city teams (2026-08-10) ------------------------------------------
+#
+# The dominant reason the moneyline leg never qualified. A live run rejected
+# 71 candidates for "no unambiguous team match" — more than every other reason
+# combined — because _words() dropped tokens shorter than three characters,
+# which is exactly the character Kalshi uses to tell same-city teams apart.
+# All of these label forms are real, taken from live KXMLBGAME markets.
+
+CITY_GAMES = [
+    {"home_team": "New York Yankees", "away_team": "Boston Red Sox"},
+    {"home_team": "New York Mets", "away_team": "Pittsburgh Pirates"},
+    {"home_team": "Chicago Cubs", "away_team": "Chicago White Sox"},
+    {"home_team": "Los Angeles Dodgers", "away_team": "Los Angeles Angels"},
+]
+
+
+def test_a_trailing_initial_disambiguates_same_city_teams():
+    for label, expected in [("New York Y", "New York Yankees"),
+                            ("New York M", "New York Mets"),
+                            ("Chicago C", "Chicago Cubs"),
+                            ("Los Angeles D", "Los Angeles Dodgers"),
+                            ("Los Angeles A", "Los Angeles Angels")]:
+        m = ss.match_team(label, CITY_GAMES)
+        assert m, f"{label!r} should resolve to {expected}"
+        assert m[0][f"{m[1]}_team"] == expected
+
+
+def test_initials_disambiguate_a_two_word_nickname():
+    # "WS" is not a prefix of "White" or "Sox" — it is their initials.
+    m = ss.match_team("Chicago WS", CITY_GAMES)
+    assert m and m[0][f"{m[1]}_team"] == "Chicago White Sox"
+
+
+def test_a_bare_city_is_still_refused():
+    for label in ("New York", "Chicago", "Los Angeles"):
+        assert ss.match_team(label, CITY_GAMES) is None
+
+
+def test_a_nickname_only_label_still_matches():
+    # The precise rule cannot match "Yankees" against "New York Yankees", so a
+    # loose fallback runs ONLY when the precise rule found nothing.
+    m = ss.match_team("Yankees", CITY_GAMES)
+    assert m and m[0][f"{m[1]}_team"] == "New York Yankees"
+
+
+def test_the_fallback_cannot_reintroduce_same_city_ambiguity():
+    # "New York Y" must not also match the Mets via the loose rule.
+    assert len([1 for g in CITY_GAMES for s in ("home", "away")
+                if ss.label_matches_team("New York Y", g[f"{s}_team"])]) == 1
+
+
+def test_label_matches_team_is_directional():
+    assert ss.label_matches_team("New York Y", "New York Yankees")
+    assert not ss.label_matches_team("New York Y", "New York Mets")
+    assert not ss.label_matches_team("Chicago C", "Chicago White Sox")
+    assert not ss.label_matches_team("", "New York Mets")
+    assert not ss.label_matches_team("Boston", "")
+
+
+# --- not paying to re-price a slate we cannot bet on yet --------------------
+#
+# 500 credits a month is 250 calls at h2h+totals over one region, so every
+# avoided call is ~0.4% of the month. A US slate is clustered in the evening,
+# so skipping overnight refreshes is close to a 2x saving on a fixed TTL.
+
+def test_no_refresh_when_the_next_game_is_far_away(tmp_path, monkeypatch):
+    _use_tmp_cache(tmp_path, monkeypatch)
+    ss._cache_store("baseball_mlb", _payload(hours_out=20.0))
+    monkeypatch.setattr(ss, "ODDS_CACHE_TTL_MIN", 0.0)     # cache is stale
+    monkeypatch.setattr(ss, "ODDS_REFRESH_LEAD_H", 14.0)
+    monkeypatch.setattr(ss, "budget_left", lambda: True)
+    monkeypatch.setattr(ss.requests, "get",
+                        lambda *a, **k: (_ for _ in ()).throw(
+                            AssertionError("next game is 20h out: must not pay")))
+    ss.fetch_games("key", "baseball_mlb")      # must not raise
+
+
+def test_a_refresh_does_happen_once_a_game_is_near(tmp_path, monkeypatch):
+    _use_tmp_cache(tmp_path, monkeypatch)
+    ss._cache_store("baseball_mlb", _payload(hours_out=3.0))
+    monkeypatch.setattr(ss, "ODDS_CACHE_TTL_MIN", 0.0)
+    monkeypatch.setattr(ss, "ODDS_REFRESH_LEAD_H", 14.0)
+    monkeypatch.setattr(ss, "budget_left", lambda: True)
+    calls = []
+
+    class _Resp:
+        headers = {}
+        def raise_for_status(self): pass
+        def json(self): return _payload(hours_out=3.0)
+
+    monkeypatch.setattr(ss.requests, "get",
+                        lambda *a, **k: (calls.append(1), _Resp())[1])
+    ss.fetch_games("key", "baseball_mlb")
+    assert len(calls) == 1
+
+
+def test_an_empty_cache_still_refreshes(tmp_path, monkeypatch):
+    # The lead-time gate must never be able to prevent the FIRST fetch, or a
+    # cold start would never acquire lines at all.
+    _use_tmp_cache(tmp_path, monkeypatch)
+    monkeypatch.setattr(ss, "budget_left", lambda: True)
+    calls = []
+
+    class _Resp:
+        headers = {}
+        def raise_for_status(self): pass
+        def json(self): return _payload()
+
+    monkeypatch.setattr(ss.requests, "get",
+                        lambda *a, **k: (calls.append(1), _Resp())[1])
+    ss.fetch_games("key", "baseball_mlb")
+    assert len(calls) == 1
+
+
+def test_a_slate_of_only_finished_games_does_not_freeze_the_cache(tmp_path,
+                                                                  monkeypatch):
+    # Every start time in the past means there is no positive lead time. That
+    # must NOT read as "nothing is near", or yesterday's finished slate would
+    # block every future refresh and the model would never see a new game.
+    _use_tmp_cache(tmp_path, monkeypatch)
+    ss._cache_store("baseball_mlb", _payload(hours_out=-5.0))
+    monkeypatch.setattr(ss, "ODDS_CACHE_TTL_MIN", 0.0)
+    monkeypatch.setattr(ss, "budget_left", lambda: True)
+    calls = []
+
+    class _Resp:
+        headers = {}
+        def raise_for_status(self): pass
+        def json(self): return _payload(hours_out=3.0)
+
+    monkeypatch.setattr(ss.requests, "get",
+                        lambda *a, **k: (calls.append(1), _Resp())[1])
+    assert len(ss.fetch_games("key", "baseball_mlb")) == 1
+    assert len(calls) == 1, "a stale, all-finished slate must trigger a refresh"
+
+
+def test_the_markets_parameter_is_configurable(tmp_path, monkeypatch):
+    # A call costs markets x regions, so this parameter is the only lever that
+    # halves the price of every call. It must reach the request, not just the
+    # module constant.
+    _use_tmp_cache(tmp_path, monkeypatch)
+    monkeypatch.setattr(ss, "ODDS_MARKETS", "totals")
+    monkeypatch.setattr(ss, "budget_left", lambda: True)
+    seen = {}
+
+    class _Resp:
+        headers = {}
+        def raise_for_status(self): pass
+        def json(self): return _payload()
+
+    def fake_get(url, params=None, **k):
+        seen.update(params or {})
+        return _Resp()
+
+    monkeypatch.setattr(ss.requests, "get", fake_get)
+    ss.fetch_games("key", "baseball_mlb")
+    assert seen["markets"] == "totals"
+    assert seen["regions"] == "us"          # cost is markets x regions
+
+
+def test_totals_signals_also_record_is_underdog():
+    # With ODDS_MARKETS=totals every signal we produce is a totals signal, so
+    # a field only set on moneylines would be absent from all of the data.
+    m = {"ticker": "KXMLBTOTAL-X-11", "yes_sub_title": "Over 10.5",
+         "status": "active", "floor_strike": 10.5, "yes_ask": 45, "yes_bid": 43}
+    sigs = ss.evaluate_total_market(m, mean=11.0)
+    assert sigs, "expected a signal to inspect"
+    for s in sigs:
+        assert s["is_underdog"] is (s["price_cents"] < 50)
+        assert s["is_home"] is None          # a total has no home side
+
+
+# --- one budget, filled by edge (owner call, 2026-08-10) -------------------
+#
+# "whatever has the most edge that day". It used to be two RESERVED pools of
+# two, so on a day when moneylines showed nothing those two slots went unused
+# while better totals were left on the table — and moneylines showed nothing on
+# every run for a week.
+
+def _cand(ticker, edge):
+    return dict(event_ticker=ticker.rsplit("-", 1)[0], title="t", league="MLB",
+                signal=dict(ticker=ticker, ev_cents=edge, side="no",
+                            price_cents=50, model_prob=0.6))
+
+
+def _take(monkeypatch, cands, placed=0, cap=4):
+    monkeypatch.setattr(ss, "SPORTS_MAX_PER_DAY", cap)
+    monkeypatch.setattr(ss, "SPORTS_MAX_ML_PER_DAY", cap)
+    monkeypatch.setattr(ss, "SPORTS_MAX_TOTALS_PER_DAY", cap)
+    monkeypatch.setattr(ss, "_sports_placed_today", lambda kind="all": placed)
+    pool = sorted(cands, key=lambda c: -c["signal"]["ev_cents"])
+    budget = max(0, cap - placed)
+    return [c["signal"]["ticker"] for c in pool[:budget]]
+
+
+def test_an_empty_moneyline_day_gives_every_slot_to_totals(monkeypatch):
+    tot = [_cand(f"KXMLBTOTAL-{i}-11", 9 - i) for i in range(5)]
+    taken = _take(monkeypatch, tot, cap=4)
+    assert len(taken) == 4, "reserved slots must not be wasted on an empty leg"
+
+
+def test_the_pool_is_ranked_by_edge_across_both_types(monkeypatch):
+    cands = [_cand("KXMLBGAME-1-DET", 12.0),      # ml, best
+             _cand("KXMLBTOTAL-2-11", 9.0),       # totals
+             _cand("KXMLBGAME-3-BOS", 6.0),       # ml
+             _cand("KXMLBTOTAL-4-11", 3.0)]       # totals, worst
+    taken = _take(monkeypatch, cands, cap=2)
+    assert taken == ["KXMLBGAME-1-DET", "KXMLBTOTAL-2-11"]
+
+
+def test_the_pooled_budget_still_counts_what_was_placed_today(monkeypatch):
+    cands = [_cand(f"KXMLBTOTAL-{i}-11", 9 - i) for i in range(5)]
+    assert len(_take(monkeypatch, cands, placed=3, cap=4)) == 1
+    assert _take(monkeypatch, cands, placed=4, cap=4) == []
+
+
+def test_per_kind_ceilings_default_to_the_pool_and_do_not_reserve():
+    # Unset per-kind vars must not bind, or they would silently re-create the
+    # reserved-slot behaviour this replaced.
+    assert ss.SPORTS_MAX_ML_PER_DAY >= ss.SPORTS_MAX_PER_DAY
+    assert ss.SPORTS_MAX_TOTALS_PER_DAY >= ss.SPORTS_MAX_PER_DAY
