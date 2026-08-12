@@ -166,6 +166,16 @@ jobs:
           # market instead of the game. Kelly stakes hardest where the number is
           # most absurd, so the ceiling has to sit upstream of sizing.
           SPORTS_MAX_EDGE_CENTS: ${{ vars.SPORTS_MAX_EDGE_CENTS || '25' }}
+          # Above this edge the STARTING PITCHING must not contradict the side
+          # being backed. The books already price the starters, so this cannot
+          # sharpen fair value — it catches a number that is not about this
+          # game. Both bad trades this month were exactly that, and the second
+          # one bought the Angels (7.27 ERA starter) against Texas (3.56) on a
+          # 21.4c "edge". Free: the same ESPN scoreboard live_scan polls, no
+          # odds credits. Missing starters fail OPEN so an unposted lineup
+          # cannot disable the model.
+          SPORTS_CORROBORATE_ABOVE_CENTS: ${{ vars.SPORTS_CORROBORATE_ABOVE_CENTS || '10' }}
+          PITCHER_ERA_GAP: ${{ vars.PITCHER_ERA_GAP || '1.50' }}
           # MLB only while the free tier is exhausted. NFL and NHL are
           # "active" out of season, so each run spent 2 credits on them and got
           # zero games inside the 36h window — 4 of every 8 credits bought
@@ -212,6 +222,20 @@ jobs:
           # what makes that affordable — it skips the overnight refreshes on a
           # slate that is clustered in the evening.
           ODDS_REFRESH_LEAD_H: ${{ vars.ODDS_REFRESH_LEAD_H || '14' }}
+          # WHEN to spend the day's one paid refresh. Measured across every open
+          # KXMLBGAME market on 2026-08-12: Kalshi's makers hold a 1c spread
+          # from 8h out to 40h, so buying early gains no width — median volume
+          # 8,250 at 8-16h, 2,963 at 16-28h, 196 at 28-40h, and beyond 40h the
+          # book is dead (0 volume, 4c). What varies is the OTHER side: an
+          # overnight sportsbook line is soft and low-limit, so a "sharp
+          # consensus" taken at 04:00 UTC is a consensus of nobody. 14-16 UTC is
+          # 10am-12pm ET, when real limits are up — it catches 1pm ET day games
+          # at 1-3h out and 7-9pm ET games at 7-11h out.
+          ODDS_REFRESH_WINDOW_UTC: ${{ vars.ODDS_REFRESH_WINDOW_UTC || '14-16' }}
+          # The window must never starve the model. GitHub dropped 32 of an
+          # expected 48 scheduled runs on a measured day, so a two-hour window
+          # can be missed entirely; past this age the clock is ignored.
+          ODDS_CACHE_HARD_MAX_MIN: ${{ vars.ODDS_CACHE_HARD_MAX_MIN || '2160' }}
           SPORTS_RUN_MINUTES: '0'
         run: python sports_runner.py --once
 

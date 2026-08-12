@@ -41,6 +41,8 @@ from statistics import NormalDist
 
 import requests
 
+import pitchers
+
 from kalshi_client import KalshiClient
 from strategy_weather import (price_cents, score_pending_paper_trades,
                               taker_fee_cents)
@@ -96,6 +98,19 @@ MIN_EDGE_CENTS = 5.0
 # larger edge always looks better to Kelly. This ceiling is the backstop for
 # every mismatch of that shape, including ones nobody has thought of yet.
 SPORTS_MAX_EDGE_CENTS = float(os.getenv("SPORTS_MAX_EDGE_CENTS", "25"))
+
+# Above this claimed edge, the STARTING PITCHING must not contradict the side
+# we are backing. Below it, the pitcher check is recorded but not enforced.
+#
+# The books already price the starters, so this cannot sharpen our fair value —
+# it would be double-counting the same information. What it catches is a number
+# that is not about this game at all. Both bad trades this month were exactly
+# that: a WNBA championship future priced off one game (58c "edge"), and "Los
+# Angeles A" priced off the DODGERS (21.4c "edge") while the Angels ran a 7.27
+# ERA starter against Texas's 3.56. Neither was an edge; both were a different
+# game. A large edge that the pitching flatly contradicts is the signature.
+SPORTS_CORROBORATE_ABOVE_CENTS = float(
+    os.getenv("SPORTS_CORROBORATE_ABOVE_CENTS", "10"))
 
 # A market must settle on the GAME we priced. Game markets expire within a few
 # hours of the first pitch/tip; a championship market expires months later. The
@@ -601,6 +616,58 @@ ODDS_CACHE_TTL_MIN = float(os.getenv("ODDS_CACHE_TTL_MIN", "1200"))   # 20h
 # the evening, so gating on proximity skips the overnight refreshes entirely.
 ODDS_REFRESH_LEAD_H = float(os.getenv("ODDS_REFRESH_LEAD_H", "14"))
 
+# Preferred UTC hours for spending the day's one paid refresh, as "start-end".
+#
+# Measured against every open KXMLBGAME market on 2026-08-12:
+#
+#   time to first pitch   markets   median volume   median spread
+#   8-16h                      12           8,250              1c
+#   16-28h                     18           2,963              1c
+#   28-40h                     12             196              1c
+#   40h+                       34               0              4c
+#
+# Two things follow. Kalshi's makers quote 1c out to 40 hours, so going early
+# buys no extra width — the "thin book is a sloppy book" intuition is simply
+# wrong here. And beyond 40h the market is dead, which MAX_START_H already
+# excludes.
+#
+# So the choice is about the OTHER side of the comparison. Overnight sportsbook
+# lines are soft and low-limit; a "sharp consensus" taken at 04:00 UTC is a
+# consensus of nobody. By late morning ET the real limits are up. 14-16 UTC
+# (10am-12pm ET) catches the 1pm ET day games at 1-3h out and the 7-9pm ET
+# games at 7-11h out, while Kalshi volume is still a few thousand rather than
+# the millions it reaches in play.
+#
+# Empty string disables the preference. This is a PREFERENCE, not a gate: see
+# ODDS_CACHE_HARD_MAX_MIN.
+ODDS_REFRESH_WINDOW_UTC = os.getenv("ODDS_REFRESH_WINDOW_UTC", "14-16")
+
+# The window must never be able to starve the model. GitHub drops scheduled
+# runs (16 of an expected 48 on a measured day), so the two-hour window can be
+# missed entirely. Past this age the refresh happens whatever the clock says.
+ODDS_CACHE_HARD_MAX_MIN = float(os.getenv("ODDS_CACHE_HARD_MAX_MIN", "2160"))
+
+
+def in_refresh_window(now: datetime = None) -> bool:
+    """Is the clock inside the preferred paid-refresh window?
+
+    An unset or malformed window means "no preference" — a bad config value
+    must not silently stop the model from ever buying fresh lines.
+    """
+    spec = (ODDS_REFRESH_WINDOW_UTC or "").strip()
+    if not spec:
+        return True
+    try:
+        start, end = (int(x) for x in spec.split("-", 1))
+    except (ValueError, TypeError):
+        log.warning("ODDS_REFRESH_WINDOW_UTC=%r is not 'start-end' — ignoring",
+                    ODDS_REFRESH_WINDOW_UTC)
+        return True
+    hour = (now or datetime.now(timezone.utc)).hour
+    if start <= end:
+        return start <= hour < end
+    return hour >= start or hour < end        # a window that wraps midnight
+
 
 def _cache_all() -> dict:
     try:
@@ -673,6 +740,16 @@ def fetch_games(api_key: str, sport: str) -> list:
                      sport, soonest, ODDS_REFRESH_LEAD_H, age or 0.0)
             return _in_window(games)
 
+    # Prefer to spend the day's one refresh when the books are sharpest. Never
+    # let that preference starve the model: past the hard age limit, or with no
+    # cache at all, the clock is ignored.
+    if (games is not None and age is not None
+            and age < ODDS_CACHE_HARD_MAX_MIN and not in_refresh_window()):
+        log.info("%s: outside the %s UTC refresh window — keeping the %.0f min "
+                 "old cache rather than buying lines while the books are soft",
+                 sport, ODDS_REFRESH_WINDOW_UTC, age)
+        return _in_window(games)
+
     if not budget_left():
         if games is not None:
             log.warning("%s: odds credits at the %.0f reserve — running on "
@@ -696,7 +773,8 @@ def fetch_games(api_key: str, sport: str) -> list:
     return _in_window(payload)
 
 
-def evaluate_market(market: dict, games: list, history: dict = None) -> list:
+def evaluate_market(market: dict, games: list, history: dict = None,
+                    matchups: dict = None) -> list:
     label = (market.get("yes_sub_title") or market.get("subtitle")
              or market.get("title") or "")
     matched = match_team(label, games)
@@ -767,6 +845,27 @@ def evaluate_market(market: dict, games: list, history: dict = None) -> list:
             signals.append(dict(side="no", price_cents=no_price,
                                 model_prob=1.0 - p, ev_cents=ev,
                                 steam=steam_for(other), backing=other))
+    # Starting pitching: recorded on every signal, ENFORCED only above
+    # SPORTS_CORROBORATE_ABOVE_CENTS. Missing data fails open — vetoing every
+    # game with an unannounced starter would disable the model on mornings when
+    # lineups are not yet posted, a worse failure than the one it prevents.
+    mu = (matchups or {}).get(game.get("id"))
+    kept = []
+    for s in signals:
+        s["home_era"] = (mu or {}).get("home_era")
+        s["away_era"] = (mu or {}).get("away_era")
+        s["pitcher_lean"] = pitchers.favours(mu)
+        if (s["ev_cents"] >= SPORTS_CORROBORATE_ABOVE_CENTS
+                and not pitchers.supports_side(mu, s["backing"])):
+            _reject("pitching contradicts a large edge")
+            log.warning("SKIP %s: %.1fc edge backing %s, but the starters "
+                        "favour %s (home ERA %s vs away ERA %s)",
+                        market.get("ticker"), s["ev_cents"], s["backing"],
+                        s["pitcher_lean"], s["home_era"], s["away_era"])
+            continue
+        kept.append(s)
+    signals = kept
+
     for s in signals:
         # is_underdog records whether the side we backed is priced under 50c.
         # Recorded, not rewarded: the favourite-longshot literature says dogs
@@ -837,6 +936,20 @@ def scan(api_key: str) -> list:
     places, so the budget holds across polls within a session. Result shape
     matches the other models; 'date' carries the event ticker."""
     REJECTS.clear()      # per-scan, not cumulative across polls
+
+    # Probable starters for every scheduled game, once per scan. Free endpoint,
+    # no key, no odds credits — the same scoreboard live_state already polls.
+    # A failure here must not stop the model: the pitcher check is a veto on
+    # implausible edges, not a precondition for trading, so an empty map simply
+    # means nothing gets vetoed.
+    try:
+        _pm = pitchers.matchups()
+        log.info("Probable starters loaded for %d scheduled game(s)", len(_pm))
+    except Exception as exc:
+        log.warning("Pitcher matchups unavailable (%s) — edges will not be "
+                    "corroborated this scan", exc)
+        _pm = []
+
     client = KalshiClient(env="prod")
     history = load_line_history()   # sharp lines as of the previous run
     new_history = {}                # what we'll persist for the next run
@@ -871,6 +984,23 @@ def scan(api_key: str) -> list:
         if not games:
             continue
 
+        # Keyed by the odds-API game id. The team matcher is INJECTED so this
+        # cannot become a second, subtly different naming rule — the one that
+        # crossed the Angels with the Dodgers was exactly that kind of drift.
+        matchup_by_id = {}
+        for g in games:
+            if not g.get("id"):
+                continue
+            # commence_time is load-bearing: Texas and the Angels played three
+            # consecutive nights with a different starter each time, so a
+            # team-only match returns whichever game came first in the slate
+            # and the veto corroborates against the wrong pitchers.
+            found = pitchers.find(_pm, g.get("home_team"), g.get("away_team"),
+                                  label_matches_team,
+                                  commence=g.get("commence_time"))
+            if found:
+                matchup_by_id[g["id"]] = found
+
         now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
         for g in games:            # steam memory: sharp win-prob AND total
             if not g.get("id"):
@@ -897,7 +1027,8 @@ def scan(api_key: str) -> list:
             for market in event.get("markets") or []:
                 if market.get("status") not in (None, "active", "open"):
                     continue
-                for s in evaluate_market(market, games, history) or []:
+                for s in evaluate_market(market, games, history,
+                                         matchup_by_id) or []:
                     if s["ticker"] in held:
                         continue
                     ml_cands.append(dict(event_ticker=event_ticker,

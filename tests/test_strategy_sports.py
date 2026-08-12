@@ -247,7 +247,8 @@ def test_ml_daily_budget_caps_scan(monkeypatch):
     monkeypatch.setattr(ss, "fetch_games", lambda k, s: [
         {"id": "g", "home_team": "A A", "away_team": "B B", "bookmakers": []}])
     # five qualifying plays with ascending edge -> only the top 2 come back
-    monkeypatch.setattr(ss, "evaluate_market", lambda m, g, h: [dict(
+    monkeypatch.setattr(ss, "evaluate_market",
+                        lambda m, g, h, mu=None: [dict(
         side="yes", price_cents=50, model_prob=0.7,
         ev_cents=float(m["ticker"][1:]), steam=0.02,
         ticker=m["ticker"], subtitle="x")])
@@ -661,6 +662,8 @@ def test_the_cache_holds_raw_lines_and_refilters_by_start_time(tmp_path,
 def test_a_stale_cache_triggers_a_paid_refresh_when_budget_allows(tmp_path,
                                                                   monkeypatch):
     _use_tmp_cache(tmp_path, monkeypatch)
+    # not about the clock: hold the refresh window open
+    monkeypatch.setattr(ss, "in_refresh_window", lambda now=None: True)
     ss._cache_store("baseball_mlb", _payload())
     monkeypatch.setattr(ss, "ODDS_CACHE_TTL_MIN", 0.0)
     monkeypatch.setattr(ss, "budget_left", lambda: True)
@@ -779,6 +782,8 @@ def test_no_refresh_when_the_next_game_is_far_away(tmp_path, monkeypatch):
 
 def test_a_refresh_does_happen_once_a_game_is_near(tmp_path, monkeypatch):
     _use_tmp_cache(tmp_path, monkeypatch)
+    # not about the clock: hold the refresh window open
+    monkeypatch.setattr(ss, "in_refresh_window", lambda now=None: True)
     ss._cache_store("baseball_mlb", _payload(hours_out=3.0))
     monkeypatch.setattr(ss, "ODDS_CACHE_TTL_MIN", 0.0)
     monkeypatch.setattr(ss, "ODDS_REFRESH_LEAD_H", 14.0)
@@ -820,6 +825,8 @@ def test_a_slate_of_only_finished_games_does_not_freeze_the_cache(tmp_path,
     # must NOT read as "nothing is near", or yesterday's finished slate would
     # block every future refresh and the model would never see a new game.
     _use_tmp_cache(tmp_path, monkeypatch)
+    # not about the clock: hold the refresh window open
+    monkeypatch.setattr(ss, "in_refresh_window", lambda now=None: True)
     ss._cache_store("baseball_mlb", _payload(hours_out=-5.0))
     monkeypatch.setattr(ss, "ODDS_CACHE_TTL_MIN", 0.0)
     monkeypatch.setattr(ss, "budget_left", lambda: True)
@@ -965,3 +972,88 @@ def test_only_single_token_labels_may_fall_back():
     # A multi-token label names a city it must match precisely or not at all.
     assert ss.match_team("Dodgers", LA_DODGERS_ONLY) is not None
     assert ss.match_team("Los Angeles Q", LA_DODGERS_ONLY) is None
+
+
+# --- when to spend the day's one paid refresh ------------------------------
+#
+# Measured on 2026-08-12 across every open KXMLBGAME market: Kalshi's makers
+# quote a 1c spread from 8h out all the way to 40h, so going early buys no
+# extra width. What varies is the OTHER side of the comparison — overnight
+# sportsbook lines are soft and low-limit, so a consensus taken at 04:00 UTC is
+# a consensus of nobody. 14-16 UTC is late morning ET, when real limits are up.
+
+def test_the_window_is_the_configured_utc_hours(monkeypatch):
+    from datetime import datetime, timezone
+    monkeypatch.setattr(ss, "ODDS_REFRESH_WINDOW_UTC", "14-16")
+    at = lambda h: datetime(2026, 8, 12, h, tzinfo=timezone.utc)
+    assert ss.in_refresh_window(at(14)) and ss.in_refresh_window(at(15))
+    assert not ss.in_refresh_window(at(13))
+    assert not ss.in_refresh_window(at(16))     # end is exclusive
+    assert not ss.in_refresh_window(at(3))
+
+
+def test_a_window_that_wraps_midnight(monkeypatch):
+    from datetime import datetime, timezone
+    monkeypatch.setattr(ss, "ODDS_REFRESH_WINDOW_UTC", "22-02")
+    at = lambda h: datetime(2026, 8, 12, h, tzinfo=timezone.utc)
+    assert ss.in_refresh_window(at(23)) and ss.in_refresh_window(at(1))
+    assert not ss.in_refresh_window(at(12))
+
+
+def test_an_empty_or_broken_window_means_no_preference(monkeypatch):
+    # A bad config value must never silently stop the model buying fresh lines.
+    for bad in ("", "   ", "not-a-window", "14", None):
+        monkeypatch.setattr(ss, "ODDS_REFRESH_WINDOW_UTC", bad)
+        assert ss.in_refresh_window() is True
+
+
+def test_outside_the_window_the_cache_is_kept(tmp_path, monkeypatch):
+    _use_tmp_cache(tmp_path, monkeypatch)
+    ss._cache_store("baseball_mlb", _payload(hours_out=3.0))
+    monkeypatch.setattr(ss, "ODDS_CACHE_TTL_MIN", 0.0)          # stale
+    monkeypatch.setattr(ss, "budget_left", lambda: True)
+    monkeypatch.setattr(ss, "in_refresh_window", lambda now=None: False)
+    monkeypatch.setattr(ss.requests, "get",
+                        lambda *a, **k: (_ for _ in ()).throw(
+                            AssertionError("outside the window: must not pay")))
+    assert len(ss.fetch_games("key", "baseball_mlb")) == 1
+
+
+def test_the_window_cannot_starve_the_model(tmp_path, monkeypatch):
+    # GitHub drops scheduled runs (16 of an expected 48 on a measured day), so
+    # a two-hour window can be missed entirely. Past the hard age limit the
+    # refresh happens whatever the clock says.
+    _use_tmp_cache(tmp_path, monkeypatch)
+    ss._cache_store("baseball_mlb", _payload(hours_out=3.0))
+    monkeypatch.setattr(ss, "ODDS_CACHE_TTL_MIN", 0.0)
+    monkeypatch.setattr(ss, "ODDS_CACHE_HARD_MAX_MIN", -1.0)    # everything is past it
+    monkeypatch.setattr(ss, "budget_left", lambda: True)
+    monkeypatch.setattr(ss, "in_refresh_window", lambda now=None: False)
+    calls = []
+
+    class _Resp:
+        headers = {}
+        def raise_for_status(self): pass
+        def json(self): return _payload(hours_out=3.0)
+
+    monkeypatch.setattr(ss.requests, "get",
+                        lambda *a, **k: (calls.append(1), _Resp())[1])
+    ss.fetch_games("key", "baseball_mlb")
+    assert len(calls) == 1, "a very stale cache must refresh regardless of clock"
+
+
+def test_a_cold_start_ignores_the_window(tmp_path, monkeypatch):
+    _use_tmp_cache(tmp_path, monkeypatch)
+    monkeypatch.setattr(ss, "budget_left", lambda: True)
+    monkeypatch.setattr(ss, "in_refresh_window", lambda now=None: False)
+    calls = []
+
+    class _Resp:
+        headers = {}
+        def raise_for_status(self): pass
+        def json(self): return _payload()
+
+    monkeypatch.setattr(ss.requests, "get",
+                        lambda *a, **k: (calls.append(1), _Resp())[1])
+    ss.fetch_games("key", "baseball_mlb")
+    assert len(calls) == 1, "with no cache at all the clock is irrelevant"
