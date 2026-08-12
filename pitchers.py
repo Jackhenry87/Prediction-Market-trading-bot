@@ -51,8 +51,10 @@ SCOREBOARD = ("https://site.api.espn.com/apis/site/v2/sports/"
 # How much worse a starter's ERA must be before the matchup is called lopsided.
 # Deliberately wide: ERA is noisy, so only a gap this large is worth acting on.
 ERA_GAP = float(os.getenv("PITCHER_ERA_GAP", "1.50"))
-# A starter with fewer innings than this has an ERA dominated by noise.
-MIN_ERA_SAMPLE = float(os.getenv("PITCHER_MIN_ERA", "0.0"))
+# How far apart the two sources' start times may be and still be one game.
+# Wide enough for a timezone or a rounded listing, far tighter than the ~24h
+# between consecutive games of a series.
+SAME_GAME_HOURS = float(os.getenv("PITCHER_SAME_GAME_H", "6"))
 
 
 def _era(competitor: dict):
@@ -75,12 +77,7 @@ def _name(competitor: dict):
     return None
 
 
-def matchups(dates: str = None, timeout: int = 15) -> list:
-    """One record per scheduled game: teams, probable starters, their ERAs.
-
-    `dates` is YYYYMMDD; omitted means today. Free endpoint, no key, and the
-    same one live_state already polls, so this adds no paid dependency.
-    """
+def _slate(dates: str = None, timeout: int = 15) -> list:
     params = {"dates": dates} if dates else None
     resp = requests.get(SCOREBOARD, params=params, timeout=timeout)
     resp.raise_for_status()
@@ -101,6 +98,34 @@ def matchups(dates: str = None, timeout: int = 15) -> list:
             ))
         except Exception as exc:
             log.warning("Unparseable scoreboard event: %s", exc)
+    return out
+
+
+def matchups(dates: str = None, days: int = 2, timeout: int = 15) -> list:
+    """Probable starters for the next `days` slates.
+
+    TODAY IS NOT ENOUGH. The model trades games up to 36 hours out, and a
+    single scoreboard call returns one day — so a game tomorrow night had no
+    matchup, found nothing, and failed open with no corroboration at all. Two
+    calls cover the whole window, and both are free.
+    """
+    if dates:
+        return _slate(dates, timeout)
+    from datetime import datetime, timedelta, timezone
+    seen, out = set(), []
+    today = datetime.now(timezone.utc).date()
+    for offset in range(max(1, days)):
+        try:
+            rows = _slate((today + timedelta(days=offset)).strftime("%Y%m%d"),
+                          timeout)
+        except Exception as exc:
+            log.warning("Scoreboard for offset %d unavailable: %s", offset, exc)
+            continue
+        for m in rows:
+            key = (m["home_team"], m["away_team"], m.get("commence"))
+            if key not in seen:
+                seen.add(key)
+                out.append(m)
     return out
 
 
@@ -136,20 +161,51 @@ def supports_side(matchup: dict, side: str) -> bool:
     return lean is None or lean == side
 
 
+def _hours_apart(a, b):
+    from datetime import datetime, timezone
+    def parse(v):
+        if not v:
+            return None
+        try:
+            t = datetime.fromisoformat(str(v).replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        return t if t.tzinfo else t.replace(tzinfo=timezone.utc)
+    ta, tb = parse(a), parse(b)
+    if ta is None or tb is None:
+        return None
+    return abs((ta - tb).total_seconds()) / 3600.0
+
+
 def find(matchups_list: list, home_team: str, away_team: str,
-         matches) -> dict:
-    """The matchup for this game, using the caller's team matcher.
+         matches, commence=None) -> dict:
+    """The matchup for THIS game, by teams AND start time.
 
     `matches(label, team)` is injected rather than imported so this module
     stays independent of the sports model's naming rules — and so the matcher
     that crossed the Angels with the Dodgers cannot be re-implemented here in a
     second, subtly different way.
+
+    THE START TIME IS NOT OPTIONAL when a series is playing. Texas and the
+    Angels played three consecutive nights with a different starter each time;
+    matching on team names alone returned whichever appeared first in the
+    slate, so the veto would have corroborated a bet against the wrong game's
+    pitchers — the exact failure it was built to catch. A caller that passes no
+    commence time gets team-only matching and must accept that risk.
     """
+    best = None
     for m in matchups_list or []:
-        if (matches(home_team, m["home_team"])
+        if not (matches(home_team, m["home_team"])
                 and matches(away_team, m["away_team"])):
+            continue
+        if commence is None:
             return m
-    return None
+        gap = _hours_apart(commence, m.get("commence"))
+        if gap is None or gap > SAME_GAME_HOURS:
+            continue
+        if best is None or gap < best[0]:
+            best = (gap, m)
+    return best[1] if best else None
 
 
 def main() -> int:

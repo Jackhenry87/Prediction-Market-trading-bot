@@ -929,8 +929,13 @@ def scan(api_key: str) -> list:
         for g in games:
             if not g.get("id"):
                 continue
+            # commence_time is load-bearing: Texas and the Angels played three
+            # consecutive nights with a different starter each time, so a
+            # team-only match returns whichever game came first in the slate
+            # and the veto corroborates against the wrong pitchers.
             found = pitchers.find(_pm, g.get("home_team"), g.get("away_team"),
-                                  label_matches_team)
+                                  label_matches_team,
+                                  commence=g.get("commence_time"))
             if found:
                 matchup_by_id[g["id"]] = found
 

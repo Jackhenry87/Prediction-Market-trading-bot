@@ -154,3 +154,60 @@ def test_eras_are_recorded_on_every_signal():
 
 def test_no_matchup_map_at_all_does_not_break_the_model():
     assert ss.evaluate_market(MARKET, [GAME], None, None) is not None
+
+
+# --- the bug hunt found this one IN the guard itself ------------------------
+#
+# find() originally matched on team names alone. Texas and the Angels played
+# three consecutive nights with a DIFFERENT starter each time, so it returned
+# whichever game appeared first in the slate — the veto would have corroborated
+# a bet against the wrong game's pitchers, which is the exact failure it was
+# built to catch.
+
+SERIES_3 = [
+    dict(home_team="Los Angeles Angels", away_team="Texas Rangers",
+         commence="2026-08-12T01:38Z", home_era=5.00, away_era=5.00,
+         home_pitcher="Night1", away_pitcher="x"),
+    dict(home_team="Los Angeles Angels", away_team="Texas Rangers",
+         commence="2026-08-13T02:00Z", home_era=7.27, away_era=3.56,
+         home_pitcher="Night2", away_pitcher="y"),
+    dict(home_team="Los Angeles Angels", away_team="Texas Rangers",
+         commence="2026-08-14T02:07Z", home_era=2.10, away_era=4.90,
+         home_pitcher="Night3", away_pitcher="z"),
+]
+
+
+def test_the_right_night_of_a_series_is_chosen():
+    for want, when in (("Night1", "2026-08-12T01:38:00Z"),
+                       ("Night2", "2026-08-13T02:00:00Z"),
+                       ("Night3", "2026-08-14T02:07:00Z")):
+        got = pitchers.find(SERIES_3, "Los Angeles Angels", "Texas Rangers",
+                            ss.label_matches_team, commence=when)
+        assert got and got["home_pitcher"] == want
+
+
+def test_choosing_the_wrong_night_would_invert_the_veto():
+    # Night 2 favours away (7.27 vs 3.56); night 3 favours home (2.10 vs 4.90).
+    n2 = pitchers.find(SERIES_3, "Los Angeles Angels", "Texas Rangers",
+                       ss.label_matches_team, commence="2026-08-13T02:00:00Z")
+    n3 = pitchers.find(SERIES_3, "Los Angeles Angels", "Texas Rangers",
+                       ss.label_matches_team, commence="2026-08-14T02:07:00Z")
+    assert pitchers.favours(n2) == "away" and pitchers.favours(n3) == "home"
+
+
+def test_a_game_outside_the_tolerance_is_not_matched():
+    assert pitchers.find(SERIES_3, "Los Angeles Angels", "Texas Rangers",
+                         ss.label_matches_team,
+                         commence="2026-08-20T02:00:00Z") is None
+
+
+def test_an_unparseable_start_time_does_not_match_by_accident():
+    assert pitchers.find(SERIES_3, "Los Angeles Angels", "Texas Rangers",
+                         ss.label_matches_team, commence="not-a-time") is None
+
+
+def test_the_nearest_game_wins_when_two_are_inside_the_tolerance(monkeypatch):
+    monkeypatch.setattr(pitchers, "SAME_GAME_HOURS", 48.0)
+    got = pitchers.find(SERIES_3, "Los Angeles Angels", "Texas Rangers",
+                        ss.label_matches_team, commence="2026-08-13T02:00:00Z")
+    assert got["home_pitcher"] == "Night2"
