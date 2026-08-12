@@ -80,6 +80,10 @@ def league_enabled(cfg: dict) -> bool:
 SPORTS_LIST_URL = "https://api.the-odds-api.com/v4/sports/"
 ODDS_URL = "https://api.the-odds-api.com/v4/sports/{sport}/odds/"
 ODDS_REGIONS = "us"
+# A call costs markets x regions. "h2h,totals" over "us" is 2 credits; ONE
+# market is 1. That factor of two is the difference between guaranteeing a
+# daily refresh on a depleted quota and falling ~25% short of one.
+ODDS_MARKETS = os.getenv("ODDS_MARKETS", "h2h,totals")
 MIN_START_H = 0.15    # skip games starting within ~10 min (execution risk)
 MAX_START_H = 36.0    # and beyond 36h (odds too soft that far out)
 MIN_EDGE_CENTS = 5.0
@@ -648,7 +652,7 @@ def fetch_games(api_key: str, sport: str) -> list:
     resp = requests.get(
         ODDS_URL.format(sport=sport),
         params={"apiKey": api_key, "regions": ODDS_REGIONS,
-                "markets": "h2h,totals", "oddsFormat": "decimal"},
+                "markets": ODDS_MARKETS, "oddsFormat": "decimal"},
         timeout=20,
     )
     _note_quota(resp)

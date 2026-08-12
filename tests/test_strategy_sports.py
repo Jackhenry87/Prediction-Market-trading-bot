@@ -834,3 +834,27 @@ def test_a_slate_of_only_finished_games_does_not_freeze_the_cache(tmp_path,
                         lambda *a, **k: (calls.append(1), _Resp())[1])
     assert len(ss.fetch_games("key", "baseball_mlb")) == 1
     assert len(calls) == 1, "a stale, all-finished slate must trigger a refresh"
+
+
+def test_the_markets_parameter_is_configurable(tmp_path, monkeypatch):
+    # A call costs markets x regions, so this parameter is the only lever that
+    # halves the price of every call. It must reach the request, not just the
+    # module constant.
+    _use_tmp_cache(tmp_path, monkeypatch)
+    monkeypatch.setattr(ss, "ODDS_MARKETS", "totals")
+    monkeypatch.setattr(ss, "budget_left", lambda: True)
+    seen = {}
+
+    class _Resp:
+        headers = {}
+        def raise_for_status(self): pass
+        def json(self): return _payload()
+
+    def fake_get(url, params=None, **k):
+        seen.update(params or {})
+        return _Resp()
+
+    monkeypatch.setattr(ss.requests, "get", fake_get)
+    ss.fetch_games("key", "baseball_mlb")
+    assert seen["markets"] == "totals"
+    assert seen["regions"] == "us"          # cost is markets x regions

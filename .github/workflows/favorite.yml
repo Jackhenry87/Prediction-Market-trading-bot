@@ -182,7 +182,19 @@ jobs:
           # remaining balance, so the model could never spend a credit AND had
           # no cache to fall back on: it went completely dark. 10 leaves a
           # small buffer while letting the cache be refreshed.
-          ODDS_MIN_REMAINING: ${{ vars.ODDS_MIN_REMAINING || '10' }}
+          ODDS_MIN_REMAINING: ${{ vars.ODDS_MIN_REMAINING || '4' }}
+          # ONE MARKET, NOT TWO, until the quota resets. A call costs
+          # markets x regions, so "totals" alone is 1 credit against 2 for
+          # "h2h,totals" — and that factor of two is exactly the difference
+          # between guaranteeing a daily refresh and falling short of one:
+          #   46 usable credits / 2 = 23 calls over ~27 days = 0.85/day
+          #   46 usable credits / 1 = 46 calls over ~27 days = 1.70/day
+          # Totals is the leg that has produced every qualifying signal and 4
+          # of 5 real trades; moneylines have produced none, though the
+          # same-city matcher fix has only just given them a fair chance.
+          # RESTORE TO 'h2h,totals' AT THE RESET — this is a budget decision,
+          # not a judgement that moneylines do not work.
+          ODDS_MARKETS: ${{ vars.ODDS_MARKETS || 'totals' }}
           # How stale cached lines may get before paying for a refresh. At MLB
           # only this is ~2 credits/day against ~40 usable, which reaches the
           # monthly reset. THE MODEL EVALUATES ON EVERY RUN REGARDLESS — only
