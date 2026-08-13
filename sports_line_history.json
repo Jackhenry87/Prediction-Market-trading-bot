@@ -4,20 +4,13 @@
 "home_prob": 0.5758,
 "home_team": "Los Angeles Dodgers",
 "total_mean": 8.422,
-"updated": "2026-08-13T22:35:46+00:00"
-},
-"9fa039b0c801332ed857fb145a2926b9": {
-"away_team": "Philadelphia Phillies",
-"home_prob": 0.5073,
-"home_team": "Minnesota Twins",
-"total_mean": 8.622,
-"updated": "2026-08-13T22:35:46+00:00"
+"updated": "2026-08-13T23:35:28+00:00"
 },
 "f9b96108d4bae8b60bcda1e87549bedc": {
 "away_team": "Texas Rangers",
 "home_prob": 0.4122,
 "home_team": "Los Angeles Angels",
 "total_mean": 8.107,
-"updated": "2026-08-13T22:35:46+00:00"
+"updated": "2026-08-13T23:35:28+00:00"
 }
 }
