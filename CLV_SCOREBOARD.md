@@ -2,24 +2,24 @@
 
 Closing-Line Value = (market price of our side at close) − (price we paid). Positive = we beat the close = edge. The honest test.
 
-- **Scored samples:** 53 / 100
-- **Mean CLV:** -0.6c per bet
-- **Beat the close:** 68% of bets
+- **Scored samples:** 54 / 100
+- **Mean CLV:** -0.4c per bet
+- **Beat the close:** 69% of bets
 
 ### Settlement record (scored against Kalshi's official results)
 
-- **32W – 6L** over 38 settled contracts
-- **Net +194c** on 3006c staked (**+6.5%**)
+- **33W – 6L** over 39 settled contracts
+- **Net +203c** on 3097c staked (**+6.6%**)
 
 _Real outcomes from public settlement data — no order required. What this does NOT prove is that a resting maker bid would have been filled at these prices; only live orders establish queue position._
 
 ### Sample accounting
 
 - resting (maker bid not yet hit): 63
-- filled and still open: 36
+- filled and still open: 35
 - expired unfilled (never hit — correctly NOT scored): 58
 - unscored (closed before any open snapshot — capture gap): 4
 
-**Verdict:** ⏳ 53 of 100 scored samples — not enough to read yet. No real money until this reaches 100+ and the mean is positive.
+**Verdict:** ⏳ 54 of 100 scored samples — not enough to read yet. No real money until this reaches 100+ and the mean is positive.
 
 > ⚠️ 4 row(s) unscored. That is a measurement failure, not a result — the tracker saw them only after their market had closed.
