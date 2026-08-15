@@ -15,8 +15,8 @@ _Real outcomes from public settlement data — no order required. What this does
 
 ### Sample accounting
 
-- resting (maker bid not yet hit): 69
-- filled and still open: 29
+- resting (maker bid not yet hit): 68
+- filled and still open: 30
 - expired unfilled (never hit — correctly NOT scored): 58
 - unscored (closed before any open snapshot — capture gap): 4
 
