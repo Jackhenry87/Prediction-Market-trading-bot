@@ -36,6 +36,25 @@ RUN_MINUTES = float(os.getenv("SPORTS_RUN_MINUTES", "110"))
 # allow. This is the cap that answers "can it lose the whole account today?".
 MAX_DAILY_USD = float(os.getenv("SPORTS_MAX_DAILY_USD", "18"))
 
+# ...and as a SHARE of the bankroll, because a fixed dollar cap stops being a
+# brake exactly when one is needed. Measured over the drawdown:
+#
+#   bankroll $50.00  ->  $18/day was  36% of the account
+#   bankroll $24.99  ->  $18/day was  72%
+#   bankroll  $5.94  ->  $18/day was 303%
+#
+# The account fell from $50 to $5.94 while the cap sat still, so the last week
+# of trading was uncapped in every sense that matters. The effective limit is
+# now the SMALLER of the two.
+MAX_DAILY_PCT = float(os.getenv("SPORTS_MAX_DAILY_PCT", "25"))
+
+
+def daily_budget(bankroll_usd: float) -> float:
+    """The day's spending limit: the tighter of the absolute and the share."""
+    if bankroll_usd <= 0:
+        return 0.0
+    return min(MAX_DAILY_USD, bankroll_usd * MAX_DAILY_PCT / 100.0)
+
 
 def contracts_for(budget_usd: float, price_cents: float) -> int:
     """Kept for the tests that pin the old flat-stake arithmetic. Live sizing
@@ -85,8 +104,10 @@ def sports_pass(client, settings, session: dict) -> int:
                                                               settings))
     placed = 0
     deployed_today = strategy_sports.sports_deployed_today()
-    log.info("Deployed today: $%.2f of the $%.2f daily cap",
-             deployed_today, MAX_DAILY_USD)
+    day_cap = daily_budget(bankroll)
+    log.info("Deployed today: $%.2f of the $%.2f daily cap "
+             "(min of $%.2f absolute and %.0f%% of $%.2f)",
+             deployed_today, day_cap, MAX_DAILY_USD, MAX_DAILY_PCT, bankroll)
     flat = [(r, s) for r in results for s in r["signals"]]
     flat.sort(key=lambda rs: -rs[1].get("ev_cents", 0.0))
     for r, s in flat:
@@ -111,10 +132,10 @@ def sports_pass(client, settings, session: dict) -> int:
         # Daily dollar brake. Trim to what is left rather than skipping, so a
         # big first pick does not silently forfeit the rest of the day, but
         # never place a bet that would breach the cap.
-        remaining = MAX_DAILY_USD - deployed_today
+        remaining = day_cap - deployed_today
         if remaining <= 0:
             log.info("DAILY $ CAP reached ($%.2f of $%.2f) — stopping for today",
-                     deployed_today, MAX_DAILY_USD)
+                     deployed_today, day_cap)
             break
         if notional > remaining:
             count = int(remaining * 100 // price)
@@ -125,7 +146,7 @@ def sports_pass(client, settings, session: dict) -> int:
             notional = count * price / 100.0
             log.info("TRIMMED %s to %d contracts ($%.2f) — $%.2f left of the "
                      "$%.2f daily cap", ticker, count, notional, remaining,
-                     MAX_DAILY_USD)
+                     day_cap)
         # Trim to the per-order ceiling instead of losing the trade to it.
         # A qualifying pick was BLOCKED on 2026-08-10 for "notional 10.65 USDC
         # exceeds MAX_ORDER_SIZE 10.00": the sizer and the safety gate compute
