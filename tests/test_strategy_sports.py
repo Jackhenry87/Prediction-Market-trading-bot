@@ -1057,3 +1057,52 @@ def test_a_cold_start_ignores_the_window(tmp_path, monkeypatch):
                         lambda *a, **k: (calls.append(1), _Resp())[1])
     ss.fetch_games("key", "baseball_mlb")
     assert len(calls) == 1, "with no cache at all the clock is irrelevant"
+
+
+# --- the sigma that cost real money (2026-08-19) ---------------------------
+#
+# TOTAL_SIGMA shipped at 3.0 with a comment saying "tune once we have data".
+# It was never tuned, and it is why the live model lost money: 23 of 28 filled
+# sports bets were NO on a total, and those 23 averaged -7.93c of closing-line
+# value. Calibrated from ten live pregame Kalshi ladders, the market's own
+# implied sigma is 3.97.
+
+def test_sigma_is_calibrated_not_a_round_guess():
+    assert 3.5 <= ss.TOTAL_SIGMA <= 4.5, (
+        "TOTAL_SIGMA must stay near the market-implied ~3.97; 3.0 made the "
+        "tails fall away too fast and the model bought unders all season")
+
+
+def test_too_small_a_sigma_manufactures_an_under_edge(monkeypatch):
+    # The exact shape of the losing trade: book total 8.5, Kalshi "Over 10.5",
+    # NO offered at 67c. At sigma 3.0 that looks like +6.2c and gets bet; at
+    # the calibrated sigma the edge is inside the noise and it does not.
+    def edge_at(sigma):
+        monkeypatch.setattr(ss, "TOTAL_SIGMA", sigma)
+        p_no = 1 - ss.over_prob(8.5, 10.5)
+        return 100 * p_no - 67.0 - ss.taker_fee_cents(67.0)
+
+    assert edge_at(3.0) >= ss.MIN_EDGE_CENTS      # would have bet
+    assert edge_at(3.97) < ss.MIN_EDGE_CENTS      # now does not
+
+
+def test_sigma_cancels_when_the_strike_equals_the_book_line(monkeypatch):
+    # Sigma only matters OFF the book's line. This is why the error grew with
+    # TOTAL_MAX_OFFSET and why it was invisible on a strike-matched game.
+    out = []
+    for sigma in (3.0, 3.97, 5.0):
+        monkeypatch.setattr(ss, "TOTAL_SIGMA", sigma)
+        mean = ss.fair_total_mean({"bookmakers": [{"key": "pinnacle", "markets": [
+            {"key": "totals", "outcomes": [
+                {"name": "Over", "price": 1.95, "point": 8.5},
+                {"name": "Under", "price": 1.95, "point": 8.5}]}]}]})
+        out.append(round(ss.over_prob(mean, 8.5), 6))
+    assert len(set(out)) == 1, f"sigma must cancel on the line itself: {out}"
+
+
+def test_a_larger_sigma_raises_the_probability_of_a_high_total(monkeypatch):
+    monkeypatch.setattr(ss, "TOTAL_SIGMA", 3.0)
+    tight = ss.over_prob(8.5, 11.5)
+    monkeypatch.setattr(ss, "TOTAL_SIGMA", 3.97)
+    wide = ss.over_prob(8.5, 11.5)
+    assert wide > tight

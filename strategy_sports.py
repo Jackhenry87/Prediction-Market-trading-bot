@@ -191,9 +191,35 @@ SPORTS_MAX_TOTALS_PER_DAY = int(os.getenv("SPORTS_MAX_TOTALS_PER_DAY",
 # implied MEAN, model the game total as Normal(mean, TOTAL_SIGMA), and price
 # each Kalshi threshold off that — only within TOTAL_MAX_OFFSET of the mean,
 # where the normal approximation is least unreliable. SIGMA is a modelling
-# assumption (MLB run totals ~3): tune SPORTS_TOTAL_SIGMA once we have data.
+# assumption, and the one that broke the model. See below.
 TOTALS_SERIES = {"baseball_mlb": "KXMLBTOTAL"}
-TOTAL_SIGMA = float(os.getenv("SPORTS_TOTAL_SIGMA", "3.0"))
+
+# CALIBRATED FROM THE MARKET, 2026-08-19. This was 3.0 — a guess, flagged in
+# this comment as "tune once we have data", and never tuned. It is why the live
+# model lost money.
+#
+# Sigma cancels exactly when the Kalshi strike equals the sportsbook line:
+#   P_over(strike) = 1 - PHI( (strike - book_line)/sigma - PHI^-1(p_book) )
+# but Kalshi's ladder runs in whole runs while the book quotes one line, so the
+# strike almost never equals it — and the error grows with the offset, up to
+# TOTAL_MAX_OFFSET = 2.5 runs. Too SMALL a sigma makes the tails fall away too
+# fast, so the model thinks Over is less likely than it is and buys NO:
+#
+#   mean 8.5   P(total > line)     sigma 3.0    sigma 3.97     error
+#   line 10.5                         25.2%         30.6%      +5.4c
+#   line 11.5                         15.9%         23.2%      +7.3c
+#
+# Measured result over 28 filled sports bets: 23 of them were NO on a total,
+# and those 23 averaged -7.93c of closing-line value. The predicted error and
+# the realised bleed are the same number.
+#
+# 3.97 is the MEDIAN IMPLIED SIGMA fitted from ten live pregame KXMLBTOTAL
+# ladders (11 strikes each): invert each strike's mid to a z-score, regress on
+# the strike, and sigma is the reciprocal of the slope. Seven of the ten landed
+# between 3.94 and 4.01. The one outlier at 4.89 was LAD at Colorado, which is
+# Coors Field genuinely having wider run variance — a reason to make this
+# per-park eventually, not a reason to distrust the fit.
+TOTAL_SIGMA = float(os.getenv("SPORTS_TOTAL_SIGMA", "3.97"))
 TOTAL_MAX_OFFSET = float(os.getenv("SPORTS_TOTAL_MAX_OFFSET", "2.5"))
 # require the sharp TOTAL line to have moved toward our side (runs), like the
 # moneyline steam gate — sharp confirmation, not just our model vs Kalshi
