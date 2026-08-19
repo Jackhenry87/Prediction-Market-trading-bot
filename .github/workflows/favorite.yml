@@ -143,8 +143,23 @@ jobs:
           # Full Kelly maximises growth only if the edge estimate is right, and
           # on this account it still has zero scored CLV samples. The ceiling
           # and the daily cap below are what bound being wrong.
-          KELLY_FRACTION: ${{ vars.KELLY_FRACTION || '1.0' }}
-          MAX_BANKROLL_PCT: ${{ vars.MAX_BANKROLL_PCT || '20' }}
+          # BACK TO QUARTER KELLY. This reverses the 2026-08-08 owner call for
+          # full Kelly, and the reason is measured, not cautious. Full Kelly
+          # sizes in proportion to the CLAIMED edge, and the claimed edge came
+          # from a mis-calibrated TOTAL_SIGMA whose error GROWS with distance
+          # from the sportsbook line. So the model staked most on exactly the
+          # prices it had priced worst:
+          #
+          #   winning bets  n=17  avg stake $3.91   total +$35.46
+          #   losing  bets  n=11  avg stake $6.01   total -$66.14
+          #   count win rate 61%   DOLLAR win rate 50%
+          #
+          # 61% of bets won and the account still went from $50 to $5.94,
+          # because the losers were 54% larger. Restore '1.0' once CLV over
+          # 100+ scored samples is positive — the condition the original call
+          # was explicitly made under.
+          KELLY_FRACTION: ${{ vars.KELLY_FRACTION || '0.25' }}
+          MAX_BANKROLL_PCT: ${{ vars.MAX_BANKROLL_PCT || '10' }}
           # 0.25, not 0.52. A floor above 0.50 could only ever back FAVOURITES —
           # an underdog is a side the model puts under 50% by definition — and
           # the moneyline leg reported "0 qualifying" on every run of its life.
@@ -156,6 +171,11 @@ jobs:
           # much money; four picks at up to 20% each is ~80% of the bankroll
           # between two sunrises. Orders are trimmed to fit, not dropped.
           SPORTS_MAX_DAILY_USD: ${{ vars.SPORTS_MAX_DAILY_USD || '18' }}
+          # ...and as a share of the bankroll, because the fixed cap stopped
+          # being a brake as the account shrank: $18/day was 36% of $50, 72% of
+          # $24.99 and 303% of $5.94. The effective limit is the smaller of the
+          # two, so the cap now tightens with the account instead of loosening.
+          SPORTS_MAX_DAILY_PCT: ${{ vars.SPORTS_MAX_DAILY_PCT || '25' }}
           # Steam is measured, not required — requiring it meant always buying
           # the post-move price, which is why CLV was -6.0c.
           SPORTS_REQUIRE_STEAM: ${{ vars.SPORTS_REQUIRE_STEAM || 'false' }}

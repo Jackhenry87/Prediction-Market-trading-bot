@@ -57,6 +57,9 @@ def _scan_returning(*signals):
 
 def _run(monkeypatch, signals, deployed=0.0, cap=18.0, dry=False):
     monkeypatch.setattr(sr, "MAX_DAILY_USD", cap)
+    # these cases are about the ABSOLUTE cap; hold the bankroll share wide so
+    # it is not the binding constraint
+    monkeypatch.setattr(sr, "MAX_DAILY_PCT", 1000.0)
     monkeypatch.setattr(strategy_sports, "sports_deployed_today",
                         lambda: deployed)
     monkeypatch.setattr(strategy_sports, "scan", _scan_returning(*signals))
@@ -161,6 +164,7 @@ def test_deployed_today_survives_a_junk_cost(tmp_path, monkeypatch):
 
 def test_an_order_over_the_per_order_cap_is_trimmed_not_dropped(monkeypatch):
     monkeypatch.setattr(sr, "MAX_DAILY_USD", 1000.0)
+    monkeypatch.setattr(sr, "MAX_DAILY_PCT", 1000.0)
     monkeypatch.setattr(strategy_sports, "sports_deployed_today", lambda: 0.0)
     monkeypatch.setattr(strategy_sports, "scan", _scan_returning(
         _signal("KXA-1-A", 50, edge=12.0)))
@@ -178,6 +182,7 @@ def test_an_order_over_the_per_order_cap_is_trimmed_not_dropped(monkeypatch):
 
 def test_a_cap_too_small_for_one_contract_places_nothing(monkeypatch):
     monkeypatch.setattr(sr, "MAX_DAILY_USD", 1000.0)
+    monkeypatch.setattr(sr, "MAX_DAILY_PCT", 1000.0)
     monkeypatch.setattr(strategy_sports, "sports_deployed_today", lambda: 0.0)
     monkeypatch.setattr(strategy_sports, "scan", _scan_returning(
         _signal("KXA-1-A", 50, edge=12.0)))
@@ -201,6 +206,7 @@ def test_a_cap_too_small_for_one_contract_places_nothing(monkeypatch):
 
 def _run_with(monkeypatch, settings, balance=100000, edge=12.0, price=50):
     monkeypatch.setattr(sr, "MAX_DAILY_USD", 1000.0)
+    monkeypatch.setattr(sr, "MAX_DAILY_PCT", 1000.0)
     monkeypatch.setattr(strategy_sports, "sports_deployed_today", lambda: 0.0)
     monkeypatch.setattr(strategy_sports, "scan", _scan_returning(
         _signal("KXA-1-A", price, edge=edge)))
@@ -235,3 +241,40 @@ def test_headroom_too_small_for_one_contract_places_nothing(monkeypatch):
     s = FakeSettings(max_order_size=1000.0, max_total_exposure=0.30)
     c = _run_with(monkeypatch, s, price=50)
     assert c.orders == []
+
+
+# --- the cap that stopped being a cap (2026-08-19) -------------------------
+#
+# SPORTS_MAX_DAILY_USD was a fixed $18. As the account fell it became a larger
+# and larger share of what was left, so the brake loosened exactly as the
+# drawdown accelerated:
+#     $50.00 -> 36%      $24.99 -> 72%      $5.94 -> 303%
+# The account went $50 -> $5.94 while the cap sat still.
+
+def test_the_daily_cap_scales_down_with_the_bankroll(monkeypatch):
+    monkeypatch.setattr(sr, "MAX_DAILY_USD", 18.0)
+    monkeypatch.setattr(sr, "MAX_DAILY_PCT", 25.0)
+    assert sr.daily_budget(50.00) == 12.50
+    assert sr.daily_budget(24.99) == 24.99 * 0.25
+    assert sr.daily_budget(5.94) == 5.94 * 0.25
+
+
+def test_the_absolute_cap_still_binds_on_a_big_account(monkeypatch):
+    monkeypatch.setattr(sr, "MAX_DAILY_USD", 18.0)
+    monkeypatch.setattr(sr, "MAX_DAILY_PCT", 25.0)
+    assert sr.daily_budget(1000.0) == 18.0      # the tighter of the two
+
+
+def test_an_empty_account_can_spend_nothing(monkeypatch):
+    monkeypatch.setattr(sr, "MAX_DAILY_USD", 18.0)
+    assert sr.daily_budget(0.0) == 0.0
+    assert sr.daily_budget(-5.0) == 0.0
+
+
+def test_the_cap_is_never_a_larger_share_than_configured(monkeypatch):
+    monkeypatch.setattr(sr, "MAX_DAILY_USD", 18.0)
+    monkeypatch.setattr(sr, "MAX_DAILY_PCT", 25.0)
+    for bank in (1.0, 5.94, 24.99, 50.0, 500.0):
+        assert sr.daily_budget(bank) <= bank * 0.25 + 1e-9, (
+            "the daily cap must never exceed its configured share of the "
+            "bankroll — that is how a $18 cap became 303% of the account")
