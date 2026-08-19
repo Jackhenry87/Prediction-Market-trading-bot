@@ -166,6 +166,14 @@ jobs:
           # market instead of the game. Kelly stakes hardest where the number is
           # most absurd, so the ceiling has to sit upstream of sizing.
           SPORTS_MAX_EDGE_CENTS: ${{ vars.SPORTS_MAX_EDGE_CENTS || '25' }}
+          # THE PARAMETER THAT LOST THE MONEY. Shipped at 3.0 as an admitted
+          # guess and never tuned; 23 of 28 filled sports bets were NO on a
+          # total and averaged -7.93c CLV. Too small a sigma makes the tails
+          # fall away too fast, so the model thinks Over is less likely than it
+          # is and buys the under. 3.97 is the median implied sigma fitted from
+          # ten live pregame KXMLBTOTAL ladders (11 strikes each), 7 of 10
+          # inside 3.94-4.01. Refit it against the ladders periodically.
+          SPORTS_TOTAL_SIGMA: ${{ vars.SPORTS_TOTAL_SIGMA || '3.97' }}
           # Above this edge the STARTING PITCHING must not contradict the side
           # being backed. The books already price the starters, so this cannot
           # sharpen fair value — it catches a number that is not about this
