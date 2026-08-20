@@ -1106,3 +1106,53 @@ def test_a_larger_sigma_raises_the_probability_of_a_high_total(monkeypatch):
     monkeypatch.setattr(ss, "TOTAL_SIGMA", 3.97)
     wide = ss.over_prob(8.5, 11.5)
     assert wide > tight
+
+
+# --- "0 qualifying" must never be a dead end (2026-08-20) ------------------
+#
+# "Sports totals: 0 qualifying" cannot distinguish an efficient market from a
+# broken pipeline, and that ambiguity has cost hours of investigation more than
+# once. Recording the best edge SEEN turns it into an answer: "best +0.5c
+# against a 5.0c floor" says the market is tight; "no market was priced at all"
+# says something upstream failed.
+
+def test_the_best_edge_seen_is_recorded_even_when_nothing_qualifies():
+    ss.BEST_SEEN.update({"ml": None, "totals": None})
+    m = {"ticker": "KXMLBTOTAL-X-8", "yes_sub_title": "Over 7.5",
+         "status": "active", "floor_strike": 7.5, "yes_ask": 48, "yes_bid": 46}
+    assert ss.evaluate_total_market(m, mean=7.6) == []      # nothing qualifies
+    best = ss.BEST_SEEN["totals"]
+    assert best is not None, "a near miss must still be recorded"
+    assert best[0] < ss.MIN_EDGE_CENTS
+
+
+def test_no_market_priced_is_distinguishable_from_no_edge():
+    ss.BEST_SEEN.update({"ml": None, "totals": None})
+    # a strike far outside the offset window is never priced at all
+    m = {"ticker": "KXMLBTOTAL-X-99", "yes_sub_title": "Over 99.5",
+         "status": "active", "floor_strike": 99.5, "yes_ask": 5, "yes_bid": 4}
+    assert ss.evaluate_total_market(m, mean=8.5) == []
+    assert ss.BEST_SEEN["totals"] is None, (
+        "an unpriced market must leave BEST_SEEN empty, so the log can say "
+        "'nothing was priced' rather than implying a tight market")
+
+
+def test_the_best_edge_is_the_maximum_not_the_last():
+    ss.BEST_SEEN.update({"ml": None, "totals": None})
+    for ask in (48, 40, 46):
+        ss.evaluate_total_market(
+            {"ticker": f"KXMLBTOTAL-X-{ask}", "yes_sub_title": "Over 7.5",
+             "status": "active", "floor_strike": 7.5,
+             "yes_ask": ask, "yes_bid": ask - 2}, mean=7.6)
+    evs = []
+    for ask in (48, 40, 46):
+        p = ss.over_prob(7.6, 7.5)
+        evs.append(100 * p - ask - ss.taker_fee_cents(ask))
+    assert abs(ss.BEST_SEEN["totals"][0] - max(evs)) < 1e-6
+
+
+def test_a_scan_resets_the_best_seen():
+    ss.BEST_SEEN["totals"] = (99.0, "stale")
+    assert ss.BEST_SEEN["totals"][0] == 99.0
+    ss.BEST_SEEN.update({"ml": None, "totals": None})   # what scan() does
+    assert ss.BEST_SEEN["totals"] is None
