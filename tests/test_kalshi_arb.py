@@ -210,3 +210,104 @@ def test_plausible_small_arb_still_passes():
     # a real, exhaustive numeric ladder a few cents under par -> genuine arb
     arb = kalshi_arb.evaluate_event(_event(), _ladder([31, 31, 31]))   # 93c
     assert arb is not None and 2 <= arb["profit_cents"] <= 7
+
+
+# ---------- the maker side of the same ladders ----------
+#
+# The full sweep on 2026-08-21 found 2 takeable baskets in 3,609 quoted
+# mutually-exclusive ladders, and every daily-resolving ladder priced ABOVE par
+# at the ask. restable_basket measures the other side of that: what the same $1
+# would cost if you posted rather than took. It is a measurement, not a signal —
+# these tests pin the arithmetic and the fail-closed guards, not a trade.
+
+def _lad(quotes, exhaustive=True):
+    """quotes: list of (yes_bid, yes_ask). Numeric strikes so the ladder is
+    provably exhaustive unless told otherwise."""
+    out = []
+    for i, (b, a) in enumerate(quotes):
+        st = ("less" if i == 0 else
+              "greater" if i == len(quotes) - 1 else "between")
+        m = {"ticker": f"T{i}", "status": "active", "yes_bid": b, "yes_ask": a,
+             "strike_type": st if exhaustive else "structured"}
+        if st == "between":
+            m["floor_strike"], m["cap_strike"] = i, i + 1
+        out.append(m)
+    return out
+
+
+EV = {"event_ticker": "E1", "title": "t", "mutually_exclusive": True}
+
+
+def test_posts_one_tick_inside_each_bid():
+    # bids 40/30/20 -> post 41/31/21 = 93c for a guaranteed 100c.
+    r = kalshi_arb.restable_basket(EV, _lad([(40, 45), (30, 35), (20, 25)]))
+    assert [round(p) for _, p, _ in r["legs"]] == [41, 31, 21]
+    assert r["cost_cents"] == 93 and r["profit_cents"] == 7
+    assert r["fees_cents"] == 0.0            # Kalshi charges no maker fee
+    assert r["side"] == "yes-maker"
+
+
+def test_a_post_never_crosses_the_ask():
+    # A 1c-wide leg cannot be improved: posting bid+1 would be the ask, which
+    # is taking, not making. Cap at the ask so the cost stays honest.
+    r = kalshi_arb.restable_basket(EV, _lad([(40, 41), (30, 35), (20, 25)]))
+    assert [round(p) for _, p, _ in r["legs"]] == [41, 31, 21]
+
+
+def test_a_leg_with_no_bid_still_costs_the_minimum_tick():
+    # The structural tax that makes same-day temperature ladders unmakeable:
+    # 1c is the exchange minimum, so five worthless legs cost 5c to complete
+    # even though they are worth nothing.
+    r = kalshi_arb.restable_basket(
+        EV, _lad([(0, 1), (0, 1), (0, 1), (0, 1), (0, 1), (95, 99)]))
+    assert r["cost_cents"] == 5 + 96         # five dead legs + the live one
+    assert r["profit_cents"] == -1           # ...which is 1c OVER par: a loss
+    assert r["dead_legs"] == 5
+
+
+def test_a_ladder_of_stub_quotes_is_rejected():
+    # Six legs each showing a 99c ask sum to 594c: that is not an expensive
+    # market, it is an unquoted one. Its empty bid side would otherwise price a
+    # "6c basket for a guaranteed $1", the most seductive wrong answer here.
+    assert kalshi_arb.restable_basket(EV, _lad([(0, 99)] * 6)) is None
+
+
+def test_the_wellformed_ceiling_is_the_boundary(monkeypatch):
+    monkeypatch.setattr(kalshi_arb, "ARB_WELLFORMED_MAX_CENTS", 110.0)
+    assert kalshi_arb.restable_basket(EV, _lad([(40, 55), (30, 55)])) is not None
+    assert kalshi_arb.restable_basket(EV, _lad([(40, 56), (30, 55)])) is None
+
+
+def test_the_take_cost_is_recorded_alongside():
+    # The comparison is the point: a basket can be cheap to post and a
+    # guaranteed loss to take, which is the normal case on this exchange.
+    r = kalshi_arb.restable_basket(EV, _lad([(40, 55), (30, 50)]))
+    assert r["take_cost_cents"] == 105 and r["cost_cents"] == 72
+
+
+# --- it must fail closed on everything it cannot prove ---------------------
+
+def test_a_non_exhaustive_ladder_is_rejected():
+    # Same reason the YES arb is gated on exhaustiveness: an untradeable "none
+    # of the above" outcome means the basket can pay nothing at all.
+    assert kalshi_arb.restable_basket(
+        EV, _lad([(40, 45), (30, 35)], exhaustive=False)) is None
+
+
+def test_a_non_mutually_exclusive_event_is_rejected():
+    assert kalshi_arb.restable_basket(
+        {"event_ticker": "E1", "mutually_exclusive": False},
+        _lad([(40, 45), (30, 35)])) is None
+
+
+def test_an_unquoted_or_closed_leg_is_rejected():
+    lad = _lad([(40, 45), (30, 35)])
+    lad[1]["yes_ask"] = None
+    assert kalshi_arb.restable_basket(EV, lad) is None
+    lad = _lad([(40, 45), (30, 35)])
+    lad[1]["status"] = "closed"
+    assert kalshi_arb.restable_basket(EV, lad) is None
+
+
+def test_a_single_leg_is_not_a_basket():
+    assert kalshi_arb.restable_basket(EV, _lad([(40, 45)])) is None

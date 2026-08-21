@@ -102,9 +102,34 @@ class KalshiClient:
         )
 
     def get_orderbook(self, ticker: str, depth: int = 10):
+        """{'yes': [[price_cents, qty], ...], 'no': [...]} — ascending price.
+
+        Kalshi now answers this endpoint with `orderbook_fp`, whose levels are
+        DOLLAR strings ("0.4610") against the legacy `orderbook`\'s integer
+        cents. Reading only the retired key returned {} for every market on the
+        exchange, and every caller reads that as "no depth" — indistinguishable
+        from a genuinely empty book, which is why it went unnoticed: the arb
+        sizer simply declined every basket. Same failure as the `volume_fp` and
+        `count_fp` fields. Prefer the fp shape, fall back to the old one.
+        """
         data = self._request(
             "GET", f"/markets/{ticker}/orderbook", params={"depth": depth}
         )
+        fp = data.get("orderbook_fp")
+        if isinstance(fp, dict):
+            book = {}
+            for side in ("yes", "no"):
+                levels = fp.get(f"{side}_dollars") or fp.get(side) or []
+                out = []
+                for level in levels:
+                    try:
+                        out.append([float(level[0]) * 100.0, float(level[1])])
+                    except (TypeError, ValueError, IndexError):
+                        continue
+                if out:
+                    book[side] = out
+            if book:
+                return book
         # Untraded markets return no book at all — treat as empty.
         return data.get("orderbook") or {}
 

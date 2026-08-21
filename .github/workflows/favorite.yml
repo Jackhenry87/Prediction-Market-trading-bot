@@ -46,7 +46,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  STATE_FILES: paper_trades_favorite.csv paper_trades_sports.csv sports_line_history.json odds_quota.json odds_cache.json clv_sports.csv CLV_SCOREBOARD.md executed_trades.csv live_scan.csv
+  STATE_FILES: paper_trades_favorite.csv paper_trades_sports.csv sports_line_history.json odds_quota.json odds_cache.json clv_sports.csv CLV_SCOREBOARD.md executed_trades.csv live_scan.csv arb_scan.csv
 
 jobs:
   trade:
@@ -296,6 +296,20 @@ jobs:
           KALSHI_PRIVATE_KEY_PATH: kalshi_prod.pem
           KALSHI_ENV: ${{ vars.KALSHI_ENV || 'prod' }}
         run: python clv_tracker.py
+
+      - name: Record risk-free and restable baskets (measurement only)
+        # Answers, with data rather than opinion, whether the one strategy on
+        # this exchange with NO directional risk is worth running: buy every
+        # leg of a mutually-exclusive ladder for under $1 and one of them pays
+        # $1. The first full sweep found 2 takeable baskets in 3,609 quoted
+        # ladders, so the answer is probably "rarely" — but rarely is not
+        # never, and the cost of finding out is one unauthenticated pass of the
+        # public events feed. Uses NO credentials and imports no order path, so
+        # it cannot place even by accident.
+        continue-on-error: true
+        env:
+          KALSHI_ENV: ${{ vars.KALSHI_ENV || 'prod' }}
+        run: python arb_scan.py
 
       - name: Persist state to the bot-state branch
         if: always()
