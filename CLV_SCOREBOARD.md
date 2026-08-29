@@ -17,7 +17,7 @@ _Real outcomes from public settlement data — no order required. What this does
 
 - resting (maker bid not yet hit): 41
 - filled and still open: 15
-- expired unfilled (never hit — correctly NOT scored): 134
+- expired unfilled (never hit — correctly NOT scored): 135
 - unscored (closed before any open snapshot — capture gap): 4
 
 **Verdict:** ❌ Mean CLV -2.1c over 128 bets — no edge vs the closing line. Do NOT put real money here.
