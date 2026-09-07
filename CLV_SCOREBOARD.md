@@ -2,9 +2,9 @@
 
 Closing-Line Value = (market price of our side at close) − (price we paid). Positive = we beat the close = edge. The honest test.
 
-- **Scored samples:** 147 / 100
-- **Mean CLV:** -2.6c per bet
-- **Beat the close:** 69% of bets
+- **Scored samples:** 148 / 100
+- **Mean CLV:** -2.5c per bet
+- **Beat the close:** 70% of bets
 
 ### Settlement record (scored against Kalshi's official results)
 
@@ -15,11 +15,11 @@ _Real outcomes from public settlement data — no order required. What this does
 
 ### Sample accounting
 
-- resting (maker bid not yet hit): 13
-- filled and still open: 2
-- expired unfilled (never hit — correctly NOT scored): 187
+- resting (maker bid not yet hit): 4
+- filled and still open: 1
+- expired unfilled (never hit — correctly NOT scored): 196
 - unscored (closed before any open snapshot — capture gap): 4
 
-**Verdict:** ❌ Mean CLV -2.6c over 147 bets — no edge vs the closing line. Do NOT put real money here.
+**Verdict:** ❌ Mean CLV -2.5c over 148 bets — no edge vs the closing line. Do NOT put real money here.
 
 > ⚠️ 4 row(s) unscored. That is a measurement failure, not a result — the tracker saw them only after their market had closed.
