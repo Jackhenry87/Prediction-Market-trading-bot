@@ -4,55 +4,20 @@
 "home_prob": 0.5029,
 "home_team": "San Francisco Giants",
 "total_mean": 7.826,
-"updated": "2026-09-08T22:50:32+00:00"
-},
-"85c65d8138861fb6a024b339bf4f5ab6": {
-"away_team": "Chicago Cubs",
-"home_prob": 0.6605,
-"home_team": "Milwaukee Brewers",
-"total_mean": 7.306,
-"updated": "2026-09-08T22:50:32+00:00"
-},
-"a10aaa5c39074d6ea18faef14d18bfb5": {
-"away_team": "Colorado Rockies",
-"home_prob": 0.7393,
-"home_team": "New York Yankees",
-"total_mean": 7.881,
-"updated": "2026-09-08T22:50:32+00:00"
+"updated": "2026-09-09T00:58:59+00:00"
 },
 "bbab891f2a9defcd506aafce495b42dc": {
 "away_team": "Toronto Blue Jays",
 "home_prob": 0.3776,
 "home_team": "Athletics",
 "total_mean": 9.543,
-"updated": "2026-09-08T22:50:32+00:00"
-},
-"cd725aa57a2f0e5ac106e101cd15fc1d": {
-"away_team": "Tampa Bay Rays",
-"home_prob": 0.5193,
-"home_team": "Atlanta Braves",
-"total_mean": 8.22,
-"updated": "2026-09-08T22:50:32+00:00"
-},
-"e28a92e1cd8fe7ce97b34004a0d2063e": {
-"away_team": "Arizona Diamondbacks",
-"home_prob": 0.4922,
-"home_team": "Kansas City Royals",
-"total_mean": 9.614,
-"updated": "2026-09-08T22:50:32+00:00"
+"updated": "2026-09-09T00:58:59+00:00"
 },
 "f01c292dd868a51b739e2283164a5e94": {
 "away_team": "Cincinnati Reds",
 "home_prob": 0.7432,
 "home_team": "Los Angeles Dodgers",
 "total_mean": 8.479,
-"updated": "2026-09-08T22:50:32+00:00"
-},
-"f62b9e0454b38cb2e0509ef206a08138": {
-"away_team": "Pittsburgh Pirates",
-"home_prob": 0.5742,
-"home_team": "Chicago White Sox",
-"total_mean": 8.481,
-"updated": "2026-09-08T22:50:32+00:00"
+"updated": "2026-09-09T00:58:59+00:00"
 }
 }
