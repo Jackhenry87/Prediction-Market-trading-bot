@@ -4,13 +4,6 @@
 "home_prob": 0.5008,
 "home_team": "Chicago White Sox",
 "total_mean": 7.715,
-"updated": "2026-09-10T21:20:11+00:00"
-},
-"de5c4fe6a041ce8073e59e063fe7f31f": {
-"away_team": "Colorado Rockies",
-"home_prob": 0.727,
-"home_team": "New York Yankees",
-"total_mean": 8.42,
-"updated": "2026-09-10T21:20:11+00:00"
+"updated": "2026-09-10T23:18:20+00:00"
 }
 }
