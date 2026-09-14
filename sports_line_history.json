@@ -1,72 +1,23 @@
 {
-"0df8abb4425b8b10d8e3a0599974813f": {
-"away_team": "San Francisco Giants",
-"home_prob": 0.5658,
-"home_team": "St. Louis Cardinals",
-"total_mean": 7.809,
-"updated": "2026-09-14T21:01:03+00:00"
-},
 "20dfbbb1031896904e98bed3182f9fc4": {
 "away_team": "San Diego Padres",
 "home_prob": 0.3507,
 "home_team": "Colorado Rockies",
 "total_mean": 10.952,
-"updated": "2026-09-14T21:01:03+00:00"
-},
-"2a828119814add28306d706ccb802ac3": {
-"away_team": "Chicago White Sox",
-"home_prob": 0.5864,
-"home_team": "Cleveland Guardians",
-"total_mean": 6.82,
-"updated": "2026-09-14T21:01:03+00:00"
-},
-"68721959a546157007d97eeca5682379": {
-"away_team": "New York Yankees",
-"home_prob": 0.4635,
-"home_team": "Minnesota Twins",
-"total_mean": 8.135,
-"updated": "2026-09-14T21:01:03+00:00"
-},
-"6f154c72fa0631ec5a970f84c1492463": {
-"away_team": "Baltimore Orioles",
-"home_prob": 0.5324,
-"home_team": "New York Mets",
-"total_mean": 7.892,
-"updated": "2026-09-14T21:01:03+00:00"
-},
-"99d391c2ac7a5942710858c928ac73f8": {
-"away_team": "Atlanta Braves",
-"home_prob": 0.5562,
-"home_team": "Chicago Cubs",
-"total_mean": 9.47,
-"updated": "2026-09-14T21:01:03+00:00"
+"updated": "2026-09-14T23:55:57+00:00"
 },
 "9c0b5b3f819915fa2cd982a14186b77d": {
 "away_team": "Seattle Mariners",
 "home_prob": 0.4905,
 "home_team": "Los Angeles Angels",
 "total_mean": 7.437,
-"updated": "2026-09-14T21:01:03+00:00"
-},
-"b2124bf9ac2a7c068e866541e3d9bebe": {
-"away_team": "Detroit Tigers",
-"home_prob": 0.5576,
-"home_team": "Toronto Blue Jays",
-"total_mean": 7.488,
-"updated": "2026-09-14T21:01:03+00:00"
+"updated": "2026-09-14T23:55:57+00:00"
 },
 "d468d51c641b469172b3c59500fa2d49": {
 "away_team": "Miami Marlins",
 "home_prob": 0.5476,
 "home_team": "Arizona Diamondbacks",
 "total_mean": 8.397,
-"updated": "2026-09-14T21:01:03+00:00"
-},
-"fd0c792d70a4325cb16c03c7af9a089a": {
-"away_team": "Los Angeles Dodgers",
-"home_prob": 0.3337,
-"home_team": "Cincinnati Reds",
-"total_mean": 7.48,
-"updated": "2026-09-14T21:01:03+00:00"
+"updated": "2026-09-14T23:55:57+00:00"
 }
 }
