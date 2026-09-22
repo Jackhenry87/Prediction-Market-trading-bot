@@ -390,14 +390,24 @@ def scan(client: KalshiClient, series: list = None,
     return found
 
 
-def scan_both(client: KalshiClient) -> tuple:
-    """(takeable arbs, restable baskets) from ONE pass of the events feed.
-
-    Both questions are answered by the same pages, and the feed is ~60 requests
-    a pass, so asking them separately would double the cost of measuring for
-    nothing.
-    """
-    arbs, restable, cursor, seen = [], [], None, 0
+def _pages(client: KalshiClient, series: list):
+    """Yield (event, markets) over the configured scope, honouring ARB_SERIES
+    and ARB_CATEGORIES exactly as scan() does."""
+    if series:
+        for s in series:
+            try:
+                data = client._request(
+                    "GET", "/events",
+                    params={"series_ticker": s, "status": "open",
+                            "with_nested_markets": "true", "limit": 100})
+            except Exception as exc:
+                log.warning("Skipping %s: %s", s, exc)
+                continue
+            for event in data.get("events", []):
+                yield event, (event.get("markets") or [])
+        return
+    catset = {c.lower() for c in ARB_CATEGORIES} if ARB_CATEGORIES else None
+    cursor = None
     for _ in range(ARB_MAX_PAGES):
         params = {"status": "open", "with_nested_markets": "true", "limit": 200}
         if cursor:
@@ -406,20 +416,40 @@ def scan_both(client: KalshiClient) -> tuple:
             data = client._request("GET", "/events", params=params)
         except Exception as exc:
             log.warning("Events page failed: %s", exc)
-            break
+            return
         events = data.get("events", [])
-        seen += len(events)
         for event in events:
-            markets = event.get("markets") or []
-            arb = evaluate_event(event, markets)
-            if arb:
-                arbs.append(arb)
-            rest = restable_basket(event, markets)
-            if rest and rest["profit_cents"] > 0:
-                restable.append(rest)
+            if catset and str(event.get("category", "")).lower() not in catset:
+                continue
+            yield event, (event.get("markets") or [])
         cursor = data.get("cursor")
         if not cursor or not events:
-            break
+            return
+
+
+def scan_both(client: KalshiClient, series: list = None) -> tuple:
+    """(takeable arbs, restable baskets) from ONE pass of the events feed.
+
+    Both questions are answered by the same pages, and the feed is ~60 requests
+    a pass, so asking them separately would double the cost of measuring for
+    nothing.
+
+    Honours ARB_SERIES and ARB_CATEGORIES like scan() does. The first version of
+    this function paged the feed itself and ignored both, which silently broke
+    the documented way to pin the hunt to a few ladders — arb_scan.py had until
+    then called scan(), so switching it here disabled the env vars without any
+    visible sign.
+    """
+    series = series if series is not None else ARB_SERIES
+    arbs, restable, seen = [], [], 0
+    for event, markets in _pages(client, series):
+        seen += 1
+        arb = evaluate_event(event, markets)
+        if arb:
+            arbs.append(arb)
+        rest = restable_basket(event, markets)
+        if rest and rest["profit_cents"] > 0:
+            restable.append(rest)
     arbs.sort(key=lambda a: -a["profit_cents"])
     restable.sort(key=lambda a: -a["profit_cents"])
     log.info("Scanned %d open events -> %d takeable basket(s), "

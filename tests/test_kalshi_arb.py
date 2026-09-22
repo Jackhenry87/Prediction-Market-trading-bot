@@ -311,3 +311,66 @@ def test_an_unquoted_or_closed_leg_is_rejected():
 
 def test_a_single_leg_is_not_a_basket():
     assert kalshi_arb.restable_basket(EV, _lad([(40, 45)])) is None
+
+
+# --- scan_both must honour the same scope controls scan() does -------------
+#
+# The first version paged the events feed itself and ignored ARB_SERIES and
+# ARB_CATEGORIES, which kalshi_arb's own docstring documents. arb_scan.py had
+# called scan() until then, so switching it to scan_both silently disabled both
+# env vars with nothing to show it had happened.
+
+class _FakeFeed:
+    def __init__(self, pages=None, series_events=None):
+        self.pages, self.series_events, self.calls = pages or [], series_events or {}, []
+
+    def _request(self, method, path, params=None, body=None):
+        self.calls.append(dict(params or {}))
+        if params and params.get("series_ticker"):
+            return {"events": self.series_events.get(params["series_ticker"], [])}
+        return self.pages.pop(0) if self.pages else {"events": []}
+
+
+def _ev(ticker, cat, quotes):
+    return dict(EV, event_ticker=ticker, category=cat, markets=_lad(quotes))
+
+
+def test_scan_both_restricts_to_the_given_series():
+    feed = _FakeFeed(series_events={
+        "KXA": [_ev("A", "Economics", [(40, 45), (30, 35), (20, 25)])]})
+    arbs, rest = kalshi_arb.scan_both(feed, series=["KXA"])
+    assert [r["event_ticker"] for r in rest] == ["A"]
+    assert all(c.get("series_ticker") == "KXA" for c in feed.calls)
+
+
+def test_scan_both_honours_the_category_filter(monkeypatch):
+    monkeypatch.setattr(kalshi_arb, "ARB_CATEGORIES", ["Economics"])
+    feed = _FakeFeed(pages=[{"events": [
+        _ev("KEEP", "Economics", [(40, 45), (30, 35), (20, 25)]),
+        _ev("DROP", "Sports", [(40, 45), (30, 35), (20, 25)])]}])
+    _, rest = kalshi_arb.scan_both(feed)
+    assert [r["event_ticker"] for r in rest] == ["KEEP"]
+
+
+def test_scan_both_falls_back_to_the_env_series(monkeypatch):
+    monkeypatch.setattr(kalshi_arb, "ARB_SERIES", ["KXB"])
+    feed = _FakeFeed(series_events={
+        "KXB": [_ev("B", "Economics", [(40, 45), (30, 35), (20, 25)])]})
+    _, rest = kalshi_arb.scan_both(feed)
+    assert [r["event_ticker"] for r in rest] == ["B"]
+
+
+def test_scan_both_drops_restable_baskets_that_are_not_profitable():
+    # A ladder already decided: five dead legs at the 1c minimum plus a 96c
+    # favourite costs 101c for a guaranteed 100c. It must not be reported.
+    feed = _FakeFeed(pages=[{"events": [
+        _ev("DEAD", "Economics", [(0, 1)] * 5 + [(95, 99)])]}])
+    _, rest = kalshi_arb.scan_both(feed)
+    assert rest == []
+
+
+def test_scan_both_survives_a_failing_page():
+    class _Boom:
+        def _request(self, method, path, params=None, body=None):
+            raise RuntimeError("feed down")
+    assert kalshi_arb.scan_both(_Boom()) == ([], [])

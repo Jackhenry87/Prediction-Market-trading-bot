@@ -27,6 +27,24 @@ FLIPPING IT LIVE
 There is deliberately no order path in this file. When the recorded
 distribution justifies trading, the runner is a separate change with its own
 review, not a flag flipped here.
+
+THE DISTRIBUTION IS IN, AND IT SAYS NO (scored 2026-09-22, n=1,801)
+-------------------------------------------------------------------
+`live_score.py` answers the question above against real settlements. The
+recorder was right to be a recorder:
+
+    all comparisons          -2.04c/contract   -4.0% ROI
+    edge >= 7c (trade gate)  -5.36c            -12.8%
+    edge >= 15c             -15.13c            -43.9%
+
+The loss is MONOTONIC in the claimed edge, and the market's Brier score (0.2028)
+beats the model's (0.2256). So the edge measures the model's error, not the
+market's, and the trade gate selects the model's worst mistakes rather than the
+market's. Raising the gate makes it worse, not better.
+
+Do not build the runner. Anyone revisiting this should run `python
+live_score.py` first and must explain a negative monotone curve before
+proposing to trade against it.
 """
 
 import csv
