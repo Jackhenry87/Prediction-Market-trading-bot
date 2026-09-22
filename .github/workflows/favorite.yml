@@ -46,7 +46,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  STATE_FILES: paper_trades_favorite.csv paper_trades_sports.csv sports_line_history.json odds_quota.json odds_cache.json clv_sports.csv CLV_SCOREBOARD.md executed_trades.csv live_scan.csv arb_scan.csv
+  STATE_FILES: paper_trades_favorite.csv paper_trades_sports.csv sports_line_history.json odds_quota.json odds_cache.json clv_sports.csv CLV_SCOREBOARD.md executed_trades.csv live_scan.csv arb_scan.csv LIVE_SCOREBOARD.md live_results.json
 
 jobs:
   trade:
@@ -296,6 +296,19 @@ jobs:
           KALSHI_PRIVATE_KEY_PATH: kalshi_prod.pem
           KALSHI_ENV: ${{ vars.KALSHI_ENV || 'prod' }}
         run: python clv_tracker.py
+
+      - name: Score the in-play recorder against real settlements
+        # live_scan has been recording since 2026-08-10 and its docstring
+        # promised this pass; it was never written, so 1,804 comparisons sat
+        # unjudged for six weeks. The answer is decisive and negative: the loss
+        # is MONOTONIC in the claimed edge (-2.0c/contract overall, -15.1c at
+        # the 15c gate), which means the edge measures the model's error rather
+        # than the market's. Kept running so the curve stays current and anyone
+        # tempted to wire strategy_live to an order path has to read it first.
+        continue-on-error: true
+        env:
+          KALSHI_ENV: ${{ vars.KALSHI_ENV || 'prod' }}
+        run: python live_score.py
 
       - name: Record risk-free and restable baskets (measurement only)
         # Answers, with data rather than opinion, whether the one strategy on

@@ -44,3 +44,7 @@ odds_cache.json
 arb_scan.csv
 executed_trades.csv
 live_scan.csv
+
+# scored in-play scoreboard — lives on bot-state, never on main
+LIVE_SCOREBOARD.md
+live_results.json

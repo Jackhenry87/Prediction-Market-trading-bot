@@ -79,6 +79,17 @@ def record(arbs: list, path: Path = None, now: str = None) -> int:
     if not arbs:
         return 0
     new_file = not path.exists()
+    if not new_file:
+        try:
+            with open(path, newline="") as fh:
+                header = next(csv.reader(fh), [])
+        except OSError:
+            header = []
+        if header and header != COLUMNS:
+            # Retire the old layout beside the new one instead of appending
+            # rows of a different width under its header.
+            path.replace(path.with_suffix(path.suffix + ".oldcolumns"))
+            new_file = True
     with open(path, "a", newline="") as fh:
         w = csv.writer(fh)
         if new_file:
@@ -134,7 +145,7 @@ def summarise(path: Path = None) -> str:
             continue
         best = max(p for p, _ in group)
         parts.append(f"{len(group)} {name} sighting(s) across "
-                     f"{len({e for _, e in group})} event(s), best +{best:.1f}c")
+                     f"{len({e for _, e in group})} event(s), best {best:+.1f}c")
     if not parts:
         return "no sightings recorded yet"
     return f"over {len(days)} day(s): " + "; ".join(parts)
