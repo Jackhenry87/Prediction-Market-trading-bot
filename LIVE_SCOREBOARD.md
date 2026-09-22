@@ -4,15 +4,15 @@ What one contract TAKEN at the recorded price would actually have paid, taker fe
 
 | bucket | n | mean c/contract | total $ | win % | ROI |
 |---|---:|---:|---:|---:|---:|
-| all comparisons | 968 | +0.37 | +3.58 | 53% | +0.7% |
-| edge > 0 after fees | 389 | -0.17 | -0.64 | 49% | -0.3% |
-| edge >= 5c | 212 | -0.78 | -1.66 | 45% | -1.8% |
-| edge >= 7c (trade gate) | 158 | -1.70 | -2.69 | 42% | -4.1% |
-| edge >= 10c | 103 | -4.71 | -4.85 | 37% | -11.7% |
-| edge >= 15c | 51 | -13.21 | -6.74 | 22% | -39.5% |
+| all comparisons | 1563 | -1.36 | -21.27 | 52% | -2.6% |
+| edge > 0 after fees | 616 | -3.05 | -18.77 | 46% | -6.5% |
+| edge >= 5c | 335 | -4.87 | -16.31 | 41% | -11.1% |
+| edge >= 7c (trade gate) | 248 | -6.30 | -15.63 | 37% | -15.0% |
+| edge >= 10c | 162 | -8.90 | -14.41 | 33% | -22.2% |
+| edge >= 15c | 78 | -16.43 | -12.82 | 21% | -46.2% |
 
-Brier score (lower is better) — model 0.2268 vs market 0.2027.
+Brier score (lower is better) — model 0.2252 vs market 0.2014.
 
-836 comparison(s) not yet settled and excluded rather than counted as losses.
+254 comparison(s) not yet settled and excluded rather than counted as losses.
 
 **The claimed edge is anti-predictive.** Results get WORSE as the edge threshold rises, so the model's disagreement with the price measures the model's error, not the market's. The market is the better calibrated forecaster. Do not trade this.

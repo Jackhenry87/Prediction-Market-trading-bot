@@ -55,3 +55,57 @@ scanned_at_utc,event_ticker,title,side,n_legs,cost_cents,fees_cents,payout_cents
 2026-09-22T20:46:55+00:00,KXHIGHPHIL-26SEP23,"Highest temperature in Philadelphia on Sep 23, 2026?",yes-maker,6,99.0,0.0,100.0,1.0,1.01,108.0,0
 2026-09-22T20:46:55+00:00,KXLOWTHOU-26SEP22,"Lowest temperature in Houston on Sep 22, 2026?",yes-maker,6,99.0,0.0,100.0,1.0,1.01,114.0,4
 2026-09-22T20:46:55+00:00,KXETHY-27JAN0100,Ethereum price at the end of 2026,yes-maker,18,99.8,0.0,100.0,0.2,0.20,100.0,0
+2026-09-22T23:26:05+00:00,KXGDPYEAR-32,US real GDP growth in 2032?,yes-maker,14,63.0,0.0,100.0,37.0,58.73,115.0,1
+2026-09-22T23:26:05+00:00,KXLOWTNYC-26SEP23,"Lowest temperature in New York City on Sep 23, 2026?",yes-maker,6,74.0,0.0,100.0,26.0,35.14,102.0,0
+2026-09-22T23:26:05+00:00,KXGDPYEAR-36,US real GDP growth in 2036?,yes-maker,14,79.0,0.0,100.0,21.0,26.58,116.0,0
+2026-09-22T23:26:05+00:00,KXLOWTPHIL-26SEP23,"Lowest temperature in Philadelphia on Sep 23, 2026?",yes-maker,6,79.0,0.0,100.0,21.0,26.58,125.0,2
+2026-09-22T23:26:05+00:00,KXLOWTBOS-26SEP23,"Lowest temperature in Boston on Sep 23, 2026?",yes-maker,6,80.0,0.0,100.0,20.0,25.00,120.0,1
+2026-09-22T23:26:05+00:00,KXGDPYEAR-29,US real GDP growth in 2029?,yes-maker,14,82.0,0.0,100.0,18.0,21.95,129.0,1
+2026-09-22T23:26:05+00:00,KXLOWTMIA-26SEP23,"Lowest temperature in Miami on Sep 23, 2026?",yes-maker,6,82.0,0.0,100.0,18.0,21.95,112.0,0
+2026-09-22T23:26:05+00:00,KXLOWTAUS-26SEP23,"Lowest temperature in Austin on Sep 23, 2026?",yes-maker,6,84.0,0.0,100.0,16.0,19.05,105.0,0
+2026-09-22T23:26:05+00:00,KXLOWTLV-26SEP23,"Lowest temperature in Las Vegas on Sep 23, 2026?",yes-maker,6,85.0,0.0,100.0,15.0,17.65,126.0,1
+2026-09-22T23:26:05+00:00,KXLOWTNOLA-26SEP23,"Lowest temperature in New Orleans on Sep 23, 2026?",yes-maker,6,86.0,0.0,100.0,14.0,16.28,120.0,1
+2026-09-22T23:26:05+00:00,KXLOWTATL-26SEP23,"Lowest temperature in Atlanta on Sep 23, 2026?",yes-maker,6,86.0,0.0,100.0,14.0,16.28,111.0,2
+2026-09-22T23:26:05+00:00,KXHOUSEWINSTATE-FLD,How many House seats will Democrats win in Florida?,yes-maker,9,87.0,0.0,100.0,13.0,14.94,123.0,1
+2026-09-22T23:26:05+00:00,KXHOUSEWINSTATE-AZD,How many House seats will Democrats win in Arizona?,yes-maker,6,87.0,0.0,100.0,13.0,14.94,106.0,1
+2026-09-22T23:26:05+00:00,KXGDPYEAR-30,US real GDP growth in 2030?,yes-maker,14,88.0,0.0,100.0,12.0,13.64,119.0,3
+2026-09-22T23:26:05+00:00,KXSOCKEYERUN-27,Bristol Bay sockeye run forecast for 2027,yes-maker,6,88.0,0.0,100.0,12.0,13.64,117.0,1
+2026-09-22T23:26:05+00:00,KXTXHOUSEDEMSEATS-26NOV03,How many House seats will Democrats win in Texas?,yes-maker,8,88.6,0.0,100.0,11.4,12.87,109.0,0
+2026-09-22T23:26:05+00:00,KXGDPYEAR-28,US real GDP growth in 2028?,yes-maker,14,90.0,0.0,100.0,10.0,11.11,122.0,2
+2026-09-22T23:26:05+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes-maker,12,90.0,0.0,100.0,10.0,11.11,99.0,0
+2026-09-22T23:26:05+00:00,KXHOUSEWINSTATE-PAD,How many House seats will Democrats win in Pennsylvania?,yes-maker,8,90.0,0.0,100.0,10.0,11.11,106.0,3
+2026-09-22T23:26:05+00:00,KXLOWTSEA-26SEP22,"Lowest temperature in Seattle on Sep 22, 2026?",yes-maker,6,90.0,0.0,100.0,10.0,11.11,121.0,2
+2026-09-22T23:26:05+00:00,KXLOWTSATX-26SEP23,"Lowest temperature in San Antonio on Sep 23, 2026?",yes-maker,6,91.0,0.0,100.0,9.0,9.89,122.0,1
+2026-09-22T23:26:05+00:00,KXLOWTPHX-26SEP23,"Lowest temperature in Phoenix on Sep 23, 2026?",yes-maker,6,91.0,0.0,100.0,9.0,9.89,117.0,1
+2026-09-22T23:26:05+00:00,KXLOWTOKC-26SEP23,"Lowest temperature in Oklahoma City on Sep 23, 2026?",yes-maker,6,91.0,0.0,100.0,9.0,9.89,117.0,1
+2026-09-22T23:26:05+00:00,KXLOWTMIN-26SEP23,"Lowest temperature in Minneapolis on Sep 23, 2026?",yes-maker,6,91.0,0.0,100.0,9.0,9.89,130.0,1
+2026-09-22T23:26:05+00:00,KXLOWTDC-26SEP23,"Lowest temperature in Washington DC on Sep 23, 2026?",yes-maker,6,91.0,0.0,100.0,9.0,9.89,114.0,1
+2026-09-22T23:26:05+00:00,KXLOWTMIA-26SEP22,"Lowest temperature in Miami on Sep 22, 2026?",yes-maker,6,91.0,0.0,100.0,9.0,9.89,123.0,2
+2026-09-22T23:26:05+00:00,KXGDPYEAR-26,US real GDP growth in 2026?,yes-maker,14,91.4,0.0,100.0,8.6,9.41,114.19999999999999,5
+2026-09-22T23:26:05+00:00,KXLOWTDEN-26SEP23,"Lowest temperature in Denver on Sep 23, 2026?",yes-maker,6,92.0,0.0,100.0,8.0,8.70,124.0,0
+2026-09-22T23:26:05+00:00,KXLOWTMIN-26SEP22,"Lowest temperature in Minneapolis on Sep 22, 2026?",yes-maker,6,92.0,0.0,100.0,8.0,8.70,125.0,4
+2026-09-22T23:26:05+00:00,KXLOWTBOS-26SEP22,"Lowest temperature in Boston on Sep 22, 2026?",yes-maker,6,92.0,0.0,100.0,8.0,8.70,122.0,1
+2026-09-22T23:26:05+00:00,KXLOWTSEA-26SEP23,"Lowest temperature in Seattle on Sep 23, 2026?",yes-maker,6,93.0,0.0,100.0,7.0,7.53,129.0,1
+2026-09-22T23:26:05+00:00,KXLOWTLAX-26SEP23,"Lowest temperature in Los Angeles on Sep 23, 2026?",yes-maker,6,93.0,0.0,100.0,7.0,7.53,114.0,1
+2026-09-22T23:26:05+00:00,KXCAHOUSEDEM-26NOV03,How many House seats will Democrats win in California?,yes-maker,8,93.7,0.0,100.0,6.3,6.72,107.7,0
+2026-09-22T23:26:05+00:00,KXLOWTHOU-26SEP23,"Lowest temperature in Houston on Sep 23, 2026?",yes-maker,6,94.0,0.0,100.0,6.0,6.38,121.0,1
+2026-09-22T23:26:05+00:00,KXHOUSEWINSTATE-OHD,How many House seats will Democrats win in Ohio?,yes-maker,7,95.0,0.0,100.0,5.0,5.26,113.0,0
+2026-09-22T23:26:05+00:00,KXLOWTATL-26SEP22,"Lowest temperature in Atlanta on Sep 22, 2026?",yes-maker,6,95.0,0.0,100.0,5.0,5.26,111.0,3
+2026-09-22T23:26:05+00:00,KXNUMREDISTRICTING-26NOV03,How many states will redistrict before the midterms?,yes-maker,7,96.0,0.0,100.0,4.0,4.17,103.0,0
+2026-09-22T23:26:05+00:00,KXHOUSEWINSTATE-NYD,How many House seats will Democrats win in New York?,yes-maker,10,96.0,0.0,100.0,4.0,4.17,116.0,3
+2026-09-22T23:26:05+00:00,KXHOUSEWINSTATE-MID,How many House seats will Democrats win in Michigan?,yes-maker,7,96.0,0.0,100.0,4.0,4.17,113.0,2
+2026-09-22T23:26:05+00:00,KXHOUSEWINSTATE-GAD,How many House seats will Democrats win in Georgia?,yes-maker,5,96.0,0.0,100.0,4.0,4.17,113.0,0
+2026-09-22T23:26:05+00:00,KXLOWTOKC-26SEP22,"Lowest temperature in Oklahoma City on Sep 22, 2026?",yes-maker,6,96.0,0.0,100.0,4.0,4.17,119.0,3
+2026-09-22T23:26:05+00:00,KXLOWTNYC-26SEP22,"Lowest temperature in New York City on Sep 22, 2026?",yes-maker,6,97.0,0.0,100.0,3.0,3.09,127.0,3
+2026-09-22T23:26:05+00:00,KXLOWTHOU-26SEP22,"Lowest temperature in Houston on Sep 22, 2026?",yes-maker,6,97.0,0.0,100.0,3.0,3.09,114.0,4
+2026-09-22T23:26:05+00:00,KXLOWTEWR-26SEP22,"Lowest temperature in Newark on Sep 22, 2026?",yes-maker,6,97.0,0.0,100.0,3.0,3.09,123.0,4
+2026-09-22T23:26:05+00:00,KXHMONTHRANGE-26SEP,Sep 2026 temperature increase?,yes-maker,6,98.0,0.0,100.0,2.0,2.04,116.0,4
+2026-09-22T23:26:05+00:00,KXHIGHTSATX-26SEP23,"Highest temperature in San Antonio on Sep 23, 2026?",yes-maker,6,98.0,0.0,100.0,2.0,2.04,100.0,1
+2026-09-22T23:26:05+00:00,KXHIGHTDC-26SEP23,"Highest temperature in Washington DC on Sep 23, 2026?",yes-maker,6,98.0,0.0,100.0,2.0,2.04,102.0,0
+2026-09-22T23:26:05+00:00,KXUSDJPY-26SEP2310,"USD/JPY price on Sep 23, 2026 at 10am EDT?",yes-maker,15,98.0,0.0,100.0,2.0,2.04,110.0,0
+2026-09-22T23:26:05+00:00,KXHIGHTSFO-26SEP23,"Highest temperature in San Francisco on Sep 23, 2026?",yes-maker,6,99.0,0.0,100.0,1.0,1.01,104.0,0
+2026-09-22T23:26:05+00:00,KXHIGHTMIN-26SEP23,"Highest temperature in Minneapolis on Sep 23, 2026?",yes-maker,6,99.0,0.0,100.0,1.0,1.01,103.0,0
+2026-09-22T23:26:05+00:00,KXHIGHTBOS-26SEP23,"Highest temperature in Boston on Sep 23, 2026?",yes-maker,6,99.0,0.0,100.0,1.0,1.01,104.0,1
+2026-09-22T23:26:05+00:00,KXHIGHTATL-26SEP23,"Highest temperature in Atlanta on Sep 23, 2026?",yes-maker,6,99.0,0.0,100.0,1.0,1.01,107.0,0
+2026-09-22T23:26:05+00:00,KXHIGHTLV-26SEP22,"Highest temperature in Las Vegas on Sep 22, 2026?",yes-maker,6,99.0,0.0,100.0,1.0,1.01,109.0,4
+2026-09-22T23:26:05+00:00,KXETHY-27JAN0100,Ethereum price at the end of 2026,yes-maker,18,99.7,0.0,100.0,0.3,0.30,99.8,0
