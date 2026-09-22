@@ -150,6 +150,63 @@ def evaluate_event(event: dict, markets: list) -> dict:
     return max(candidates, key=lambda a: a["profit_cents"], default=None)
 
 
+# A ladder whose asks sum far above par is not "expensive", it is UNQUOTED —
+# six legs each showing a 99c stub ask sum to 594c. Those stubs also leave the
+# bid side empty, which makes a resting basket look absurdly cheap (6c for a
+# guaranteed $1). Requiring a normal ladder tax on the ask side is what
+# separates a real illiquid market from one with no market at all.
+ARB_WELLFORMED_MAX_CENTS = float(os.getenv("ARB_WELLFORMED_MAX_CENTS", "130"))
+
+
+def restable_basket(event: dict, markets: list) -> dict:
+    """What a MAKER would pay to assemble the same basket — measurement only.
+
+    Taking a complete basket is almost never profitable: on 2026-08-21, 2 of
+    3,609 quoted mutually-exclusive ladders priced under $1 at the ask, and
+    every daily-resolving ladder sat 4-18c ABOVE par. The ask side is where the
+    liquidity providers earn; the question this answers is what the other side
+    of that trade is worth.
+
+    Each leg is priced at the best tick you could actually POST — one cent
+    inside the current bid, never through the ask — and 1c is the exchange
+    minimum, so a leg with no bid at all still costs 1c. That minimum tick is a
+    real structural tax: an n-leg ladder whose probability mass sits on one leg
+    pays (n-1) x 1c to complete, which is why six-leg same-day temperature
+    ladders cannot be made profitably once the day's outcome is known.
+
+    Kalshi charges no maker fee, so cost under 100c is the whole test.
+
+    THIS IS NOT AN EDGE YET, and nothing here places an order. A resting quote
+    is not a fill: every leg only fills when someone sells into it, and the
+    wider the basket the likelier you are filled solely on the legs where you
+    were wrong. The favourite model already rested inside the book and filled 0
+    of 7. What this records is the size of the prize, so that fill rates can be
+    judged against something.
+    """
+    if not event.get("mutually_exclusive") or not _exhaustive_numeric(markets):
+        return None
+    if any(m.get("status") not in (None, "active", "open") for m in markets):
+        return None
+    if len(markets) < 2:
+        return None
+    asks = [price_cents(m, "yes_ask") for m in markets]
+    bids = [price_cents(m, "yes_bid") for m in markets]
+    if not all(a and 0 < a <= 100 for a in asks):
+        return None                      # an unquoted leg -> basket incomplete
+    if sum(asks) > ARB_WELLFORMED_MAX_CENTS:
+        return None                      # stub quotes, not a market
+    posts = [min(max((b or 0.0) + 1.0, 1.0), a) for b, a in zip(bids, asks)]
+    cost = sum(posts)
+    return dict(event_ticker=event.get("event_ticker") or event.get("ticker"),
+                title=event.get("title", ""), n=len(markets), side="yes-maker",
+                cost_cents=cost, fees_cents=0.0, payout_cents=100.0,
+                profit_cents=100.0 - cost,
+                take_cost_cents=sum(asks),
+                dead_legs=sum(1 for b in bids if not b),
+                legs=[(m.get("ticker"), p, "yes")
+                      for m, p in zip(markets, posts)])
+
+
 def _ladder_for_buy(orderbook: dict, want_side: str) -> list:
     """Ascending (buy_price_cents, qty) you can BUY `want_side` at, cheapest
     first. On Kalshi's single book, buying YES matches resting NO orders
@@ -331,6 +388,43 @@ def scan(client: KalshiClient, series: list = None,
             client, categories if categories is not None else ARB_CATEGORIES)
     found.sort(key=lambda a: -a["profit_cents"])
     return found
+
+
+def scan_both(client: KalshiClient) -> tuple:
+    """(takeable arbs, restable baskets) from ONE pass of the events feed.
+
+    Both questions are answered by the same pages, and the feed is ~60 requests
+    a pass, so asking them separately would double the cost of measuring for
+    nothing.
+    """
+    arbs, restable, cursor, seen = [], [], None, 0
+    for _ in range(ARB_MAX_PAGES):
+        params = {"status": "open", "with_nested_markets": "true", "limit": 200}
+        if cursor:
+            params["cursor"] = cursor
+        try:
+            data = client._request("GET", "/events", params=params)
+        except Exception as exc:
+            log.warning("Events page failed: %s", exc)
+            break
+        events = data.get("events", [])
+        seen += len(events)
+        for event in events:
+            markets = event.get("markets") or []
+            arb = evaluate_event(event, markets)
+            if arb:
+                arbs.append(arb)
+            rest = restable_basket(event, markets)
+            if rest and rest["profit_cents"] > 0:
+                restable.append(rest)
+        cursor = data.get("cursor")
+        if not cursor or not events:
+            break
+    arbs.sort(key=lambda a: -a["profit_cents"])
+    restable.sort(key=lambda a: -a["profit_cents"])
+    log.info("Scanned %d open events -> %d takeable basket(s), "
+             "%d restable basket(s)", seen, len(arbs), len(restable))
+    return arbs, restable
 
 
 def main() -> int:

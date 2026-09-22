@@ -91,7 +91,7 @@ def test_summary_counts_distinct_events_and_days(tmp_path):
                     path=p, now="2026-08-07T01:00:00")
     arb_scan.record([_arb("A", profit=3.0)], path=p, now="2026-08-08T01:00:00")
     s = arb_scan.summarise(p)
-    assert "3 sightings" in s and "2 distinct events" in s
+    assert "3 takeable sighting(s)" in s and "2 event(s)" in s
     assert "2 day(s)" in s and "+9.0c" in s
 
 
@@ -101,4 +101,17 @@ def test_summary_survives_a_malformed_row(tmp_path):
     with open(p, "a") as fh:
         fh.write("2026-08-07T02:00:00,B,junk,yes,3,x,y,z,NOT_A_NUMBER,\n")
     s = arb_scan.summarise(p)          # must not raise
-    assert "sightings" in s and "+4.0c" in s
+    assert "sighting(s)" in s and "+4.0c" in s
+
+
+def test_takeable_and_restable_are_never_pooled(tmp_path):
+    # A maker basket posting at 47c reports +53c. Reported next to a +2.3c
+    # takeable one it would read as the better find, when it is the one nobody
+    # has filled. They must be counted apart.
+    p = tmp_path / "arb_scan.csv"
+    arb_scan.record([_arb("A", profit=2.3),
+                     _arb("B", profit=53.0, side="yes-maker")],
+                    path=p, now="2026-08-21T01:00:00")
+    s = arb_scan.summarise(p)
+    assert "1 takeable sighting(s)" in s and "best +2.3c" in s
+    assert "1 restable sighting(s)" in s and "best +53.0c" in s

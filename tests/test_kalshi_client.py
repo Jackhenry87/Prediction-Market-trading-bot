@@ -115,3 +115,47 @@ def test_get_positions_flat_book_stays_empty(client):
     client._request = lambda method, path, params=None, body=None: {
         "market_positions": [], "event_positions": [], "cursor": None}
     assert client.get_positions(retries=1)["market_positions"] == []
+
+
+# --- the order book the exchange actually returns now ----------------------
+#
+# /markets/{t}/orderbook answers with `orderbook_fp`, whose levels are DOLLAR
+# strings, not the integer cents of the retired `orderbook` key. Reading only
+# the old key returned {} for every market on the exchange — and every caller
+# reads {} as "no depth", which is indistinguishable from a genuinely empty
+# book. kalshi_arb.size_basket silently declined every basket it was handed.
+
+def test_orderbook_reads_the_fp_dollar_shape(client):
+    client._request = lambda method, path, params=None, body=None: {
+        "orderbook_fp": {
+            "yes_dollars": [["0.0100", "50.00"], ["0.4610", "860.00"]],
+            "no_dollars": [["0.3000", "229.00"]],
+        }
+    }
+    book = client.get_orderbook("KXTEST")
+    assert book["yes"] == [[1.0, 50.0], [46.1, 860.0]]
+    assert book["no"] == [[30.0, 229.0]]
+
+
+def test_orderbook_still_reads_the_legacy_shape(client):
+    client._request = lambda method, path, params=None, body=None: {
+        "orderbook": {"yes": [[30, 100]], "no": [[70, 5]]}
+    }
+    assert client.get_orderbook("KXTEST") == {"yes": [[30, 100]], "no": [[70, 5]]}
+
+
+def test_orderbook_of_an_untraded_market_is_empty(client):
+    client._request = lambda method, path, params=None, body=None: {
+        "orderbook_fp": {"yes_dollars": [], "no_dollars": []}}
+    assert client.get_orderbook("KXTEST") == {}
+    client._request = lambda method, path, params=None, body=None: {}
+    assert client.get_orderbook("KXTEST") == {}
+    client._request = lambda method, path, params=None, body=None: {
+        "orderbook": None}
+    assert client.get_orderbook("KXTEST") == {}
+
+
+def test_a_malformed_level_is_skipped_not_fatal(client):
+    client._request = lambda method, path, params=None, body=None: {
+        "orderbook_fp": {"yes_dollars": [["oops", "1"], [], ["0.2500", "7"]]}}
+    assert client.get_orderbook("KXTEST") == {"yes": [[25.0, 7.0]]}

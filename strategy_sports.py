@@ -359,6 +359,7 @@ def evaluate_total_market(market: dict, mean: float, move: float = None) -> list
     if (yes_ask and 0 < yes_ask < 100 and p_over >= SPORTS_MIN_CONFIDENCE
             and steam_ok(True)):
         ev = 100.0 * p_over - yes_ask - taker_fee_cents(yes_ask)
+        _note_edge("totals", ev, f"{market.get('ticker')} yes @{yes_ask:.0f}c")
         if edge_ok(ev, market.get("ticker")):
             signals.append(dict(side="yes", price_cents=yes_ask,
                                 model_prob=p_over, ev_cents=ev,
@@ -368,6 +369,7 @@ def evaluate_total_market(market: dict, mean: float, move: float = None) -> list
             and steam_ok(False)):
         no_price = 100.0 - yes_bid
         ev = 100.0 * (1.0 - p_over) - no_price - taker_fee_cents(no_price)
+        _note_edge("totals", ev, f"{market.get('ticker')} no @{no_price:.0f}c")
         if edge_ok(ev, market.get("ticker")):
             signals.append(dict(side="no", price_cents=no_price,
                                 model_prob=1.0 - p_over, ev_cents=ev,
@@ -453,6 +455,19 @@ def covers_game(market: dict, game: dict) -> bool:
 # settlement guard — is two too many. The gates now count themselves, so the
 # next run says which one is binding instead of us inferring it from silence.
 REJECTS = collections.Counter()
+
+# The best edge SEEN this scan, whether or not it cleared the floor. "0
+# qualifying" on its own cannot distinguish "the market is efficient" from
+# "something upstream is broken", and that ambiguity has cost hours of
+# investigation more than once. A run that reports "best +0.5c against a 5.0c
+# floor" answers the question in the log.
+BEST_SEEN = {"ml": None, "totals": None}
+
+
+def _note_edge(kind: str, ev_cents: float, label: str = "") -> None:
+    cur = BEST_SEEN.get(kind)
+    if cur is None or ev_cents > cur[0]:
+        BEST_SEEN[kind] = (ev_cents, label)
 
 
 def _reject(reason: str) -> None:
@@ -858,6 +873,7 @@ def evaluate_market(market: dict, games: list, history: dict = None,
     if (yes_ask and 0 < yes_ask < 100 and steam_ok(side)
             and p >= SPORTS_MIN_CONFIDENCE):
         ev = 100.0 * p - yes_ask - taker_fee_cents(yes_ask)
+        _note_edge("ml", ev, f"{market.get('ticker')} yes @{yes_ask:.0f}c")
         if edge_ok(ev, market.get("ticker")):
             signals.append(dict(side="yes", price_cents=yes_ask,
                                 model_prob=p, ev_cents=ev,
@@ -962,6 +978,7 @@ def scan(api_key: str) -> list:
     places, so the budget holds across polls within a session. Result shape
     matches the other models; 'date' carries the event ticker."""
     REJECTS.clear()      # per-scan, not cumulative across polls
+    BEST_SEEN.update({"ml": None, "totals": None})
 
     # Probable starters for every scheduled game, once per scan. Free endpoint,
     # no key, no odds credits — the same scoreboard live_state already polls.
@@ -1118,6 +1135,14 @@ def scan(api_key: str) -> list:
     for cands, kind in ((ml_cands, "ml"), (tot_cands, "totals")):
         log.info("Sports %s: %d qualifying, %d placed today", kind,
                  len(cands), _sports_placed_today(kind))
+
+    for kind in ("ml", "totals"):
+        seen = BEST_SEEN.get(kind)
+        if seen is None:
+            log.info("Sports %s: no market was priced at all this scan", kind)
+        else:
+            log.info("Sports %s: best edge seen %+.1fc against a %.1fc floor "
+                     "(%s)", kind, seen[0], MIN_EDGE_CENTS, seen[1])
 
     budget = max(0, SPORTS_MAX_PER_DAY - _sports_placed_today("all"))
     pool = sorted(ml_cands + tot_cands,
