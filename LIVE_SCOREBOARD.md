@@ -13,4 +13,6 @@ What one contract TAKEN at the recorded price would actually have paid, taker fe
 
 Brier score (lower is better) — model 0.2252 vs market 0.2030.
 
+8 comparison(s) not yet settled and excluded rather than counted as losses.
+
 **The claimed edge is anti-predictive.** Results get WORSE as the edge threshold rises, so the model's disagreement with the price measures the model's error, not the market's. The market is the better calibrated forecaster. Do not trade this.
