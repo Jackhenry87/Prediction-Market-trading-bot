@@ -294,3 +294,17 @@ scanned_at_utc,event_ticker,title,side,n_legs,cost_cents,fees_cents,payout_cents
 2026-09-23T23:28:36+00:00,KXHIGHPHIL-26SEP24,"Highest temperature in Philadelphia on Sep 24, 2026?",yes-maker,6,97.0,0.0,100.0,3.0,3.09,103.0,0
 2026-09-23T23:28:36+00:00,KXHOUSEWINSTATE-NYD,How many House seats will Democrats win in New York?,yes-maker,10,98.0,0.0,100.0,2.0,2.04,123.0,3
 2026-09-23T23:28:36+00:00,KXETHY-27JAN0100,Ethereum price at the end of 2026,yes-maker,18,98.8,0.0,100.0,1.2,1.21,98.8,0
+2026-09-24T01:36:10+00:00,KXGDPYEAR-32,US real GDP growth in 2032?,yes-maker,14,55.0,0.0,100.0,45.0,81.82,98.0,3
+2026-09-24T01:36:10+00:00,KXHOUSEWINSTATE-FLD,How many House seats will Democrats win in Florida?,yes-maker,9,85.0,0.0,100.0,15.0,17.65,126.0,1
+2026-09-24T01:36:10+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes-maker,12,90.0,0.0,100.0,10.0,11.11,99.0,0
+2026-09-24T01:36:10+00:00,KXGDPYEAR-26,US real GDP growth in 2026?,yes-maker,14,90.5,0.0,100.0,9.5,10.50,112.5,5
+2026-09-24T01:36:10+00:00,KXGDPYEAR-28,US real GDP growth in 2028?,yes-maker,14,91.0,0.0,100.0,9.0,9.89,123.0,2
+2026-09-24T01:36:10+00:00,KXHOUSEWINSTATE-AZD,How many House seats will Democrats win in Arizona?,yes-maker,6,92.0,0.0,100.0,8.0,8.70,118.0,1
+2026-09-24T01:36:10+00:00,KXCAHOUSEDEM-26NOV03,How many House seats will Democrats win in California?,yes-maker,8,92.6,0.0,100.0,7.4,7.99,108.4,0
+2026-09-24T01:36:10+00:00,KXHOUSEWINSTATE-MID,How many House seats will Democrats win in Michigan?,yes-maker,7,93.0,0.0,100.0,7.0,7.53,117.0,2
+2026-09-24T01:36:10+00:00,KXTXHOUSEDEMSEATS-26NOV03,How many House seats will Democrats win in Texas?,yes-maker,8,93.6,0.0,100.0,6.4,6.84,118.0,0
+2026-09-24T01:36:10+00:00,KXNUMREDISTRICTING-26NOV03,How many states will redistrict before the midterms?,yes-maker,7,96.0,0.0,100.0,4.0,4.17,105.0,0
+2026-09-24T01:36:10+00:00,KXHOUSEWINSTATE-GAD,How many House seats will Democrats win in Georgia?,yes-maker,5,96.0,0.0,100.0,4.0,4.17,115.0,0
+2026-09-24T01:36:10+00:00,KXHOUSEWINSTATE-NYD,How many House seats will Democrats win in New York?,yes-maker,10,98.0,0.0,100.0,2.0,2.04,123.0,3
+2026-09-24T01:36:10+00:00,KXETHY-27JAN0100,Ethereum price at the end of 2026,yes-maker,18,98.5,0.0,100.0,1.5,1.52,98.5,0
+2026-09-24T01:36:10+00:00,KXBTCY-27JAN0100,Bitcoin price at the end of 2026,yes-maker,28,99.8,0.0,100.0,0.2,0.20,99.8,0
