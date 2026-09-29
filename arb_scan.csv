@@ -1605,3 +1605,46 @@ scanned_at_utc,event_ticker,title,side,n_legs,cost_cents,fees_cents,payout_cents
 2026-09-29T19:31:41+00:00,KXLOWTMIA-26SEP29,"Lowest temperature in Miami on Sep 29, 2026?",yes-maker,6,99.0,0.0,100.0,1.0,1.01,111.0,5
 2026-09-29T19:31:41+00:00,KXLOWTLV-26SEP29,"Lowest temperature in Las Vegas on Sep 29, 2026?",yes-maker,6,99.0,0.0,100.0,1.0,1.01,105.0,5
 2026-09-29T19:31:41+00:00,KXHIGHTOKC-26SEP29,"Highest temperature in Oklahoma City on Sep 29, 2026?",yes-maker,6,99.0,0.0,100.0,1.0,1.01,104.0,2
+2026-09-29T23:22:11+00:00,KXLOWTSDF-26SEP30,"Lowest temperature in Louisville on Sep 30, 2026?",yes-maker,6,63.0,0.0,100.0,37.0,58.73,119.0,1
+2026-09-29T23:22:11+00:00,KXLOWTMIA-26SEP30,"Lowest temperature in Miami on Sep 30, 2026?",yes-maker,6,69.0,0.0,100.0,31.0,44.93,114.0,0
+2026-09-29T23:22:11+00:00,KXLOWTATL-26SEP30,"Lowest temperature in Atlanta on Sep 30, 2026?",yes-maker,6,69.0,0.0,100.0,31.0,44.93,122.0,1
+2026-09-29T23:22:11+00:00,KXGDPYEAR-36,US real GDP growth in 2036?,yes-maker,14,73.0,0.0,100.0,27.0,36.99,105.0,2
+2026-09-29T23:22:11+00:00,KXLOWTNOLA-26SEP30,"Lowest temperature in New Orleans on Sep 30, 2026?",yes-maker,6,76.0,0.0,100.0,24.0,31.58,126.0,2
+2026-09-29T23:22:11+00:00,KXLOWTDEN-26SEP29,"Lowest temperature in Denver on Sep 29, 2026?",yes-maker,6,76.0,0.0,100.0,24.0,31.58,130.0,3
+2026-09-29T23:22:11+00:00,KXLOWTDC-26SEP30,"Lowest temperature in Washington DC on Sep 30, 2026?",yes-maker,6,77.0,0.0,100.0,23.0,29.87,123.0,2
+2026-09-29T23:22:11+00:00,KXGDPYEAR-30,US real GDP growth in 2030?,yes-maker,14,80.0,0.0,100.0,20.0,25.00,109.0,3
+2026-09-29T23:22:11+00:00,KXLOWTSEA-26SEP29,"Lowest temperature in Seattle on Sep 29, 2026?",yes-maker,6,80.0,0.0,100.0,20.0,25.00,122.0,4
+2026-09-29T23:22:11+00:00,KXGDPYEAR-32,US real GDP growth in 2032?,yes-maker,14,81.0,0.0,100.0,19.0,23.46,108.0,0
+2026-09-29T23:22:11+00:00,KXVHGCB-26OCT02,"Generic congressional ballot on Oct 2, 2026?",yes-maker,7,82.0,0.0,100.0,18.0,21.95,117.0,0
+2026-09-29T23:22:11+00:00,KXLOWTOKC-26SEP30,"Lowest temperature in Oklahoma City on Sep 30, 2026?",yes-maker,6,83.0,0.0,100.0,17.0,20.48,127.0,0
+2026-09-29T23:22:11+00:00,KXLOWTNYC-26SEP30,"Lowest temperature in New York City on Sep 30, 2026?",yes-maker,6,83.0,0.0,100.0,17.0,20.48,109.0,2
+2026-09-29T23:22:11+00:00,KXLOWTLV-26SEP30,"Lowest temperature in Las Vegas on Sep 30, 2026?",yes-maker,6,83.0,0.0,100.0,17.0,20.48,107.0,1
+2026-09-29T23:22:11+00:00,KXLOWTCHI-26SEP30,"Lowest temperature in Chicago on Sep 30, 2026?",yes-maker,6,83.0,0.0,100.0,17.0,20.48,118.0,1
+2026-09-29T23:22:11+00:00,KXGDPYEAR-34,US real GDP growth in 2034?,yes-maker,14,84.0,0.0,100.0,16.0,19.05,106.0,0
+2026-09-29T23:22:11+00:00,KXLOWTDEN-26SEP30,"Lowest temperature in Denver on Sep 30, 2026?",yes-maker,6,84.0,0.0,100.0,16.0,19.05,125.0,0
+2026-09-29T23:22:11+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes-maker,12,85.3,0.0,100.0,14.7,17.23,99.0,0
+2026-09-29T23:22:11+00:00,KXGDPYEAR-29,US real GDP growth in 2029?,yes-maker,14,86.0,0.0,100.0,14.0,16.28,129.0,1
+2026-09-29T23:22:11+00:00,KXHOUSEWINSTATE-AZD,How many House seats will Democrats win in Arizona?,yes-maker,6,87.0,0.0,100.0,13.0,14.94,112.0,1
+2026-09-29T23:22:11+00:00,KXSOCKEYERUN-27,Bristol Bay sockeye run forecast for 2027,yes-maker,6,87.0,0.0,100.0,13.0,14.94,123.0,1
+2026-09-29T23:22:11+00:00,KXGDPYEAR-35,US real GDP growth in 2035?,yes-maker,14,88.0,0.0,100.0,12.0,13.64,120.0,0
+2026-09-29T23:22:11+00:00,KXGDPYEAR-28,US real GDP growth in 2028?,yes-maker,14,89.0,0.0,100.0,11.0,12.36,122.0,2
+2026-09-29T23:22:11+00:00,KXHOUSEWINSTATE-FLD,How many House seats will Democrats win in Florida?,yes-maker,9,89.0,0.0,100.0,11.0,12.36,130.0,1
+2026-09-29T23:22:11+00:00,KXLOWTBOS-26SEP30,"Lowest temperature in Boston on Sep 30, 2026?",yes-maker,6,89.0,0.0,100.0,11.0,12.36,104.0,2
+2026-09-29T23:22:11+00:00,KXGDPYEAR-27,US real GDP growth in 2027?,yes-maker,14,90.0,0.0,100.0,10.0,11.11,128.0,1
+2026-09-29T23:22:11+00:00,KXLOWTLAX-26SEP30,"Lowest temperature in Los Angeles on Sep 30, 2026?",yes-maker,6,90.0,0.0,100.0,10.0,11.11,116.0,2
+2026-09-29T23:22:11+00:00,KXUSDJPY-26SEP3010,"USD/JPY price on Sep 30, 2026 at 10am EDT?",yes-maker,15,90.0,0.0,100.0,10.0,11.11,110.0,0
+2026-09-29T23:22:11+00:00,KXGDPYEAR-26,US real GDP growth in 2026?,yes-maker,14,91.8,0.0,100.0,8.2,8.93,114.5,9
+2026-09-29T23:22:11+00:00,KXHIGHTSDF-26SEP30,"Highest temperature in Louisville on Sep 30, 2026?",yes-maker,6,92.0,0.0,100.0,8.0,8.70,113.0,2
+2026-09-29T23:22:11+00:00,KXHOUSEWINSTATE-PAD,How many House seats will Democrats win in Pennsylvania?,yes-maker,8,93.0,0.0,100.0,7.0,7.53,113.0,1
+2026-09-29T23:22:11+00:00,KXLOWTMIN-26SEP29,"Lowest temperature in Minneapolis on Sep 29, 2026?",yes-maker,6,93.0,0.0,100.0,7.0,7.53,117.0,3
+2026-09-29T23:22:11+00:00,KXHOUSEWINSTATE-GAD,How many House seats will Democrats win in Georgia?,yes-maker,5,94.0,0.0,100.0,6.0,6.38,118.0,0
+2026-09-29T23:22:11+00:00,KXHOUSEWINSTATE-OHD,How many House seats will Democrats win in Ohio?,yes-maker,7,94.0,0.0,100.0,6.0,6.38,118.0,0
+2026-09-29T23:22:11+00:00,KXLOWTMIN-26SEP30,"Lowest temperature in Minneapolis on Sep 30, 2026?",yes-maker,6,94.0,0.0,100.0,6.0,6.38,119.0,0
+2026-09-29T23:22:11+00:00,KXHOUSEWINSTATE-MID,How many House seats will Democrats win in Michigan?,yes-maker,7,96.0,0.0,100.0,4.0,4.17,110.0,2
+2026-09-29T23:22:11+00:00,KXLOWTSATX-26SEP30,"Lowest temperature in San Antonio on Sep 30, 2026?",yes-maker,6,96.0,0.0,100.0,4.0,4.17,116.0,2
+2026-09-29T23:22:11+00:00,KXLOWTEWR-26SEP29,"Lowest temperature in Newark on Sep 29, 2026?",yes-maker,6,96.0,0.0,100.0,4.0,4.17,112.0,5
+2026-09-29T23:22:11+00:00,KXLOWTAUS-26SEP30,"Lowest temperature in Austin on Sep 30, 2026?",yes-maker,6,97.0,0.0,100.0,3.0,3.09,110.0,0
+2026-09-29T23:22:11+00:00,KXETHY-27JAN0100,Ethereum price at the end of 2026,yes-maker,18,98.3,0.0,100.0,1.7,1.73,98.60000000000001,0
+2026-09-29T23:22:11+00:00,KXLOWTHOU-26SEP30,"Lowest temperature in Houston on Sep 30, 2026?",yes-maker,6,99.0,0.0,100.0,1.0,1.01,115.0,2
+2026-09-29T23:22:11+00:00,KXHIGHTSATX-26SEP30,"Highest temperature in San Antonio on Sep 30, 2026?",yes-maker,6,99.0,0.0,100.0,1.0,1.01,102.0,1
+2026-09-29T23:22:11+00:00,KXHIGHTSFO-26SEP29,"Highest temperature in San Francisco on Sep 29, 2026?",yes-maker,6,99.0,0.0,100.0,1.0,1.01,105.0,4
