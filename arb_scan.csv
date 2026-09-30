@@ -1795,3 +1795,56 @@ scanned_at_utc,event_ticker,title,side,n_legs,cost_cents,fees_cents,payout_cents
 2026-09-30T15:32:30+00:00,KXLOWTDAL-26OCT01,"Lowest temperature in Dallas on Oct 1, 2026?",yes-maker,6,99.0,0.0,100.0,1.0,1.01,124.0,0
 2026-09-30T15:32:30+00:00,KXHIGHMIA-26OCT01,"Highest temperature in Miami on Oct 1, 2026?",yes-maker,6,99.0,0.0,100.0,1.0,1.01,101.0,0
 2026-09-30T15:32:30+00:00,KXLOWTEWR-26SEP30,"Lowest temperature in Newark on Sep 30, 2026?",yes-maker,6,99.0,0.0,100.0,1.0,1.01,110.0,5
+2026-09-30T20:28:13+00:00,KXLOWTMIN-26OCT01,"Lowest temperature in Minneapolis on Oct 1, 2026?",yes-maker,6,68.0,0.0,100.0,32.0,47.06,123.0,0
+2026-09-30T20:28:13+00:00,KXLOWTAUS-26OCT01,"Lowest temperature in Austin on Oct 1, 2026?",yes-maker,6,71.0,0.0,100.0,29.0,40.85,124.0,0
+2026-09-30T20:28:13+00:00,KXLOWTMIA-26OCT01,"Lowest temperature in Miami on Oct 1, 2026?",yes-maker,6,72.0,0.0,100.0,28.0,38.89,121.0,0
+2026-09-30T20:28:13+00:00,KXGDPYEAR-36,US real GDP growth in 2036?,yes-maker,14,76.0,0.0,100.0,24.0,31.58,99.0,2
+2026-09-30T20:28:13+00:00,KXLOWTDAL-26OCT01,"Lowest temperature in Dallas on Oct 1, 2026?",yes-maker,6,76.0,0.0,100.0,24.0,31.58,129.0,0
+2026-09-30T20:28:13+00:00,KXLOWTDC-26OCT01,"Lowest temperature in Washington DC on Oct 1, 2026?",yes-maker,6,77.0,0.0,100.0,23.0,29.87,119.0,2
+2026-09-30T20:28:13+00:00,KXHIGHTTTN-26SEP30,"Highest temperature in Trenton on Sep 30, 2026?",yes-maker,6,77.0,0.0,100.0,23.0,29.87,107.0,4
+2026-09-30T20:28:13+00:00,KXGDPYEAR-34,US real GDP growth in 2034?,yes-maker,14,79.0,0.0,100.0,21.0,26.58,106.0,0
+2026-09-30T20:28:13+00:00,KXGDPYEAR-32,US real GDP growth in 2032?,yes-maker,14,80.0,0.0,100.0,20.0,25.00,106.0,0
+2026-09-30T20:28:13+00:00,KXLOWTOKC-26SEP30,"Lowest temperature in Oklahoma City on Sep 30, 2026?",yes-maker,6,82.0,0.0,100.0,18.0,21.95,125.0,0
+2026-09-30T20:28:13+00:00,KXLOWTSEA-26OCT01,"Lowest temperature in Seattle on Oct 1, 2026?",yes-maker,6,83.0,0.0,100.0,17.0,20.48,120.0,2
+2026-09-30T20:28:13+00:00,KXLOWTNYC-26OCT01,"Lowest temperature in New York City on Oct 1, 2026?",yes-maker,6,83.0,0.0,100.0,17.0,20.48,130.0,1
+2026-09-30T20:28:13+00:00,KXLOWTLV-26OCT01,"Lowest temperature in Las Vegas on Oct 1, 2026?",yes-maker,6,83.0,0.0,100.0,17.0,20.48,114.0,2
+2026-09-30T20:28:13+00:00,KXGDPYEAR-30,US real GDP growth in 2030?,yes-maker,14,84.0,0.0,100.0,16.0,19.05,119.0,3
+2026-09-30T20:28:13+00:00,KXGDPYEAR-29,US real GDP growth in 2029?,yes-maker,14,85.0,0.0,100.0,15.0,17.65,128.0,1
+2026-09-30T20:28:13+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes-maker,12,85.3,0.0,100.0,14.7,17.23,99.0,0
+2026-09-30T20:28:13+00:00,KXGDPYEAR-35,US real GDP growth in 2035?,yes-maker,14,88.0,0.0,100.0,12.0,13.64,119.0,0
+2026-09-30T20:28:13+00:00,KXGDPYEAR-28,US real GDP growth in 2028?,yes-maker,14,88.0,0.0,100.0,12.0,13.64,122.0,2
+2026-09-30T20:28:13+00:00,KXSOCKEYERUN-27,Bristol Bay sockeye run forecast for 2027,yes-maker,6,88.0,0.0,100.0,12.0,13.64,115.0,1
+2026-09-30T20:28:13+00:00,KXLOWTSATX-26OCT01,"Lowest temperature in San Antonio on Oct 1, 2026?",yes-maker,6,88.0,0.0,100.0,12.0,13.64,109.0,0
+2026-09-30T20:28:13+00:00,KXLOWTPHIL-26OCT01,"Lowest temperature in Philadelphia on Oct 1, 2026?",yes-maker,6,90.0,0.0,100.0,10.0,11.11,124.0,3
+2026-09-30T20:28:13+00:00,KXLOWTDAL-26SEP30,"Lowest temperature in Dallas on Sep 30, 2026?",yes-maker,6,90.0,0.0,100.0,10.0,11.11,112.0,0
+2026-09-30T20:28:13+00:00,KXHIGHTSDF-26SEP30,"Highest temperature in Louisville on Sep 30, 2026?",yes-maker,6,90.0,0.0,100.0,10.0,11.11,102.0,3
+2026-09-30T20:28:13+00:00,KXHIGHTSATX-26SEP30,"Highest temperature in San Antonio on Sep 30, 2026?",yes-maker,6,90.0,0.0,100.0,10.0,11.11,101.0,2
+2026-09-30T20:28:13+00:00,KXGDPYEAR-31,US real GDP growth in 2031?,yes-maker,14,91.0,0.0,100.0,9.0,9.89,130.0,0
+2026-09-30T20:28:13+00:00,KXLOWTBOS-26OCT01,"Lowest temperature in Boston on Oct 1, 2026?",yes-maker,6,91.0,0.0,100.0,9.0,9.89,108.0,0
+2026-09-30T20:28:13+00:00,KXLOWTOKC-26OCT01,"Lowest temperature in Oklahoma City on Oct 1, 2026?",yes-maker,6,92.0,0.0,100.0,8.0,8.70,112.0,0
+2026-09-30T20:28:13+00:00,KXUSDJPY-26OCT0110,"USD/JPY price on Oct 1, 2026 at 10am EDT?",yes-maker,15,92.0,0.0,100.0,8.0,8.70,109.0,0
+2026-09-30T20:28:13+00:00,KXHOUSEWINSTATE-PAD,How many House seats will Democrats win in Pennsylvania?,yes-maker,8,93.0,0.0,100.0,7.0,7.53,108.0,1
+2026-09-30T20:28:13+00:00,KXHOUSEWINSTATE-NYD,How many House seats will Democrats win in New York?,yes-maker,10,93.0,0.0,100.0,7.0,7.53,121.0,2
+2026-09-30T20:28:13+00:00,KXHOUSEWINSTATE-AZD,How many House seats will Democrats win in Arizona?,yes-maker,6,93.0,0.0,100.0,7.0,7.53,114.0,1
+2026-09-30T20:28:13+00:00,KXLOWTPHX-26OCT01,"Lowest temperature in Phoenix on Oct 1, 2026?",yes-maker,6,93.0,0.0,100.0,7.0,7.53,111.0,2
+2026-09-30T20:28:13+00:00,KXLOWTNOLA-26OCT01,"Lowest temperature in New Orleans on Oct 1, 2026?",yes-maker,6,93.0,0.0,100.0,7.0,7.53,109.0,2
+2026-09-30T20:28:13+00:00,KXLOWTHOU-26OCT01,"Lowest temperature in Houston on Oct 1, 2026?",yes-maker,6,93.0,0.0,100.0,7.0,7.53,110.0,1
+2026-09-30T20:28:13+00:00,KXHOUSEWINSTATE-GAD,How many House seats will Democrats win in Georgia?,yes-maker,5,94.0,0.0,100.0,6.0,6.38,119.0,0
+2026-09-30T20:28:13+00:00,KXLOWTATL-26OCT01,"Lowest temperature in Atlanta on Oct 1, 2026?",yes-maker,6,94.0,0.0,100.0,6.0,6.38,116.0,1
+2026-09-30T20:28:13+00:00,KXHIGHTOKC-26OCT01,"Highest temperature in Oklahoma City on Oct 1, 2026?",yes-maker,6,94.0,0.0,100.0,6.0,6.38,104.0,0
+2026-09-30T20:28:13+00:00,KXHOUSEWINSTATE-OHD,How many House seats will Democrats win in Ohio?,yes-maker,7,95.0,0.0,100.0,5.0,5.26,122.0,0
+2026-09-30T20:28:13+00:00,KXVHGCB-26OCT01,"Generic congressional ballot on Oct 1, 2026?",yes-maker,9,95.0,0.0,100.0,5.0,5.26,120.0,0
+2026-09-30T20:28:13+00:00,KXHOUSEWINSTATE-MID,How many House seats will Democrats win in Michigan?,yes-maker,7,96.0,0.0,100.0,4.0,4.17,114.0,2
+2026-09-30T20:28:13+00:00,KXLOWTSFO-26OCT01,"Lowest temperature in San Francisco on Oct 1, 2026?",yes-maker,6,96.0,0.0,100.0,4.0,4.17,113.0,3
+2026-09-30T20:28:13+00:00,KXHIGHTMIN-26OCT01,"Highest temperature in Minneapolis on Oct 1, 2026?",yes-maker,6,96.0,0.0,100.0,4.0,4.17,97.0,0
+2026-09-30T20:28:13+00:00,KXLOWTSATX-26SEP30,"Lowest temperature in San Antonio on Sep 30, 2026?",yes-maker,6,96.0,0.0,100.0,4.0,4.17,108.0,3
+2026-09-30T20:28:13+00:00,KXLOWTSAN-26SEP30,"Lowest temperature in San Diego on Sep 30, 2026?",yes-maker,6,96.0,0.0,100.0,4.0,4.17,116.0,3
+2026-09-30T20:28:13+00:00,KXHIGHDEN-26SEP30,"Highest temperature in Denver on Sep 30, 2026?",yes-maker,6,96.0,0.0,100.0,4.0,4.17,100.0,2
+2026-09-30T20:28:13+00:00,KXLOWTMIN-26SEP30,"Lowest temperature in Minneapolis on Sep 30, 2026?",yes-maker,6,97.0,0.0,100.0,3.0,3.09,111.0,1
+2026-09-30T20:28:13+00:00,KXETHY-27JAN0100,Ethereum price at the end of 2026,yes-maker,18,97.5,0.0,100.0,2.5,2.56,99.2,0
+2026-09-30T20:28:13+00:00,KXGDPYEAR-26,US real GDP growth in 2026?,yes-maker,14,98.0,0.0,100.0,2.0,2.04,113.8,9
+2026-09-30T20:28:13+00:00,KXLOWTMIA-26SEP30,"Lowest temperature in Miami on Sep 30, 2026?",yes-maker,6,98.0,0.0,100.0,2.0,2.04,104.0,3
+2026-09-30T20:28:13+00:00,KXHOUSEWINSTATE-NCD,How many House seats will Democrats win in North Carolina?,yes-maker,7,99.0,0.0,100.0,1.0,1.01,116.0,1
+2026-09-30T20:28:13+00:00,KXHIGHTBOS-26OCT01,"Highest temperature in Boston on Oct 1, 2026?",yes-maker,6,99.0,0.0,100.0,1.0,1.01,101.0,0
+2026-09-30T20:28:13+00:00,KXHIGHTATL-26OCT01,"Highest temperature in Atlanta on Oct 1, 2026?",yes-maker,6,99.0,0.0,100.0,1.0,1.01,100.0,1
+2026-09-30T20:28:13+00:00,KXHIGHTPHX-26SEP30,"Highest temperature in Phoenix on Sep 30, 2026?",yes-maker,6,99.0,0.0,100.0,1.0,1.01,101.0,3
