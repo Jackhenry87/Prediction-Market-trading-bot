@@ -1,9 +1,16 @@
 {
-"347a2e725dd11a54a1d964eae3d04dd2": {
-"away_team": "San Diego Padres",
-"home_prob": 0.6428,
-"home_team": "Milwaukee Brewers",
-"total_mean": 6.95,
-"updated": "2026-10-04T00:18:25+00:00"
+"4be245ad03895bcafcdc42d7d926b675": {
+"away_team": "New York Yankees",
+"home_prob": 0.4584,
+"home_team": "Tampa Bay Rays",
+"total_mean": 6.586,
+"updated": "2026-10-05T09:23:12+00:00"
+},
+"ccd487a87bb73145e3f12dd3a765ad47": {
+"away_team": "Chicago White Sox",
+"home_prob": 0.5922,
+"home_team": "Cleveland Guardians",
+"total_mean": 6.73,
+"updated": "2026-10-05T09:23:12+00:00"
 }
 }
