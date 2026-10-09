@@ -3502,3 +3502,24 @@ scanned_at_utc,event_ticker,title,side,n_legs,cost_cents,fees_cents,payout_cents
 2026-10-08T21:45:01+00:00,KXHOUSEWINSTATE-NYD,How many House seats will Democrats win in New York?,yes-maker,10,96.0,0.0,100.0,4.0,4.17,115.0,3
 2026-10-08T21:45:01+00:00,KXHOUSEWINSTATE-NJD,How many House seats will Democrats win in New Jersey?,yes-maker,5,96.0,0.0,100.0,4.0,4.17,108.0,1
 2026-10-08T21:45:01+00:00,KXHOUSEWINSTATE-OHD,How many House seats will Democrats win in Ohio?,yes-maker,7,96.0,0.0,100.0,4.0,4.17,127.0,0
+2026-10-09T01:40:13+00:00,KXGDPYEAR-33,US real GDP growth in 2033?,yes-maker,14,68.0,0.0,100.0,32.0,47.06,106.0,0
+2026-10-09T01:40:13+00:00,KXGDPYEAR-34,US real GDP growth in 2034?,yes-maker,14,69.0,0.0,100.0,31.0,44.93,112.0,0
+2026-10-09T01:40:13+00:00,KXGDPYEAR-36,US real GDP growth in 2036?,yes-maker,14,71.0,0.0,100.0,29.0,40.85,97.0,2
+2026-10-09T01:40:13+00:00,KXHOUSEWINSTATE-FLD,How many House seats will Democrats win in Florida?,yes-maker,9,78.0,0.0,100.0,22.0,28.21,122.0,1
+2026-10-09T01:40:13+00:00,KXGDPYEAR-35,US real GDP growth in 2035?,yes-maker,14,79.0,0.0,100.0,21.0,26.58,123.0,0
+2026-10-09T01:40:13+00:00,KXGDPYEAR-32,US real GDP growth in 2032?,yes-maker,14,82.0,0.0,100.0,18.0,21.95,108.0,1
+2026-10-09T01:40:13+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes-maker,12,82.4,0.0,100.0,17.6,21.36,99.0,0
+2026-10-09T01:40:13+00:00,KXDSENATESEATS-29,Democratic Senate Seat Count (2028),yes-maker,14,84.0,0.0,100.0,16.0,19.05,114.0,0
+2026-10-09T01:40:13+00:00,KXGDPYEAR-30,US real GDP growth in 2030?,yes-maker,14,85.0,0.0,100.0,15.0,17.65,115.0,3
+2026-10-09T01:40:13+00:00,KXGDPYEAR-29,US real GDP growth in 2029?,yes-maker,14,85.0,0.0,100.0,15.0,17.65,128.0,1
+2026-10-09T01:40:13+00:00,KXSOCKEYERUN-27,Bristol Bay sockeye run forecast for 2027,yes-maker,6,88.0,0.0,100.0,12.0,13.64,125.00000000000001,1
+2026-10-09T01:40:13+00:00,KXGDPYEAR-27,US real GDP growth in 2027?,yes-maker,14,89.0,0.0,100.0,11.0,12.36,127.0,1
+2026-10-09T01:40:13+00:00,KXHOUSEWINSTATE-PAD,How many House seats will Democrats win in Pennsylvania?,yes-maker,8,89.0,0.0,100.0,11.0,12.36,111.0,1
+2026-10-09T01:40:13+00:00,KXGDPYEAR-28,US real GDP growth in 2028?,yes-maker,14,90.0,0.0,100.0,10.0,11.11,122.0,2
+2026-10-09T01:40:13+00:00,KXHOUSEWINSTATE-AZD,How many House seats will Democrats win in Arizona?,yes-maker,6,93.0,0.0,100.0,7.0,7.53,109.0,1
+2026-10-09T01:40:13+00:00,KXHOUSEWINSTATE-NCD,How many House seats will Democrats win in North Carolina?,yes-maker,7,93.0,0.0,100.0,7.0,7.53,122.0,1
+2026-10-09T01:40:13+00:00,KXHOUSEWINSTATE-GAD,How many House seats will Democrats win in Georgia?,yes-maker,5,95.0,0.0,100.0,5.0,5.26,117.0,3
+2026-10-09T01:40:13+00:00,KXHOUSEWINSTATE-NYD,How many House seats will Democrats win in New York?,yes-maker,10,96.0,0.0,100.0,4.0,4.17,117.0,3
+2026-10-09T01:40:13+00:00,KXHOUSEWINSTATE-NJD,How many House seats will Democrats win in New Jersey?,yes-maker,5,96.0,0.0,100.0,4.0,4.17,108.0,1
+2026-10-09T01:40:13+00:00,KXHOUSEWINSTATE-MND,How many House seats will Democrats win in Minnesota?,yes-maker,5,96.0,0.0,100.0,4.0,4.17,106.0,1
+2026-10-09T01:40:13+00:00,KXHOUSEWINSTATE-OHD,How many House seats will Democrats win in Ohio?,yes-maker,7,97.0,0.0,100.0,3.0,3.09,128.0,0
