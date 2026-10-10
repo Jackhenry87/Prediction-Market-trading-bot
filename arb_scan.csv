@@ -3674,3 +3674,41 @@ scanned_at_utc,event_ticker,title,side,n_legs,cost_cents,fees_cents,payout_cents
 2026-10-10T00:10:39+00:00,KXLOWTSFO-26OCT10,"Lowest temperature in San Francisco on Oct 10, 2026?",yes-maker,6,97.0,0.0,100.0,3.0,3.09,113.0,2
 2026-10-10T00:10:39+00:00,KXHIGHTTTN-26OCT10,"Highest temperature in Trenton on Oct 10, 2026?",yes-maker,6,97.0,0.0,100.0,3.0,3.09,119.0,2
 2026-10-10T00:10:39+00:00,KXHOUSEWINSTATE-OHD,How many House seats will Democrats win in Ohio?,yes-maker,7,99.0,0.0,100.0,1.0,1.01,129.0,0
+2026-10-10T06:09:53+00:00,KXLOWTTTN-26OCT10,"Lowest temperature in Trenton on Oct 10, 2026?",yes-maker,6,19.0,0.0,100.0,81.0,426.32,123.0,4
+2026-10-10T06:09:53+00:00,KXLOWTMIA-26OCT10,"Lowest temperature in Miami on Oct 10, 2026?",yes-maker,6,71.0,0.0,100.0,29.0,40.85,126.0,0
+2026-10-10T06:09:53+00:00,KXGDPYEAR-34,US real GDP growth in 2034?,yes-maker,14,73.0,0.0,100.0,27.0,36.99,110.0,0
+2026-10-10T06:09:53+00:00,KXGDPYEAR-36,US real GDP growth in 2036?,yes-maker,14,75.0,0.0,100.0,25.0,33.33,96.0,2
+2026-10-10T06:09:53+00:00,KXGDPYEAR-33,US real GDP growth in 2033?,yes-maker,14,75.0,0.0,100.0,25.0,33.33,120.0,0
+2026-10-10T06:09:53+00:00,KXLOWTSATX-26OCT10,"Lowest temperature in San Antonio on Oct 10, 2026?",yes-maker,6,75.0,0.0,100.0,25.0,33.33,129.0,2
+2026-10-10T06:09:53+00:00,KXLOWTCHI-26OCT10,"Lowest temperature in Chicago on Oct 10, 2026?",yes-maker,6,77.0,0.0,100.0,23.0,29.87,104.0,2
+2026-10-10T06:09:53+00:00,KXLOWTATL-26OCT10,"Lowest temperature in Atlanta on Oct 10, 2026?",yes-maker,6,77.0,0.0,100.0,23.0,29.87,125.0,3
+2026-10-10T06:09:53+00:00,KXGDPYEAR-29,US real GDP growth in 2029?,yes-maker,14,80.0,0.0,100.0,20.0,25.00,128.0,1
+2026-10-10T06:09:53+00:00,KXLOWTPHX-26OCT10,"Lowest temperature in Phoenix on Oct 10, 2026?",yes-maker,6,80.0,0.0,100.0,20.0,25.00,126.0,0
+2026-10-10T06:09:53+00:00,KXLOWTSEA-26OCT10,"Lowest temperature in Seattle on Oct 10, 2026?",yes-maker,6,81.0,0.0,100.0,19.0,23.46,122.0,0
+2026-10-10T06:09:53+00:00,KXGDPYEAR-32,US real GDP growth in 2032?,yes-maker,14,82.0,0.0,100.0,18.0,21.95,126.0,0
+2026-10-10T06:09:53+00:00,KXHOUSEWINSTATE-FLD,How many House seats will Democrats win in Florida?,yes-maker,9,82.0,0.0,100.0,18.0,21.95,121.0,1
+2026-10-10T06:09:53+00:00,KXGDPYEAR-35,US real GDP growth in 2035?,yes-maker,14,83.0,0.0,100.0,17.0,20.48,124.0,0
+2026-10-10T06:09:53+00:00,KXGDPYEAR-30,US real GDP growth in 2030?,yes-maker,14,83.0,0.0,100.0,17.0,20.48,126.0,3
+2026-10-10T06:09:53+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes-maker,12,83.3,0.0,100.0,16.7,20.05,98.0,0
+2026-10-10T06:09:53+00:00,KXDSENATESEATS-29,Democratic Senate Seat Count (2028),yes-maker,14,84.0,0.0,100.0,16.0,19.05,114.0,0
+2026-10-10T06:09:53+00:00,KXGDPYEAR-28,US real GDP growth in 2028?,yes-maker,14,85.0,0.0,100.0,15.0,17.65,122.0,2
+2026-10-10T06:09:53+00:00,KXSOCKEYERUN-27,Bristol Bay sockeye run forecast for 2027,yes-maker,6,87.0,0.0,100.0,13.0,14.94,122.00000000000001,1
+2026-10-10T06:09:53+00:00,KXLOWTSFO-26OCT10,"Lowest temperature in San Francisco on Oct 10, 2026?",yes-maker,6,87.0,0.0,100.0,13.0,14.94,100.0,1
+2026-10-10T06:09:53+00:00,KXLOWTLAX-26OCT10,"Lowest temperature in Los Angeles on Oct 10, 2026?",yes-maker,6,87.0,0.0,100.0,13.0,14.94,113.0,2
+2026-10-10T06:09:53+00:00,KXGDPYEAR-27,US real GDP growth in 2027?,yes-maker,14,89.0,0.0,100.0,11.0,12.36,125.0,1
+2026-10-10T06:09:53+00:00,KXHOUSEWINSTATE-PAD,How many House seats will Democrats win in Pennsylvania?,yes-maker,8,89.0,0.0,100.0,11.0,12.36,107.0,1
+2026-10-10T06:09:53+00:00,KXHIGHTTTN-26OCT10,"Highest temperature in Trenton on Oct 10, 2026?",yes-maker,6,89.0,0.0,100.0,11.0,12.36,111.0,2
+2026-10-10T06:09:53+00:00,KXHIGHTSAN-26OCT10,"Highest temperature in San Diego on Oct 10, 2026?",yes-maker,6,89.0,0.0,100.0,11.0,12.36,107.0,0
+2026-10-10T06:09:53+00:00,KXHIGHTEWR-26OCT10,"Highest temperature in Newark on Oct 10, 2026?",yes-maker,6,89.0,0.0,100.0,11.0,12.36,113.0,1
+2026-10-10T06:09:53+00:00,KXLOWTBOS-26OCT10,"Lowest temperature in Boston on Oct 10, 2026?",yes-maker,6,92.0,0.0,100.0,8.0,8.70,127.0,2
+2026-10-10T06:09:53+00:00,KXHOUSEWINSTATE-MND,How many House seats will Democrats win in Minnesota?,yes-maker,5,95.0,0.0,100.0,5.0,5.26,105.0,1
+2026-10-10T06:09:53+00:00,KXHOUSEWINSTATE-GAD,How many House seats will Democrats win in Georgia?,yes-maker,5,95.0,0.0,100.0,5.0,5.26,116.0,3
+2026-10-10T06:09:53+00:00,KXHOUSEWINSTATE-AZD,How many House seats will Democrats win in Arizona?,yes-maker,6,95.0,0.0,100.0,5.0,5.26,111.0,1
+2026-10-10T06:09:53+00:00,KXLOWTAUS-26OCT10,"Lowest temperature in Austin on Oct 10, 2026?",yes-maker,6,95.0,0.0,100.0,5.0,5.26,119.0,4
+2026-10-10T06:09:53+00:00,KXHIGHTSDF-26OCT10,"Highest temperature in Louisville on Oct 10, 2026?",yes-maker,6,95.0,0.0,100.0,5.0,5.26,125.0,1
+2026-10-10T06:09:53+00:00,KXHOUSEWINSTATE-NYD,How many House seats will Democrats win in New York?,yes-maker,10,96.0,0.0,100.0,4.0,4.17,120.0,3
+2026-10-10T06:09:53+00:00,KXHOUSEWINSTATE-NJD,How many House seats will Democrats win in New Jersey?,yes-maker,5,96.0,0.0,100.0,4.0,4.17,107.0,1
+2026-10-10T06:09:53+00:00,KXHIGHTNOLA-26OCT10,"Highest temperature in New Orleans on Oct 10, 2026?",yes-maker,6,97.0,0.0,100.0,3.0,3.09,97.0,1
+2026-10-10T06:09:53+00:00,KXTRUTHSOCIAL-26OCT10,Trump Truth Social posts this week? (10/4-10/10),yes-maker,10,98.0,0.0,100.0,2.0,2.04,116.0,4
+2026-10-10T06:09:53+00:00,KXLOWTPHIL-26OCT10,"Lowest temperature in Philadelphia on Oct 10, 2026?",yes-maker,6,99.0,0.0,100.0,1.0,1.01,123.0,3
+2026-10-10T06:09:53+00:00,KXHIGHTSEA-26OCT10,"Highest temperature in Seattle on Oct 10, 2026?",yes-maker,6,99.0,0.0,100.0,1.0,1.01,101.0,1
