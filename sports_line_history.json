@@ -1,16 +1,9 @@
 {
-"62bf363a77455f7a8b48838e7792f60b": {
-"away_team": "Chicago White Sox",
-"home_prob": 0.5569,
-"home_team": "Cleveland Guardians",
-"total_mean": 7.192,
-"updated": "2026-10-10T21:01:45+00:00"
-},
 "c43e98d4effc9181f21e21225fcbd47a": {
 "away_team": "Los Angeles Dodgers",
 "home_prob": 0.5075,
 "home_team": "Milwaukee Brewers",
 "total_mean": 6.025,
-"updated": "2026-10-10T21:01:45+00:00"
+"updated": "2026-10-11T00:18:03+00:00"
 }
 }
