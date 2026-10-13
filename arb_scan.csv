@@ -4337,3 +4337,31 @@ scanned_at_utc,event_ticker,title,side,n_legs,cost_cents,fees_cents,payout_cents
 2026-10-13T05:04:31+00:00,KXLOWTDAL-26OCT13,"Lowest temperature in Dallas on Oct 13, 2026?",yes-maker,6,98.0,0.0,100.0,2.0,2.04,119.0,1
 2026-10-13T05:04:31+00:00,KXHIGHTSAN-26OCT13,"Highest temperature in San Diego on Oct 13, 2026?",yes-maker,6,98.0,0.0,100.0,2.0,2.04,112.0,1
 2026-10-13T05:04:31+00:00,KXLOWTLAX-26OCT13,"Lowest temperature in Los Angeles on Oct 13, 2026?",yes-maker,6,99.0,0.0,100.0,1.0,1.01,112.0,3
+2026-10-13T12:50:54+00:00,KXGDPYEAR-36,US real GDP growth in 2036?,yes-maker,14,71.0,0.0,100.0,29.0,40.85,95.0,2
+2026-10-13T12:50:54+00:00,KXGDPYEAR-33,US real GDP growth in 2033?,yes-maker,14,72.0,0.0,100.0,28.0,38.89,114.0,0
+2026-10-13T12:50:54+00:00,KXGDPYEAR-34,US real GDP growth in 2034?,yes-maker,14,73.0,0.0,100.0,27.0,36.99,121.0,0
+2026-10-13T12:50:54+00:00,KXHIGHTSDF-26OCT13,"Highest temperature in Louisville on Oct 13, 2026?",yes-maker,6,77.0,0.0,100.0,23.0,29.87,122.0,1
+2026-10-13T12:50:54+00:00,KXGDPYEAR-32,US real GDP growth in 2032?,yes-maker,14,78.0,0.0,100.0,22.0,28.21,117.0,0
+2026-10-13T12:50:54+00:00,KXDSENATESEATS-29,Democratic Senate Seat Count (2028),yes-maker,14,78.0,0.0,100.0,22.0,28.21,94.0,0
+2026-10-13T12:50:54+00:00,KXHOUSEWINSTATE-FLD,How many House seats will Democrats win in Florida?,yes-maker,9,80.0,0.0,100.0,20.0,25.00,122.0,1
+2026-10-13T12:50:54+00:00,KXGDPYEAR-35,US real GDP growth in 2035?,yes-maker,14,81.0,0.0,100.0,19.0,23.46,124.0,0
+2026-10-13T12:50:54+00:00,KXGDPYEAR-30,US real GDP growth in 2030?,yes-maker,14,82.0,0.0,100.0,18.0,21.95,117.0,3
+2026-10-13T12:50:54+00:00,KXGDPYEAR-29,US real GDP growth in 2029?,yes-maker,14,83.0,0.0,100.0,17.0,20.48,128.0,1
+2026-10-13T12:50:54+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes-maker,12,83.3,0.0,100.0,16.7,20.05,98.0,0
+2026-10-13T12:50:54+00:00,KXHIGHTEWR-26OCT13,"Highest temperature in Newark on Oct 13, 2026?",yes-maker,6,84.0,0.0,100.0,16.0,19.05,100.0,1
+2026-10-13T12:50:54+00:00,KXSOCKEYERUN-27,Bristol Bay sockeye run forecast for 2027,yes-maker,6,87.0,0.0,100.0,13.0,14.94,117.0,1
+2026-10-13T12:50:54+00:00,KXGDPYEAR-28,US real GDP growth in 2028?,yes-maker,14,89.0,0.0,100.0,11.0,12.36,122.0,2
+2026-10-13T12:50:54+00:00,KXHIGHTTTN-26OCT13,"Highest temperature in Trenton on Oct 13, 2026?",yes-maker,6,89.0,0.0,100.0,11.0,12.36,107.0,1
+2026-10-13T12:50:54+00:00,KXGDPYEAR-27,US real GDP growth in 2027?,yes-maker,14,90.0,0.0,100.0,10.0,11.11,126.0,1
+2026-10-13T12:50:54+00:00,KXHOUSEWINSTATE-NYD,How many House seats will Democrats win in New York?,yes-maker,10,93.0,0.0,100.0,7.0,7.53,118.0,3
+2026-10-13T12:50:54+00:00,KXHOUSEWINSTATE-AZD,How many House seats will Democrats win in Arizona?,yes-maker,6,93.0,0.0,100.0,7.0,7.53,111.00000000000001,1
+2026-10-13T12:50:54+00:00,KXHOUSEWINSTATE-MND,How many House seats will Democrats win in Minnesota?,yes-maker,5,94.0,0.0,100.0,6.0,6.38,105.0,1
+2026-10-13T12:50:54+00:00,KXHOUSEWINSTATE-MID,How many House seats will Democrats win in Michigan?,yes-maker,7,95.0,0.0,100.0,5.0,5.26,101.0,1
+2026-10-13T12:50:54+00:00,KXLOWTMIA-26OCT13,"Lowest temperature in Miami on Oct 13, 2026?",yes-maker,6,96.0,0.0,100.0,4.0,4.17,119.0,3
+2026-10-13T12:50:54+00:00,KXHOUSEWINSTATE-NJD,How many House seats will Democrats win in New Jersey?,yes-maker,5,97.0,0.0,100.0,3.0,3.09,107.0,1
+2026-10-13T12:50:54+00:00,KXHOUSEWINSTATE-GAD,How many House seats will Democrats win in Georgia?,yes-maker,5,97.0,0.0,100.0,3.0,3.09,117.0,3
+2026-10-13T12:50:54+00:00,KXLOWTTTN-26OCT13,"Lowest temperature in Trenton on Oct 13, 2026?",yes-maker,6,97.0,0.0,100.0,3.0,3.09,112.0,5
+2026-10-13T12:50:54+00:00,KXLOWTLAX-26OCT13,"Lowest temperature in Los Angeles on Oct 13, 2026?",yes-maker,6,97.0,0.0,100.0,3.0,3.09,121.0,3
+2026-10-13T12:50:54+00:00,KXHIGHTDC-26OCT13,"Highest temperature in Washington DC on Oct 13, 2026?",yes-maker,6,97.0,0.0,100.0,3.0,3.09,101.0,0
+2026-10-13T12:50:54+00:00,KXGDPYEAR-26,US real GDP growth in 2026?,yes-maker,14,98.4,0.0,100.0,1.6,1.63,108.5,9
+2026-10-13T12:50:54+00:00,KXHOUSEWINSTATE-NCD,How many House seats will Democrats win in North Carolina?,yes-maker,7,99.0,0.0,100.0,1.0,1.01,120.0,1
