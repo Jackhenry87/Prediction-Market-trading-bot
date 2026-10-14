@@ -1,9 +1,16 @@
 {
+"2572cf9b86ae24b8bec2778e9a6fdfcb": {
+"away_team": "Tampa Bay Rays",
+"home_prob": 0.5452,
+"home_team": "Cleveland Guardians",
+"total_mean": 6.709,
+"updated": "2026-10-14T14:16:24+00:00"
+},
 "622fd31d2c8178b025455656e0d2fb89": {
 "away_team": "Milwaukee Brewers",
-"home_prob": 0.6174,
+"home_prob": 0.6119,
 "home_team": "Los Angeles Dodgers",
-"total_mean": 7.415,
-"updated": "2026-10-14T08:55:14+00:00"
+"total_mean": 7.328,
+"updated": "2026-10-14T14:16:24+00:00"
 }
 }
