@@ -4985,3 +4985,44 @@ scanned_at_utc,event_ticker,title,side,n_legs,cost_cents,fees_cents,payout_cents
 2026-10-17T04:47:01+00:00,KXHIGHTBOS-26OCT17,"Highest temperature in Boston on Oct 17, 2026?",yes-maker,6,99.0,0.0,100.0,1.0,1.01,103.0,2
 2026-10-17T04:47:01+00:00,KXHIGHTATL-26OCT17,"Highest temperature in Atlanta on Oct 17, 2026?",yes-maker,6,99.0,0.0,100.0,1.0,1.01,99.0,1
 2026-10-17T04:47:01+00:00,KXETHY-27JAN0100,Ethereum price at the end of 2026,yes-maker,18,99.9,0.0,100.0,0.1,0.10,99.9,0
+2026-10-17T08:58:26+00:00,KXLOWTATL-26OCT17,"Lowest temperature in Atlanta on Oct 17, 2026?",yes-maker,6,51.0,0.0,100.0,49.0,96.08,125.0,2
+2026-10-17T08:58:26+00:00,KXLOWTMIA-26OCT17,"Lowest temperature in Miami on Oct 17, 2026?",yes-maker,6,57.0,0.0,100.0,43.0,75.44,123.0,2
+2026-10-17T08:58:26+00:00,KXPCSAHOUSEVOTES-26SEP30,How many House votes for the Protect College Sports Act?,yes-maker,8,62.0,0.0,100.0,38.0,61.29,130.0,0
+2026-10-17T08:58:26+00:00,KXGDPYEAR-34,US real GDP growth in 2034?,yes-maker,14,70.0,0.0,100.0,30.0,42.86,130.0,0
+2026-10-17T08:58:26+00:00,KXGDPYEAR-29,US real GDP growth in 2029?,yes-maker,14,71.0,0.0,100.0,29.0,40.85,128.0,1
+2026-10-17T08:58:26+00:00,KXLOWTEWR-26OCT17,"Lowest temperature in Newark on Oct 17, 2026?",yes-maker,6,71.0,0.0,100.0,29.0,40.85,127.0,0
+2026-10-17T08:58:26+00:00,KXLOWTSFO-26OCT17,"Lowest temperature in San Francisco on Oct 17, 2026?",yes-maker,6,72.0,0.0,100.0,28.0,38.89,124.0,1
+2026-10-17T08:58:26+00:00,KXLOWTSEA-26OCT17,"Lowest temperature in Seattle on Oct 17, 2026?",yes-maker,6,74.0,0.0,100.0,26.0,35.14,128.0,1
+2026-10-17T08:58:26+00:00,KXLOWTDAL-26OCT17,"Lowest temperature in Dallas on Oct 17, 2026?",yes-maker,6,76.0,0.0,100.0,24.0,31.58,124.0,2
+2026-10-17T08:58:26+00:00,KXGDPYEAR-35,US real GDP growth in 2035?,yes-maker,14,77.0,0.0,100.0,23.0,29.87,123.0,0
+2026-10-17T08:58:26+00:00,KXGDPYEAR-33,US real GDP growth in 2033?,yes-maker,14,78.0,0.0,100.0,22.0,28.21,123.0,0
+2026-10-17T08:58:26+00:00,KXGDPYEAR-32,US real GDP growth in 2032?,yes-maker,14,78.0,0.0,100.0,22.0,28.21,127.0,0
+2026-10-17T08:58:26+00:00,KXGDPYEAR-30,US real GDP growth in 2030?,yes-maker,14,83.0,0.0,100.0,17.0,20.48,123.0,3
+2026-10-17T08:58:26+00:00,KXGDPYEAR-28,US real GDP growth in 2028?,yes-maker,14,83.0,0.0,100.0,17.0,20.48,120.0,2
+2026-10-17T08:58:26+00:00,KXHOUSEWINSTATE-FLD,How many House seats will Democrats win in Florida?,yes-maker,9,83.0,0.0,100.0,17.0,20.48,122.0,1
+2026-10-17T08:58:26+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes-maker,12,83.4,0.0,100.0,16.6,19.90,98.0,0
+2026-10-17T08:58:26+00:00,KXGDPYEAR-27,US real GDP growth in 2027?,yes-maker,14,85.0,0.0,100.0,15.0,17.65,130.0,1
+2026-10-17T08:58:26+00:00,KXSOCKEYERUN-27,Bristol Bay sockeye run forecast for 2027,yes-maker,6,86.0,0.0,100.0,14.0,16.28,125.00000000000001,1
+2026-10-17T08:58:26+00:00,KXHIGHTSAN-26OCT17,"Highest temperature in San Diego on Oct 17, 2026?",yes-maker,6,86.0,0.0,100.0,14.0,16.28,107.0,1
+2026-10-17T08:58:26+00:00,KXHOUSEWINSTATE-NJD,How many House seats will Democrats win in New Jersey?,yes-maker,5,88.0,0.0,100.0,12.0,13.64,109.0,2
+2026-10-17T08:58:26+00:00,KXLOWTNYC-26OCT17,"Lowest temperature in New York City on Oct 17, 2026?",yes-maker,6,88.0,0.0,100.0,12.0,13.64,123.0,1
+2026-10-17T08:58:26+00:00,KXLOWTSATX-26OCT17,"Lowest temperature in San Antonio on Oct 17, 2026?",yes-maker,6,89.0,0.0,100.0,11.0,12.36,122.0,1
+2026-10-17T08:58:26+00:00,KXHOUSEWINSTATE-OHD,How many House seats will Democrats win in Ohio?,yes-maker,7,91.0,0.0,100.0,9.0,9.89,123.0,1
+2026-10-17T08:58:26+00:00,KXHOUSEWINSTATE-NYD,How many House seats will Democrats win in New York?,yes-maker,10,92.0,0.0,100.0,8.0,8.70,123.0,3
+2026-10-17T08:58:26+00:00,KXHOUSEWINSTATE-MND,How many House seats will Democrats win in Minnesota?,yes-maker,5,93.0,0.0,100.0,7.0,7.53,106.0,1
+2026-10-17T08:58:26+00:00,KXHIGHTPHX-26OCT17,"Highest temperature in Phoenix on Oct 17, 2026?",yes-maker,6,93.0,0.0,100.0,7.0,7.53,99.0,0
+2026-10-17T08:58:26+00:00,KXHOUSEWINSTATE-GAD,How many House seats will Democrats win in Georgia?,yes-maker,5,94.0,0.0,100.0,6.0,6.38,117.0,3
+2026-10-17T08:58:26+00:00,KXLOWTPHIL-26OCT17,"Lowest temperature in Philadelphia on Oct 17, 2026?",yes-maker,6,94.0,0.0,100.0,6.0,6.38,119.0,3
+2026-10-17T08:58:26+00:00,KXHIGHTSDF-26OCT17,"Highest temperature in Louisville on Oct 17, 2026?",yes-maker,6,94.0,0.0,100.0,6.0,6.38,111.0,2
+2026-10-17T08:58:26+00:00,KXHIGHTMIN-26OCT17,"Highest temperature in Minneapolis on Oct 17, 2026?",yes-maker,6,94.0,0.0,100.0,6.0,6.38,98.0,0
+2026-10-17T08:58:26+00:00,KXHOUSEWINSTATE-MID,How many House seats will Democrats win in Michigan?,yes-maker,7,95.0,0.0,100.0,5.0,5.26,115.0,2
+2026-10-17T08:58:26+00:00,KXTRUTHSOCIAL-26OCT17,Trump Truth Social posts this week? (10/11-10/17),yes-maker,10,96.0,0.0,100.0,4.0,4.17,100.0,5
+2026-10-17T08:58:26+00:00,KXNASDAQ100Y-26DEC31H1600,Nasdaq-100 close price end of 2026?,yes-maker,30,97.0,0.0,100.0,3.0,3.09,101.0,11
+2026-10-17T08:58:26+00:00,KXHOUSEWINSTATE-NCD,How many House seats will Democrats win in North Carolina?,yes-maker,7,97.0,0.0,100.0,3.0,3.09,123.0,1
+2026-10-17T08:58:26+00:00,KXHIGHTLV-26OCT17,"Highest temperature in Las Vegas on Oct 17, 2026?",yes-maker,6,97.0,0.0,100.0,3.0,3.09,101.0,2
+2026-10-17T08:58:26+00:00,KXHIGHTEWR-26OCT17,"Highest temperature in Newark on Oct 17, 2026?",yes-maker,6,97.0,0.0,100.0,3.0,3.09,114.0,4
+2026-10-17T08:58:26+00:00,KXHOUSEWINSTATE-AZD,How many House seats will Democrats win in Arizona?,yes-maker,6,98.0,0.0,100.0,2.0,2.04,113.00000000000001,1
+2026-10-17T08:58:26+00:00,KXHIGHTHOU-26OCT17,"Highest temperature in Houston on Oct 17, 2026?",yes-maker,6,98.0,0.0,100.0,2.0,2.04,99.0,1
+2026-10-17T08:58:26+00:00,KXBTCY-27JAN0100,Bitcoin price at the end of 2026,yes-maker,28,98.8,0.0,100.0,1.2,1.21,98.8,0
+2026-10-17T08:58:26+00:00,KXHOUSEWINSTATE-PAD,How many House seats will Democrats win in Pennsylvania?,yes-maker,8,99.0,0.0,100.0,1.0,1.01,121.0,1
+2026-10-17T08:58:26+00:00,KXETHY-27JAN0100,Ethereum price at the end of 2026,yes-maker,18,99.8,0.0,100.0,0.2,0.20,99.8,0
