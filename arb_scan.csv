@@ -6546,3 +6546,37 @@ scanned_at_utc,event_ticker,title,side,n_legs,cost_cents,fees_cents,payout_cents
 2026-10-24T01:46:27+00:00,KXLOWTDC-26OCT24,"Lowest temperature in Washington DC on Oct 24, 2026?",yes-maker,6,98.0,0.0,100.0,2.0,2.04,121.0,0
 2026-10-24T01:46:27+00:00,KXHIGHDEN-26OCT24,"Highest temperature in Denver on Oct 24, 2026?",yes-maker,6,98.0,0.0,100.0,2.0,2.04,102.0,0
 2026-10-24T01:46:27+00:00,KXHOUSEWINSTATE-PAD,How many House seats will Democrats win in Pennsylvania?,yes-maker,8,99.0,0.0,100.0,1.0,1.01,110.0,1
+2026-10-24T06:48:14+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes,12,88.3,5.4,100.0,6.3,7.17,,
+2026-10-24T06:48:14+00:00,KXGDPYEAR-35,US real GDP growth in 2035?,yes-maker,14,67.0,0.0,100.0,33.0,49.25,122.0,0
+2026-10-24T06:48:14+00:00,KXGDPYEAR-29,US real GDP growth in 2029?,yes-maker,14,69.0,0.0,100.0,31.0,44.93,126.0,1
+2026-10-24T06:48:14+00:00,KXGDPYEAR-33,US real GDP growth in 2033?,yes-maker,14,72.0,0.0,100.0,28.0,38.89,125.0,0
+2026-10-24T06:48:14+00:00,KXLOWTAUS-26OCT24,"Lowest temperature in Austin on Oct 24, 2026?",yes-maker,6,74.0,0.0,100.0,26.0,35.14,129.0,1
+2026-10-24T06:48:14+00:00,KXLOWTLV-26OCT24,"Lowest temperature in Las Vegas on Oct 24, 2026?",yes-maker,6,76.0,0.0,100.0,24.0,31.58,100.0,1
+2026-10-24T06:48:14+00:00,KXLOWTOKC-26OCT24,"Lowest temperature in Oklahoma City on Oct 24, 2026?",yes-maker,6,79.0,0.0,100.0,21.0,26.58,103.0,3
+2026-10-24T06:48:14+00:00,KXGDPYEAR-30,US real GDP growth in 2030?,yes-maker,14,82.0,0.0,100.0,18.0,21.95,125.0,3
+2026-10-24T06:48:14+00:00,KXLOWTDC-26OCT24,"Lowest temperature in Washington DC on Oct 24, 2026?",yes-maker,6,83.0,0.0,100.0,17.0,20.48,122.0,1
+2026-10-24T06:48:14+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes-maker,12,83.3,0.0,100.0,16.7,20.05,88.3,0
+2026-10-24T06:48:14+00:00,KXLOWTSFO-26OCT24,"Lowest temperature in San Francisco on Oct 24, 2026?",yes-maker,6,84.0,0.0,100.0,16.0,19.05,109.0,1
+2026-10-24T06:48:14+00:00,KXGDPYEAR-27,US real GDP growth in 2027?,yes-maker,14,87.0,0.0,100.0,13.0,14.94,125.0,1
+2026-10-24T06:48:14+00:00,KXHOUSEWINSTATE-FLD,How many House seats will Democrats win in Florida?,yes-maker,9,87.0,0.0,100.0,13.0,14.94,121.0,1
+2026-10-24T06:48:14+00:00,KXLOWTHOU-26OCT24,"Lowest temperature in Houston on Oct 24, 2026?",yes-maker,6,89.0,0.0,100.0,11.0,12.36,119.0,4
+2026-10-24T06:48:14+00:00,KXHOUSEWINSTATE-GAD,How many House seats will Democrats win in Georgia?,yes-maker,5,90.0,0.0,100.0,10.0,11.11,120.0,2
+2026-10-24T06:48:14+00:00,KXLOWTBOS-26OCT24,"Lowest temperature in Boston on Oct 24, 2026?",yes-maker,6,90.0,0.0,100.0,10.0,11.11,109.0,2
+2026-10-24T06:48:14+00:00,KXHOUSEWINSTATE-NJD,How many House seats will Democrats win in New Jersey?,yes-maker,5,91.0,0.0,100.0,9.0,9.89,97.0,2
+2026-10-24T06:48:14+00:00,KXSOCKEYERUN-27,Bristol Bay sockeye run forecast for 2027,yes-maker,6,91.0,0.0,100.0,9.0,9.89,125.0,2
+2026-10-24T06:48:14+00:00,KXLOWTLAX-26OCT24,"Lowest temperature in Los Angeles on Oct 24, 2026?",yes-maker,6,92.0,0.0,100.0,8.0,8.70,114.0,1
+2026-10-24T06:48:14+00:00,KXHIGHTSDF-26OCT24,"Highest temperature in Louisville on Oct 24, 2026?",yes-maker,6,92.0,0.0,100.0,8.0,8.70,119.0,1
+2026-10-24T06:48:14+00:00,KXHIGHDEN-26OCT24,"Highest temperature in Denver on Oct 24, 2026?",yes-maker,6,92.0,0.0,100.0,8.0,8.70,105.0,1
+2026-10-24T06:48:14+00:00,KXGDPYEAR-26,US real GDP growth in 2026?,yes-maker,14,92.1,0.0,100.0,7.9,8.58,118.2,9
+2026-10-24T06:48:14+00:00,KXUSCORNYIELD-27JAN12,US corn yield in the January 2027 USDA report,yes-maker,3,93.0,0.0,100.0,7.0,7.53,113.00000000000001,0
+2026-10-24T06:48:14+00:00,KXHOUSEWINSTATE-NYD,How many House seats will Democrats win in New York?,yes-maker,10,93.0,0.0,100.0,7.0,7.53,109.0,3
+2026-10-24T06:48:14+00:00,KXHOUSEWINSTATE-MND,How many House seats will Democrats win in Minnesota?,yes-maker,5,94.0,0.0,100.0,6.0,6.38,102.0,2
+2026-10-24T06:48:14+00:00,KXHIGHTEWR-26OCT24,"Highest temperature in Newark on Oct 24, 2026?",yes-maker,6,94.0,0.0,100.0,6.0,6.38,115.0,2
+2026-10-24T06:48:14+00:00,KXHOUSEWINSTATE-MID,How many House seats will Democrats win in Michigan?,yes-maker,7,95.0,0.0,100.0,5.0,5.26,109.0,2
+2026-10-24T06:48:14+00:00,KXLOWTPHX-26OCT24,"Lowest temperature in Phoenix on Oct 24, 2026?",yes-maker,6,95.0,0.0,100.0,5.0,5.26,118.0,2
+2026-10-24T06:48:14+00:00,KXHIGHTTTN-26OCT24,"Highest temperature in Trenton on Oct 24, 2026?",yes-maker,6,95.0,0.0,100.0,5.0,5.26,113.0,1
+2026-10-24T06:48:14+00:00,KXHOUSEWINSTATE-AZD,How many House seats will Democrats win in Arizona?,yes-maker,6,95.0,0.0,100.0,5.0,5.26,109.0,1
+2026-10-24T06:48:14+00:00,KXHOUSEWINSTATE-OHD,How many House seats will Democrats win in Ohio?,yes-maker,7,97.0,0.0,100.0,3.0,3.09,106.0,1
+2026-10-24T06:48:14+00:00,KXLOWTCHI-26OCT24,"Lowest temperature in Chicago on Oct 24, 2026?",yes-maker,6,98.0,0.0,100.0,2.0,2.04,113.0,2
+2026-10-24T06:48:14+00:00,KXHOUSEWINSTATE-PAD,How many House seats will Democrats win in Pennsylvania?,yes-maker,8,99.0,0.0,100.0,1.0,1.01,110.0,1
+2026-10-24T06:48:14+00:00,KXHIGHTSAN-26OCT24,"Highest temperature in San Diego on Oct 24, 2026?",yes-maker,6,99.0,0.0,100.0,1.0,1.01,108.0,1
