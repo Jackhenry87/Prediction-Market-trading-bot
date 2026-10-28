@@ -7462,3 +7462,23 @@ scanned_at_utc,event_ticker,title,side,n_legs,cost_cents,fees_cents,payout_cents
 2026-10-28T00:13:00+00:00,KXBTCY-27JAN0100,Bitcoin price at the end of 2026,yes-maker,28,98.3,0.0,100.0,1.7,1.73,98.3,0
 2026-10-28T00:13:00+00:00,KXHMONTHRANGE-26OCT,Oct 2026 temperature increase?,yes-maker,6,99.0,0.0,100.0,1.0,1.01,118.0,5
 2026-10-28T00:13:00+00:00,KXHIGHTDC-26OCT28,"Highest temperature in Washington DC on Oct 28, 2026?",yes-maker,6,99.0,0.0,100.0,1.0,1.01,103.0,2
+2026-10-28T06:00:22+00:00,KXPCSAHOUSEVOTES-26SEP30,How many House votes for the Protect College Sports Act?,yes-maker,8,62.0,0.0,100.0,38.0,61.29,129.0,0
+2026-10-28T06:00:22+00:00,KXGDPYEAR-34,US real GDP growth in 2034?,yes-maker,14,67.0,0.0,100.0,33.0,49.25,122.0,0
+2026-10-28T06:00:22+00:00,KXGDPYEAR-36,US real GDP growth in 2036?,yes-maker,14,69.0,0.0,100.0,31.0,44.93,119.0,0
+2026-10-28T06:00:22+00:00,KXGDPYEAR-33,US real GDP growth in 2033?,yes-maker,14,70.0,0.0,100.0,30.0,42.86,124.0,0
+2026-10-28T06:00:22+00:00,KXGDPYEAR-29,US real GDP growth in 2029?,yes-maker,14,74.0,0.0,100.0,26.0,35.14,129.0,2
+2026-10-28T06:00:22+00:00,KXGDPYEAR-35,US real GDP growth in 2035?,yes-maker,14,77.0,0.0,100.0,23.0,29.87,114.0,0
+2026-10-28T06:00:22+00:00,KXGDPYEAR-30,US real GDP growth in 2030?,yes-maker,14,77.0,0.0,100.0,23.0,29.87,125.0,3
+2026-10-28T06:00:22+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes-maker,12,83.7,0.0,100.0,16.3,19.47,97.5,0
+2026-10-28T06:00:22+00:00,KXGDPYEAR-27,US real GDP growth in 2027?,yes-maker,14,85.0,0.0,100.0,15.0,17.65,128.0,3
+2026-10-28T06:00:22+00:00,KXSOCKEYERUN-27,Bristol Bay sockeye run forecast for 2027,yes-maker,6,87.0,0.0,100.0,13.0,14.94,122.0,1
+2026-10-28T06:00:22+00:00,KXHOUSEWINSTATE-FLD,How many House seats will Democrats win in Florida?,yes-maker,9,88.0,0.0,100.0,12.0,13.64,127.0,1
+2026-10-28T06:00:22+00:00,KXHOUSEWINSTATE-GAD,How many House seats will Democrats win in Georgia?,yes-maker,5,88.0,0.0,100.0,12.0,13.64,120.0,2
+2026-10-28T06:00:22+00:00,KXHOUSEWINSTATE-NYD,How many House seats will Democrats win in New York?,yes-maker,10,94.0,0.0,100.0,6.0,6.38,107.0,3
+2026-10-28T06:00:22+00:00,KXUSCORNYIELD-27JAN12,US corn yield in the January 2027 USDA report,yes-maker,3,95.0,0.0,100.0,5.0,5.26,114.0,0
+2026-10-28T06:00:22+00:00,KXHOUSEWINSTATE-MID,How many House seats will Democrats win in Michigan?,yes-maker,7,96.0,0.0,100.0,4.0,4.17,109.0,2
+2026-10-28T06:00:22+00:00,KXHOUSEWINSTATE-AZD,How many House seats will Democrats win in Arizona?,yes-maker,6,97.0,0.0,100.0,3.0,3.09,112.0,1
+2026-10-28T06:00:22+00:00,KXBTCY-27JAN0100,Bitcoin price at the end of 2026,yes-maker,28,98.1,0.0,100.0,1.9,1.94,98.1,0
+2026-10-28T06:00:22+00:00,KXHOUSEWINSTATE-MND,How many House seats will Democrats win in Minnesota?,yes-maker,5,99.0,0.0,100.0,1.0,1.01,104.0,2
+2026-10-28T06:00:22+00:00,KXHOUSEWINSTATE-OHD,How many House seats will Democrats win in Ohio?,yes-maker,7,99.0,0.0,100.0,1.0,1.01,113.0,1
+2026-10-28T06:00:22+00:00,KXETHY-27JAN0100,Ethereum price at the end of 2026,yes-maker,18,99.8,0.0,100.0,0.2,0.20,99.8,0
