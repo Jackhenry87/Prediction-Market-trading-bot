@@ -7554,3 +7554,9 @@ scanned_at_utc,event_ticker,title,side,n_legs,cost_cents,fees_cents,payout_cents
 2026-10-29T02:05:06+00:00,KXHOUSEWINSTATE-PAD,How many House seats will Democrats win in Pennsylvania?,yes-maker,8,97.0,0.0,100.0,3.0,3.09,108.0,1
 2026-10-29T02:05:06+00:00,KXHOUSEWINSTATE-AZD,How many House seats will Democrats win in Arizona?,yes-maker,6,97.0,0.0,100.0,3.0,3.09,108.0,1
 2026-10-29T02:05:06+00:00,KXBTCY-27JAN0100,Bitcoin price at the end of 2026,yes-maker,28,99.3,0.0,100.0,0.7,0.70,99.3,0
+2026-10-29T08:43:49+00:00,KXHOUSEWINSTATE-OHD,How many House seats will Democrats win in Ohio?,yes-maker,7,65.0,0.0,100.0,35.0,53.85,118.0,1
+2026-10-29T08:43:49+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes-maker,12,78.0,0.0,100.0,22.0,28.21,98.4,0
+2026-10-29T08:43:49+00:00,KXHOUSEWINSTATE-PAD,How many House seats will Democrats win in Pennsylvania?,yes-maker,8,85.0,0.0,100.0,15.0,17.65,112.0,1
+2026-10-29T08:43:49+00:00,KXHOUSEWINSTATE-MND,How many House seats will Democrats win in Minnesota?,yes-maker,5,97.0,0.0,100.0,3.0,3.09,107.0,1
+2026-10-29T08:43:49+00:00,KXHMONTHRANGE-26OCT,Oct 2026 temperature increase?,yes-maker,6,98.0,0.0,100.0,2.0,2.04,119.0,4
+2026-10-29T08:43:49+00:00,KXHOUSEWINSTATE-NCD,How many House seats will Democrats win in North Carolina?,yes-maker,7,99.0,0.0,100.0,1.0,1.01,117.0,1
