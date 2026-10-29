@@ -7536,3 +7536,21 @@ scanned_at_utc,event_ticker,title,side,n_legs,cost_cents,fees_cents,payout_cents
 2026-10-28T22:56:29+00:00,KXHOUSEWINSTATE-AZD,How many House seats will Democrats win in Arizona?,yes-maker,6,97.0,0.0,100.0,3.0,3.09,108.0,1
 2026-10-28T22:56:29+00:00,KXDSENATESEATS-29,Democratic Senate Seat Count (2028),yes-maker,14,99.0,0.0,100.0,1.0,1.01,112.0,0
 2026-10-28T22:56:29+00:00,KXHOUSEWINSTATE-MID,How many House seats will Democrats win in Michigan?,yes-maker,7,99.0,0.0,100.0,1.0,1.01,106.0,2
+2026-10-29T02:05:06+00:00,KXPCSAHOUSEVOTES-26SEP30,How many House votes for the Protect College Sports Act?,yes-maker,8,64.0,0.0,100.0,36.0,56.25,129.0,0
+2026-10-29T02:05:06+00:00,KXGDPYEAR-34,US real GDP growth in 2034?,yes-maker,14,67.0,0.0,100.0,33.0,49.25,129.0,0
+2026-10-29T02:05:06+00:00,KXGDPYEAR-36,US real GDP growth in 2036?,yes-maker,14,69.0,0.0,100.0,31.0,44.93,119.0,0
+2026-10-29T02:05:06+00:00,KXGDPYEAR-33,US real GDP growth in 2033?,yes-maker,14,70.0,0.0,100.0,30.0,42.86,124.0,0
+2026-10-29T02:05:06+00:00,KXGDPYEAR-35,US real GDP growth in 2035?,yes-maker,14,73.0,0.0,100.0,27.0,36.99,120.0,0
+2026-10-29T02:05:06+00:00,KXGDPYEAR-29,US real GDP growth in 2029?,yes-maker,14,74.0,0.0,100.0,26.0,35.14,129.0,2
+2026-10-29T02:05:06+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes-maker,12,83.7,0.0,100.0,16.3,19.47,97.5,0
+2026-10-29T02:05:06+00:00,KXGDPYEAR-30,US real GDP growth in 2030?,yes-maker,14,84.0,0.0,100.0,16.0,19.05,129.0,3
+2026-10-29T02:05:06+00:00,KXGDPYEAR-27,US real GDP growth in 2027?,yes-maker,14,85.0,0.0,100.0,15.0,17.65,128.0,3
+2026-10-29T02:05:06+00:00,KXSOCKEYERUN-27,Bristol Bay sockeye run forecast for 2027,yes-maker,6,87.0,0.0,100.0,13.0,14.94,122.0,1
+2026-10-29T02:05:06+00:00,KXHOUSEWINSTATE-GAD,How many House seats will Democrats win in Georgia?,yes-maker,5,88.0,0.0,100.0,12.0,13.64,120.0,2
+2026-10-29T02:05:06+00:00,KXHOUSEWINSTATE-FLD,How many House seats will Democrats win in Florida?,yes-maker,9,90.0,0.0,100.0,10.0,11.11,119.0,1
+2026-10-29T02:05:06+00:00,KXUSCORNYIELD-27JAN12,US corn yield in the January 2027 USDA report,yes-maker,3,95.0,0.0,100.0,5.0,5.26,114.0,0
+2026-10-29T02:05:06+00:00,KXHOUSEWINSTATE-MID,How many House seats will Democrats win in Michigan?,yes-maker,7,95.0,0.0,100.0,5.0,5.26,110.0,2
+2026-10-29T02:05:06+00:00,KXHOUSEWINSTATE-NYD,How many House seats will Democrats win in New York?,yes-maker,10,96.0,0.0,100.0,4.0,4.17,114.0,3
+2026-10-29T02:05:06+00:00,KXHOUSEWINSTATE-PAD,How many House seats will Democrats win in Pennsylvania?,yes-maker,8,97.0,0.0,100.0,3.0,3.09,108.0,1
+2026-10-29T02:05:06+00:00,KXHOUSEWINSTATE-AZD,How many House seats will Democrats win in Arizona?,yes-maker,6,97.0,0.0,100.0,3.0,3.09,108.0,1
+2026-10-29T02:05:06+00:00,KXBTCY-27JAN0100,Bitcoin price at the end of 2026,yes-maker,28,99.3,0.0,100.0,0.7,0.70,99.3,0
