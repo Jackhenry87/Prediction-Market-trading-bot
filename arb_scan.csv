@@ -7950,3 +7950,15 @@ scanned_at_utc,event_ticker,title,side,n_legs,cost_cents,fees_cents,payout_cents
 2026-11-03T17:12:45+00:00,KXGDPYEAR-26,US real GDP growth in 2026?,yes-maker,14,98.9,0.0,100.0,1.1,1.11,107.60000000000001,10
 2026-11-03T17:12:45+00:00,KXHOUSEWINSTATE-MND,How many House seats will Democrats win in Minnesota?,yes-maker,5,99.0,0.0,100.0,1.0,1.01,109.0,2
 2026-11-03T17:12:45+00:00,KXHOUSEWINSTATE-MID,How many House seats will Democrats win in Michigan?,yes-maker,7,99.0,0.0,100.0,1.0,1.01,114.0,2
+2026-11-03T22:26:03+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes,12,91.4,5.5,100.0,3.1,3.39,,
+2026-11-03T22:26:03+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes-maker,12,81.4,0.0,100.0,18.6,22.85,91.4,0
+2026-11-03T22:26:03+00:00,KXHOUSEWINSTATE-FLD,How many House seats will Democrats win in Florida?,yes-maker,9,90.0,0.0,100.0,10.0,11.11,121.0,1
+2026-11-03T22:26:03+00:00,KXHOUSEWINSTATE-GAD,How many House seats will Democrats win in Georgia?,yes-maker,5,91.0,0.0,100.0,9.0,9.89,118.0,1
+2026-11-03T22:26:03+00:00,KXUSCORNYIELD-27JAN12,US corn yield in the January 2027 USDA report,yes-maker,3,93.0,0.0,100.0,7.0,7.53,113.0,0
+2026-11-03T22:26:03+00:00,KXHOUSEWINSTATE-PAD,How many House seats will Democrats win in Pennsylvania?,yes-maker,8,96.0,0.0,100.0,4.0,4.17,110.0,3
+2026-11-03T22:26:03+00:00,KXHOUSEWINSTATE-AZD,How many House seats will Democrats win in Arizona?,yes-maker,6,97.0,0.0,100.0,3.0,3.09,103.0,1
+2026-11-03T22:26:03+00:00,KXHOUSEWINSTATE-NJD,How many House seats will Democrats win in New Jersey?,yes-maker,5,98.0,0.0,100.0,2.0,2.04,103.0,2
+2026-11-03T22:26:03+00:00,KXHOUSEWINSTATE-ILD,How many House seats will Democrats win in Illinois?,yes-maker,5,98.0,0.0,100.0,2.0,2.04,108.0,2
+2026-11-03T22:26:03+00:00,KXGDPYEAR-26,US real GDP growth in 2026?,yes-maker,14,98.6,0.0,100.0,1.4,1.42,107.3,10
+2026-11-03T22:26:03+00:00,KXHOUSEWINSTATE-MND,How many House seats will Democrats win in Minnesota?,yes-maker,5,99.0,0.0,100.0,1.0,1.01,107.0,2
+2026-11-03T22:26:03+00:00,KXHOUSEWINSTATE-MID,How many House seats will Democrats win in Michigan?,yes-maker,7,99.0,0.0,100.0,1.0,1.01,115.0,2
