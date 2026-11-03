@@ -7935,3 +7935,7 @@ scanned_at_utc,event_ticker,title,side,n_legs,cost_cents,fees_cents,payout_cents
 2026-11-03T02:00:04+00:00,KXHOUSEWINSTATE-NYD,How many House seats will Democrats win in New York?,yes-maker,10,97.0,0.0,100.0,3.0,3.09,128.0,3
 2026-11-03T02:00:04+00:00,KXHOUSEWINSTATE-AZD,How many House seats will Democrats win in Arizona?,yes-maker,6,98.0,0.0,100.0,2.0,2.04,108.0,1
 2026-11-03T02:00:04+00:00,KXHOUSEWINSTATE-MND,How many House seats will Democrats win in Minnesota?,yes-maker,5,99.0,0.0,100.0,1.0,1.01,106.0,1
+2026-11-03T09:20:25+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes-maker,12,83.6,0.0,100.0,16.4,19.62,96.1,0
+2026-11-03T09:20:25+00:00,KXHOUSEWINSTATE-GAD,How many House seats will Democrats win in Georgia?,yes-maker,5,88.0,0.0,100.0,12.0,13.64,120.0,1
+2026-11-03T09:20:25+00:00,KXUSCORNYIELD-27JAN12,US corn yield in the January 2027 USDA report,yes-maker,3,93.0,0.0,100.0,7.0,7.53,114.0,0
+2026-11-03T09:20:25+00:00,KXHOUSEWINSTATE-NJD,How many House seats will Democrats win in New Jersey?,yes-maker,5,98.0,0.0,100.0,2.0,2.04,106.0,2
