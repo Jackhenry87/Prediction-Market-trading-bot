@@ -7967,3 +7967,13 @@ scanned_at_utc,event_ticker,title,side,n_legs,cost_cents,fees_cents,payout_cents
 2026-11-04T02:31:36+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes-maker,12,81.4,0.0,100.0,18.6,22.85,91.3,0
 2026-11-04T02:31:36+00:00,KXUSCORNYIELD-27JAN12,US corn yield in the January 2027 USDA report,yes-maker,3,93.0,0.0,100.0,7.0,7.53,113.0,0
 2026-11-04T02:31:36+00:00,KXGDPYEAR-26,US real GDP growth in 2026?,yes-maker,14,98.6,0.0,100.0,1.4,1.42,107.4,10
+2026-11-04T18:09:01+00:00,KXHOUSEWINSTATE-FLD,How many House seats will Democrats win in Florida?,yes-maker,9,28.0,0.0,100.0,72.0,257.14,128.0,5
+2026-11-04T18:09:01+00:00,KXHOUSEWINSTATE-MID,How many House seats will Democrats win in Michigan?,yes-maker,7,59.0,0.0,100.0,41.0,69.49,107.0,2
+2026-11-04T18:09:01+00:00,KXPCSAHOUSEVOTES-26SEP30,How many House votes for the Protect College Sports Act?,yes-maker,8,68.0,0.0,100.0,32.0,47.06,129.0,0
+2026-11-04T18:09:01+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes-maker,12,81.5,0.0,100.0,18.5,22.70,93.9,0
+2026-11-04T18:09:01+00:00,KXUSCORNYIELD-27JAN12,US corn yield in the January 2027 USDA report,yes-maker,3,91.0,0.0,100.0,9.0,9.89,113.0,0
+2026-11-04T18:09:01+00:00,KXHOUSEWINSTATE-MND,How many House seats will Democrats win in Minnesota?,yes-maker,5,97.0,0.0,100.0,3.0,3.09,105.0,3
+2026-11-04T18:09:01+00:00,KXETHY-27JAN0100,Ethereum price at the end of 2026,yes-maker,18,97.1,0.0,100.0,2.9,2.99,97.1,1
+2026-11-04T18:09:01+00:00,KXBTCY-27JAN0100,Bitcoin price at the end of 2026,yes-maker,28,97.6,0.0,100.0,2.4,2.46,97.60000000000001,0
+2026-11-04T18:09:01+00:00,KXHOUSEWINSTATE-AZD,How many House seats will Democrats win in Arizona?,yes-maker,6,98.0,0.0,100.0,2.0,2.04,120.0,1
+2026-11-04T18:09:01+00:00,KXGDPYEAR-26,US real GDP growth in 2026?,yes-maker,14,98.6,0.0,100.0,1.4,1.42,108.1,10
