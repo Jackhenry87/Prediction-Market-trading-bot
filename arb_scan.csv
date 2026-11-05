@@ -7983,3 +7983,9 @@ scanned_at_utc,event_ticker,title,side,n_legs,cost_cents,fees_cents,payout_cents
 2026-11-04T23:51:20+00:00,KXUSCORNYIELD-27JAN12,US corn yield in the January 2027 USDA report,yes-maker,3,93.0,0.0,100.0,7.0,7.53,113.0,0
 2026-11-04T23:51:20+00:00,KXETHY-27JAN0100,Ethereum price at the end of 2026,yes-maker,18,97.2,0.0,100.0,2.8,2.88,97.3,1
 2026-11-04T23:51:20+00:00,KXGDPYEAR-26,US real GDP growth in 2026?,yes-maker,14,98.5,0.0,100.0,1.5,1.52,108.2,10
+2026-11-05T04:45:54+00:00,KXPCSAHOUSEVOTES-26SEP30,How many House votes for the Protect College Sports Act?,yes-maker,8,68.0,0.0,100.0,32.0,47.06,129.0,0
+2026-11-05T04:45:54+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes-maker,12,82.5,0.0,100.0,17.5,21.21,93.9,0
+2026-11-05T04:45:54+00:00,KXUSCORNYIELD-27JAN12,US corn yield in the January 2027 USDA report,yes-maker,3,93.0,0.0,100.0,7.0,7.53,108.0,0
+2026-11-05T04:45:54+00:00,KXBTCY-27JAN0100,Bitcoin price at the end of 2026,yes-maker,28,97.8,0.0,100.0,2.2,2.25,97.8,0
+2026-11-05T04:45:54+00:00,KXHOUSEWINSTATE-MND,How many House seats will Democrats win in Minnesota?,yes-maker,5,99.0,0.0,100.0,1.0,1.01,103.0,3
+2026-11-05T04:45:54+00:00,KXETHY-27JAN0100,Ethereum price at the end of 2026,yes-maker,18,99.2,0.0,100.0,0.8,0.81,99.5,1
