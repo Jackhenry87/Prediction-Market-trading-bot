@@ -8014,3 +8014,6 @@ scanned_at_utc,event_ticker,title,side,n_legs,cost_cents,fees_cents,payout_cents
 2026-11-07T08:10:39+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes,12,89.8,5.4,100.0,4.8,5.32,,
 2026-11-07T08:10:39+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes-maker,12,81.5,0.0,100.0,18.5,22.70,89.8,0
 2026-11-07T08:10:39+00:00,KXHOUSEWINSTATE-AZD,How many House seats will Democrats win in Arizona?,yes-maker,6,99.0,0.0,100.0,1.0,1.01,106.0,4
+2026-11-07T14:59:13+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes,12,89.8,5.4,100.0,4.8,5.32,,
+2026-11-07T14:59:13+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes-maker,12,81.5,0.0,100.0,18.5,22.70,89.8,0
+2026-11-07T14:59:13+00:00,KXHOUSEWINSTATE-AZD,How many House seats will Democrats win in Arizona?,yes-maker,6,99.0,0.0,100.0,1.0,1.01,108.0,4
