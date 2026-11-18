@@ -8222,3 +8222,10 @@ scanned_at_utc,event_ticker,title,side,n_legs,cost_cents,fees_cents,payout_cents
 2026-11-17T22:31:40+00:00,KXGDPYEAR-28,US real GDP growth in 2028?,yes-maker,14,93.0,0.0,100.0,7.0,7.53,122.0,1
 2026-11-17T22:31:40+00:00,KXHOUSEWINSTATE-MND,How many House seats will Democrats win in Minnesota?,yes-maker,5,96.0,0.0,100.0,4.0,4.17,107.0,4
 2026-11-17T22:31:40+00:00,KXDSENATESEATSH-27,How many Senate seats will Democrats hold after the Midterms? (Higher strikes),yes-maker,7,99.3,0.0,100.0,0.7,0.70,99.5,2
+2026-11-18T03:59:41+00:00,KXUSCORNYIELD-27JAN12,US corn yield in the January 2027 USDA report,yes-maker,3,73.0,0.0,100.0,27.0,36.99,104.0,0
+2026-11-18T03:59:41+00:00,KXGDPYEAR-36,US real GDP growth in 2036?,yes-maker,14,74.0,0.0,100.0,26.0,35.14,120.0,1
+2026-11-18T03:59:41+00:00,KXGDPYEAR-29,US real GDP growth in 2029?,yes-maker,14,77.0,0.0,100.0,23.0,29.87,130.0,3
+2026-11-18T03:59:41+00:00,KXGDPYEAR-27,US real GDP growth in 2027?,yes-maker,14,88.0,0.0,100.0,12.0,13.64,127.0,1
+2026-11-18T03:59:41+00:00,KXGDPYEAR-28,US real GDP growth in 2028?,yes-maker,14,92.0,0.0,100.0,8.0,8.70,122.0,1
+2026-11-18T03:59:41+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes-maker,12,92.4,0.0,100.0,7.6,8.23,99.3,0
+2026-11-18T03:59:41+00:00,KXHOUSEWINSTATE-MND,How many House seats will Democrats win in Minnesota?,yes-maker,5,96.0,0.0,100.0,4.0,4.17,107.0,4
