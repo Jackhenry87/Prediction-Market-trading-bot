@@ -8229,3 +8229,11 @@ scanned_at_utc,event_ticker,title,side,n_legs,cost_cents,fees_cents,payout_cents
 2026-11-18T03:59:41+00:00,KXGDPYEAR-28,US real GDP growth in 2028?,yes-maker,14,92.0,0.0,100.0,8.0,8.70,122.0,1
 2026-11-18T03:59:41+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes-maker,12,92.4,0.0,100.0,7.6,8.23,99.3,0
 2026-11-18T03:59:41+00:00,KXHOUSEWINSTATE-MND,How many House seats will Democrats win in Minnesota?,yes-maker,5,96.0,0.0,100.0,4.0,4.17,107.0,4
+2026-11-18T12:52:48+00:00,KXGDPYEAR-34,US real GDP growth in 2034?,yes-maker,14,65.0,0.0,100.0,35.0,53.85,130.0,0
+2026-11-18T12:52:48+00:00,KXUSCORNYIELD-27JAN12,US corn yield in the January 2027 USDA report,yes-maker,3,74.0,0.0,100.0,26.0,35.14,104.0,0
+2026-11-18T12:52:48+00:00,KXGDPYEAR-36,US real GDP growth in 2036?,yes-maker,14,75.0,0.0,100.0,25.0,33.33,120.0,1
+2026-11-18T12:52:48+00:00,KXVHAPRPOTUS-26NOV20,"Trump's VoteHub approval rating on Nov 20, 2026?",yes-maker,8,88.0,0.0,100.0,12.0,13.64,123.0,4
+2026-11-18T12:52:48+00:00,KXGDPYEAR-27,US real GDP growth in 2027?,yes-maker,14,90.0,0.0,100.0,10.0,11.11,127.0,1
+2026-11-18T12:52:48+00:00,KXGDPYEAR-28,US real GDP growth in 2028?,yes-maker,14,92.0,0.0,100.0,8.0,8.70,123.0,1
+2026-11-18T12:52:48+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes-maker,12,92.4,0.0,100.0,7.6,8.23,99.3,0
+2026-11-18T12:52:48+00:00,KXHOUSEWINSTATE-MND,How many House seats will Democrats win in Minnesota?,yes-maker,5,96.0,0.0,100.0,4.0,4.17,106.0,4
