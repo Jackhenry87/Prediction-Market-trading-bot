@@ -8395,3 +8395,6 @@ scanned_at_utc,event_ticker,title,side,n_legs,cost_cents,fees_cents,payout_cents
 2026-11-28T04:49:38+00:00,KXGDPYEAR-36,US real GDP growth in 2036?,yes-maker,14,77.0,0.0,100.0,23.0,29.87,121.0,0
 2026-11-28T04:49:38+00:00,KXGDPYEAR-28,US real GDP growth in 2028?,yes-maker,14,84.0,0.0,100.0,16.0,19.05,123.0,1
 2026-11-28T04:49:38+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes-maker,12,88.0,0.0,100.0,12.0,13.64,102.0,0
+2026-11-28T13:49:16+00:00,KXGDPYEAR-36,US real GDP growth in 2036?,yes-maker,14,79.0,0.0,100.0,21.0,26.58,122.0,0
+2026-11-28T13:49:16+00:00,KXGDPYEAR-28,US real GDP growth in 2028?,yes-maker,14,84.0,0.0,100.0,16.0,19.05,123.0,1
+2026-11-28T13:49:16+00:00,KXEOTRUMPTERM-29JAN20,How many executive orders will Trump sign in his second term?,yes-maker,12,88.0,0.0,100.0,12.0,13.64,102.0,0
